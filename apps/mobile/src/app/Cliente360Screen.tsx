@@ -174,7 +174,7 @@ export default function Cliente360Screen({ recargarToken = 0 }: { recargarToken?
   if (!datos.grupos.length) {
     return (
       <ScrollView contentContainerStyle={estilos.centro} refreshControl={control}>
-        <Text style={estilos.glifoVacio}>·</Text>
+        <Text style={estilos.glifoVacio} importantForAccessibility="no">·</Text>
         <Text style={tipografia.subtitulo}>Todavía no hay nada que reconciliar</Text>
         <Text style={estilos.textoTenue}>
           Capturá una nota y confirmala. Cuando dos personas describan el mismo equipo,

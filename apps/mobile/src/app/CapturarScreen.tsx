@@ -176,9 +176,9 @@ export default function CapturarScreen() {
           : 'Guardado — visita sin equipo observado.';
     return (
       <View style={estilos.contenedorCentro}>
-        <Text style={estilos.glifoExito}>✓</Text>
-        <Text style={estilos.mensajeExito}>{mensaje}</Text>
-        <Pressable style={estilos.botonPrimario} onPress={nuevaNota}>
+        <Text style={estilos.glifoExito} importantForAccessibility="no">✓</Text>
+        <Text style={estilos.mensajeExito} accessibilityLiveRegion="polite">{mensaje}</Text>
+        <Pressable style={estilos.botonPrimario} onPress={nuevaNota} accessibilityRole="button">
           <Text style={estilos.textoBotonPrimario}>Nueva nota</Text>
         </Pressable>
       </View>
@@ -311,6 +311,7 @@ export default function CapturarScreen() {
                       <ActivityIndicator size="small" color={color.primario} />
                     ) : (
                       <Text
+                        importantForAccessibility="no"
                         style={[
                           estilos.pasoMarca,
                           p.estado === 'error' && estilos.pasoMarcaError,

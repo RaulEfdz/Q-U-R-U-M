@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { EstadoCampo } from '../../core/contracts.ts';
-import { color, tipografia } from '../theme.ts';
+import { color, espacio, tipografia } from '../theme.ts';
 
 /**
  * Eje 2 (quórum, por campo de la proyección). Glifos y colores literales de
@@ -56,10 +56,13 @@ export const InsigniaQuorum = memo(function InsigniaQuorum({ estado }: { estado:
   );
 });
 
+// Misma forma que `InsigniaNaturaleza` (par visual: distinto eje, mismo chip).
+// Si cambia acá, cambiá allá.
 const estilos = StyleSheet.create({
   chip: {
     flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
-    borderWidth: 1.5, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9, gap: 5,
+    borderWidth: 1.5, borderRadius: 999,
+    paddingVertical: espacio.xs, paddingHorizontal: 10, gap: 5,
   },
   glifo: { fontSize: 13, fontWeight: '700' },
   texto: { ...tipografia.etiqueta, fontWeight: '700' },

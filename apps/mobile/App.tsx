@@ -114,8 +114,14 @@ function Pestania({
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: activa }}
+      accessibilityLabel={etiqueta}
     >
-      <Text style={[estilos.glifoPestana, activa && estilos.textoPestanaActiva]}>{glifo}</Text>
+      <Text
+        style={[estilos.glifoPestana, activa && estilos.textoPestanaActiva]}
+        importantForAccessibility="no"
+      >
+        {glifo}
+      </Text>
       <Text
         style={[estilos.textoPestana, activa && estilos.textoPestanaActiva]}
         numberOfLines={1}

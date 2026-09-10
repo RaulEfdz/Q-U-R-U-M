@@ -50,9 +50,9 @@ const estilos = StyleSheet.create({
   // deja crecer el chip con la fuente del sistema sin apretar el texto.
   chip: {
     minHeight: tap.normal, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: espacio.sm,
+    paddingHorizontal: espacio.lg, paddingVertical: espacio.sm,
     borderRadius: radio.md, borderWidth: 1.5,
-    borderColor: color.borde, backgroundColor: color.superficie, marginRight: 8,
+    borderColor: color.borde, backgroundColor: color.superficie, marginRight: espacio.sm,
   },
   chipActivo: { backgroundColor: color.primario, borderColor: color.primario },
   // Tamaño de `cuerpo` (no de etiqueta): es un control que se toca con

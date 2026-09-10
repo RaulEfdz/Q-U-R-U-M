@@ -142,6 +142,12 @@ El schema de `generationParams` es `$strict` (`node_modules/@qvac/sdk/dist/schem
 
 **Nuevo** (8 módulos): `qvac/pool.ts`, `pipeline/{precheck,portero,extractor,verificar,cruzar}.ts`, `store/expo-store.ts`, `app/*`. La fuente olvida `precheck.ts` en su lista aunque lo define.
 
+## UI · tipografía e iconos
+
+Tokens en `app/theme.ts`: `color`, `espacio`, `radio`, `tipografia` (8 roles con un trabajo cada uno), `tap`. Los componentes se enganchan a un rol, no eligen `fontSize` suelto.
+
+**Deuda conocida:** los glifos que NO son de estado (`✎ ◍` en las pestañas, `✓ ✕` en el panel de progreso, `⚠`, `🎙`) son caracteres Unicode del font del sistema, no "iconografía SVG propia" como pide el brand (`PRODUCT.md`). Los 5 glifos de estado (`● ◐ ○ · ▲`) sí se quedan. Convertir el resto a SVG necesita `react-native-svg` (paquete oficial de Expo) + `expo prebuild --clean` + rebuild nativo — tarea aparte, no un `polish`. Mientras tanto todos llevan `accessibilityLabel` y los decorativos `importantForAccessibility="no"`.
+
 ## Restricciones duras
 
 Ver `../../CLAUDE.md`. Específicas de mobile:
