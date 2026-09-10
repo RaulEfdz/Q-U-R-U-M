@@ -1,5 +1,42 @@
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *apps/server/src/core/contracts.ts|*apps/mobile/src/core/contracts.ts) echo \"BLOQUEADO: core/contracts.ts esta congelado (ver CLAUDE.md). Requiere aprobacion manual del usuario fuera de este hook. No lo toques sin esa aprobacion explicita.\" >&2; exit 2 ;; *) exit 0 ;; esac",
+            "statusMessage": "Verificando si core/contracts.ts esta congelado..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(npm *)",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); case \"$cmd\" in *--ignore-scripts*) exit 0 ;; *npm\\ install*|*npm\\ ci*) echo \"BLOQUEADO: instalar dependencias sin --ignore-scripts viola la politica de cadena de suministro de la organizacion (ver CLAUDE.md). Agrega --ignore-scripts al comando.\" >&2; exit 2 ;; *) exit 0 ;; esac",
+            "statusMessage": "Verificando --ignore-scripts en instalacion npm..."
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\"; fail=0; for d in apps/server apps/mobile; do if [ -f \"$d/package.json\" ] && grep -q '\"typecheck\"' \"$d/package.json\"; then out=$(cd \"$d\" && npm run typecheck 2>&1) || { echo \"typecheck fallo en $d:\" >&2; echo \"$out\" >&2; fail=1; }; fi; done; [ \"$fail\" -eq 1 ] && exit 2; exit 0",
+            "statusMessage": "Corriendo typecheck antes de completar la tarea...",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
   }
 }
