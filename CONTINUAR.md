@@ -1,6 +1,6 @@
 # Para retomar — QUÓRUM
 
-> Escrito 2026-09-10 ~03:00. Último commit pusheado: `0ff9c57`.
+> Escrito 2026-09-10 ~10:45. Último commit pusheado: `8ba499d`.
 > Estado detallado de cada decisión: `BITACORA.md`. Reglas: `CLAUDE.md` de cada app.
 
 ## Arrancá por acá (5 minutos)
@@ -27,7 +27,9 @@ done
 
 - **El modelo corre on-device en el Pixel 7.** Qwen3.5 0.8B (533 MB) descarga, carga y responde. Cero inferencia en la nube. Este era el gate del proyecto.
 - Núcleo compartido completo y congelado: contratos, motor de quórum (RD-0..RD-7), puntaje, policy, spotlighting, export CSV.
-- `apps/mobile`: pipeline completo (precheck → portero → extractor → verificador → cruzar), pool de modelos, store, y las pantallas Capturar + confirmación editable del borrador.
+- `apps/mobile`: pipeline completo (precheck → portero → extractor → verificador → cruzar), pool de modelos, store, y las pantallas Capturar, confirmación editable del borrador y **Cliente 360**.
+- **Cliente 360 verificada corriendo en el Pixel 7**, con evidencia en pantalla de las cuatro cosas que tiene que demostrar: confianza por campo, `Sin quórum` con ambas versiones y quién dijo cada una (sin promediar), cohortes de edad como composición y no contradicción, y frescura como eje separado del estado. Los datos se siembran con `apps/mobile/dev/sembrar-demo.ts`.
+- La app **arranca en el dispositivo**. Hasta esta mañana no lo hacía: cuatro archivos importaban `node:crypto`, que no existe en React Native (ver trampa #6).
 - `apps/server`: Fases 1-7 (contratos, trust, QVAC, policy+PEP, tools, store, sync).
 - 31 tests, todos verdes.
 
@@ -35,8 +37,7 @@ done
 
 | Qué | Dónde | Notas |
 |---|---|---|
-| **Cliente 360** | `apps/mobile/src/app/` | Lo más importante que queda de UI. La vista de reconciliación: los dos ejes de confianza, y `Sin quórum` mostrando ambas versiones con quién dijo cada una, nunca un promedio. |
-| Probar la UI en el teléfono | — | `CapturarScreen` y `ConfirmacionBorrador` compilan pero **nunca se vieron corriendo en el Pixel**. Primera tarea: levantarla y sacar screenshots. |
+| **Capturar una nota de punta a punta en el teléfono** | `apps/mobile` | Lo más importante que queda. Cliente 360 se verificó con datos SEMBRADOS; el pipeline de tres modelos corriendo on-device (portero + extractor + verificador) todavía no tiene evidencia en el dispositivo. Es lo que valida el argumento central del proyecto. |
 | **Audio** | `apps/mobile` | Fase 10. `expo-audio`, NUNCA `expo-av` (removido en SDK 54). |
 | `server/index.ts` | `apps/server` | Fase 8, la última grande del server. |
 | UI escritorio | `apps/server/ui/` | Fase 9 del server. |
@@ -71,7 +72,15 @@ sips -Z 700 /tmp/x.png --out /tmp/xs.png
 
 4. **Nada de discrepancia en `modalidad` o `marca`.** `claveGrupo` las incluye, así que dentro de un grupo son idénticas por construcción y nunca pueden quedar en `Sin quórum`. Cualquier test o lógica que intente forzar conflicto por ahí está probando otra cosa. La discrepancia real vive en `cantidad`, `edad` y `modelo`. Esto ya causó que la corrección #11 fuera un no-op durante un tiempo.
 
-5. **No pegues código fuente dentro de un prompt para un agente.** Los caracteres unicode invisibles (combinantes, zero-width) se corrompen en el traslado y terminan literales dentro de un regex. Pasó tres veces. Decile al agente que lea el archivo con la tool Read.
+6. **`node:crypto` no existe en React Native, y `tsc --noEmit` no te lo va a decir.** Cuatro archivos lo importaban (`core/ids.ts` y `context/spotlight.ts` con `randomBytes`; `pipeline/extractor.ts` y `audit/trace.ts` con `createHash`) y el typecheck estuvo verde todo el tiempo, porque `@types/node` está en el `tsconfig`. Metro sí falla, con `UnableToResolveError`, y la app **no arranca**: pantalla roja al abrir. Hoy se resuelve así — la aleatoriedad sale de `globalThis.crypto.getRandomValues` (Web Crypto, la única API que existe en Node y en Hermes) con el polyfill de `expo-crypto` instalado en `src/platform/webcrypto.ts`, y los hashes de `@noble/hashes` (JS puro, SHA-256 verificado idéntico al de `node:crypto`). **No vuelvas a importar un builtin de Node en `apps/mobile`, ni en los archivos compartidos.**
+
+7. **Un `import` de ES module se hoistea: no podés poner código "antes" de un import.** El polyfill de Web Crypto escrito como bloque arriba de `import App from './App'` corre DESPUÉS de que App y todo su árbol se evaluaron. Si necesitás un efecto antes que otro módulo, ponelo en su propio archivo e importalo primero — los módulos sí se evalúan en el orden de los imports.
+
+8. **La app corre edge-to-edge y `SafeAreaView` de React Native está deprecado.** Sin insets, la barra de estado del sistema se dibuja encima del título y las pestañas quedan bajo la barra de gestos. Se usa `react-native-safe-area-context@5.7.0` (la versión del SDK 57, no la última), con los insets aplicados a mano en cada barra: envolver todo en un `SafeAreaView` deja una franja del color del fondo detrás de la barra de estado.
+
+9. **El typecheck verde no es evidencia de que la UI funcione.** Esta sesión dio dos bugs que solo aparecieron mirando la pantalla: un "Testigo B" sin "Testigo A" (la numeración se salteaba el lugar de "Vos"), y la fila `Edad` mostrando "13 · Quórum" en un parque de 4 equipos de 3 años y 2 de 13. Después de tocar render, mirá la pantalla.
+
+10. **No pegues código fuente dentro de un prompt para un agente.** Los caracteres unicode invisibles (combinantes, zero-width) se corrompen en el traslado y terminan literales dentro de un regex. Pasó tres veces. Decile al agente que lea el archivo con la tool Read.
 
 ## Restricciones que no se negocian
 
@@ -81,5 +90,7 @@ Cero inferencia en la nube · nada de Vercel (ni `@qvac/ai-sdk-provider` ni el V
 
 - **Espacio en el Pixel 7**: quedaban ~2.4 GB. El portero (533 MB) ya está, pero el extractor (1 GB) y whisper (78 MB) todavía no se descargaron. Va a quedar muy justo.
 - **10 vulnerabilidades npm moderadas** en `apps/mobile`, todas transitivas de Expo (`uuid` vía `xcode` → `@expo/config-plugins`). Riesgo aceptado: es tooling de build de iOS y el proyecto es Android-only. Revisar si algún día se agrega iOS. `apps/server` tiene 0.
+- **`aleatoriedadDebil()` no está visible en la UI.** Hoy devuelve `false` en el teléfono porque el polyfill está instalado, pero si ese import se reordena o se rompe, la app sigue corriendo con `Math.random()` sin avisar — y de ahí sale el delimitador anti-inyección de `context/spotlight.ts`. Falta un indicador, como el aviso de líneas corruptas que ya tiene Cliente 360.
+- **Cliente 360 no tiene tests automáticos.** Importa React Native y no corre bajo el runner de Node del server. Su lógica pura (`app/testigos.ts`, el motor de quórum) sí está cubierta; el render está verificado a mano en el dispositivo.
 - **Las métricas del pitch son hipótesis, no resultados.** No hay corrida sobre las 300 notas ciegas. Decir "esperamos", nunca "logramos".
 - **Prioridad escritorio vs. móvil sigue sin decidir** (`ARCHITECTURE.md` §9). Hoy el móvil está más avanzado y ya demostró que el modelo corre en el teléfono, lo cual es el argumento más fuerte del proyecto.
