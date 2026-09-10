@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import CapturarScreen from './src/app/CapturarScreen.tsx';
 import Cliente360Screen from './src/app/Cliente360Screen.tsx';
 import { BarraSuperior } from './src/app/components/BarraSuperior.tsx';
+import { precargarModelos } from './src/qvac/pool.ts';
 import { color, espacio, tap, tipografia } from './src/app/theme.ts';
 
 type Pestana = 'capturar' | 'clientes';
@@ -26,6 +27,14 @@ type Pestana = 'capturar' | 'clientes';
  * no pasa. Cliente 360 relee el store vía `recargarToken`.
  */
 export default function App() {
+  // Precarga portero + extractor apenas abre la app, en segundo plano, para
+  // que la primera nota no espere los ~25 s de carga. Fire-and-forget: si
+  // falla, `obtener()` reintenta cuando el pipeline lo pide. Ver
+  // `qvac/pool.ts` → `precargarModelos`.
+  useEffect(() => {
+    void precargarModelos();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <Marco />

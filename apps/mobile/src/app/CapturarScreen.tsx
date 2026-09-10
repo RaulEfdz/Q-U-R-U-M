@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable,
   ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import type { EstadoRevision } from '../core/contracts.ts';
-import { procesarNota, type SalidaPipeline } from '../pipeline/cruzar.ts';
+import { procesarNota, type EventoPipeline, type SalidaPipeline } from '../pipeline/cruzar.ts';
 import type { ContextoExtraccion } from '../pipeline/extractor.ts';
+import { estaListo } from '../qvac/pool.ts';
 import { obtenerIdentidad } from './identidad.ts';
 import { ConfirmacionBorrador } from './ConfirmacionBorrador.tsx';
 import { color, espacio, radio, tap, tipografia } from './theme.ts';
@@ -23,16 +24,65 @@ function etiquetaFecha(diasAtras: number): string {
   return f.toLocaleDateString('es-PA', { day: 'numeric', month: 'short' });
 }
 
+/** ms → "840 ms" / "12.3 s". Para las etapas ya terminadas. */
+function formatoDuracion(ms: number): string {
+  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+}
+
 export default function CapturarScreen() {
   const [nota, setNota] = useState('');
   const [diasAtras, setDiasAtras] = useState(0);
   const [vista, setVista] = useState<Vista>({ paso: 'capturar' });
   const [error, setError] = useState<string | null>(null);
 
+  // Progreso del pipeline: una fila por etapa (precheck → portero → extractor
+  // → verificador). Se actualiza en su lugar cuando la etapa pasa de
+  // 'corriendo' a 'ok'. Ver `EventoPipeline` en pipeline/cruzar.ts.
+  const [pasos, setPasos] = useState<EventoPipeline[]>([]);
+  const pasoCorriendoDesde = useRef<number | null>(null);
+  // Fuerza re-render mientras hay una etapa corriendo, para que el contador
+  // de segundos de la fila activa avance solo.
+  const [, marcarTick] = useState(0);
+
+  useEffect(() => {
+    if (vista.paso !== 'procesando') return;
+    const id = setInterval(() => marcarTick(Date.now()), 300);
+    return () => clearInterval(id);
+  }, [vista.paso]);
+
+  // `App.tsx` precarga portero + extractor al abrir. Acá solo sondeamos si
+  // ya terminaron, para avisar que la primera nota va a tardar más si no.
+  const [modelosListos, setModelosListos] = useState(
+    () => estaListo('portero') && estaListo('extractor'),
+  );
+  useEffect(() => {
+    if (modelosListos) return;
+    const id = setInterval(() => {
+      if (estaListo('portero') && estaListo('extractor')) {
+        setModelosListos(true);
+        clearInterval(id);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [modelosListos]);
+
+  function alProgreso(e: EventoPipeline) {
+    if (e.estado === 'corriendo') pasoCorriendoDesde.current = Date.now();
+    setPasos((prev) => {
+      const i = prev.findIndex((p) => p.etapa === e.etapa);
+      if (i === -1) return [...prev, e];
+      const copia = prev.slice();
+      copia[i] = e;
+      return copia;
+    });
+  }
+
   async function interpretar() {
     const texto = nota.trim();
     if (!texto) return;
     setError(null);
+    setPasos([]);
+    pasoCorriendoDesde.current = null;
     setVista({ paso: 'procesando' });
     try {
       const identidad = await obtenerIdentidad();
@@ -43,10 +93,15 @@ export default function CapturarScreen() {
         visitadoEn,
         fuente: 'texto',
       };
-      const salida = await procesarNota(texto, ctx);
+      const salida = await procesarNota(texto, ctx, alProgreso);
       setVista({ paso: 'revision', salida, nota: texto });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      // Marcá la etapa que estaba corriendo como cortada, así en pantalla
+      // queda claro DÓNDE falló, no solo que falló.
+      setPasos((prev) => prev.map((p) =>
+        p.estado === 'corriendo' ? { ...p, estado: 'error', detalle: `se cortó acá: ${msg}` } : p));
       setVista({ paso: 'capturar' });
     }
   }
@@ -54,6 +109,8 @@ export default function CapturarScreen() {
   function nuevaNota() {
     setNota('');
     setDiasAtras(0);
+    setPasos([]);
+    setError(null);
     setVista({ paso: 'capturar' });
   }
 
@@ -87,6 +144,7 @@ export default function CapturarScreen() {
   }
 
   const procesando = vista.paso === 'procesando';
+  const mostrarPanel = procesando || pasos.length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -160,10 +218,70 @@ export default function CapturarScreen() {
           </Pressable>
         </View>
 
-        {procesando && (
-          <Text style={estilos.notaProcesando}>
-            Corriendo en tu teléfono, sin nube — puede tardar unos segundos.
-          </Text>
+        {!modelosListos && !procesando && (
+          <View style={estilos.avisoModelos}>
+            <ActivityIndicator size="small" color={color.textoTenue} />
+            <Text style={estilos.avisoModelosTexto}>
+              Preparando los modelos en el teléfono. Si interpretás una nota
+              ahora, la primera va a tardar unos segundos más.
+            </Text>
+          </View>
+        )}
+
+        {mostrarPanel && (
+          <View style={estilos.panel}>
+            <Text style={estilos.panelTitulo}>
+              {procesando ? 'Corriendo en tu teléfono, sin nube' : 'Se cortó a mitad'}
+            </Text>
+
+            {pasos.map((p) => {
+              const activo = p.estado === 'corriendo';
+              const transcurrido =
+                activo && pasoCorriendoDesde.current
+                  ? Date.now() - pasoCorriendoDesde.current
+                  : 0;
+              return (
+                <View key={p.etapa} style={estilos.paso}>
+                  <View style={estilos.pasoIcono}>
+                    {activo ? (
+                      <ActivityIndicator size="small" color={color.primario} />
+                    ) : (
+                      <Text
+                        style={[
+                          estilos.pasoMarca,
+                          p.estado === 'error' && estilos.pasoMarcaError,
+                        ]}
+                      >
+                        {p.estado === 'error' ? '✕' : '✓'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={estilos.pasoCuerpo}>
+                    <View style={estilos.pasoFila}>
+                      <Text style={estilos.pasoEtiqueta}>{p.etiqueta}</Text>
+                      <Text style={estilos.pasoMs}>
+                        {p.estado === 'ok' && p.ms !== undefined
+                          ? formatoDuracion(p.ms)
+                          : activo && transcurrido >= 900
+                            ? `${Math.round(transcurrido / 1000)} s`
+                            : ''}
+                      </Text>
+                    </View>
+                    {p.detalle ? (
+                      <Text style={estilos.pasoDetalle}>{p.detalle}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+
+            {procesando && (
+              <Text style={estilos.panelPie}>
+                Los modelos viven en el teléfono. La primera nota carga los
+                pesados a memoria; las siguientes reúsan lo que ya está cargado.
+              </Text>
+            )}
+          </View>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -211,7 +329,36 @@ const estilos = StyleSheet.create({
   },
   botonDeshabilitado: { opacity: 0.5 },
   textoBotonPrimario: { fontSize: 17, fontWeight: '700', color: color.primarioTexto },
-  notaProcesando: { textAlign: 'center', color: color.textoTenue, marginTop: espacio.md, fontSize: 13 },
+
+  avisoModelos: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
+    marginTop: espacio.md, paddingHorizontal: espacio.xs,
+  },
+  avisoModelosTexto: { flex: 1, fontSize: 12, color: color.textoTenue, lineHeight: 16 },
+
+  // ── Panel de progreso del pipeline ────────────────────────────────────
+  panel: {
+    marginTop: espacio.lg, padding: espacio.md, borderRadius: radio.lg,
+    borderWidth: 1.5, borderColor: color.borde, backgroundColor: color.superficie,
+    gap: espacio.sm,
+  },
+  panelTitulo: { ...tipografia.etiqueta, color: color.textoTenue },
+  paso: { flexDirection: 'row', gap: espacio.sm, alignItems: 'flex-start' },
+  pasoIcono: { width: 20, alignItems: 'center', marginTop: 1 },
+  pasoMarca: { fontSize: 15, fontWeight: '700', color: color.exito },
+  pasoMarcaError: { color: color.peligro },
+  pasoCuerpo: { flex: 1, gap: 1 },
+  pasoFila: { flexDirection: 'row', justifyContent: 'space-between', gap: espacio.sm },
+  pasoEtiqueta: { flex: 1, fontSize: 14, fontWeight: '600', color: color.texto },
+  pasoMs: {
+    fontSize: 13, fontWeight: '600', color: color.textoTenue,
+    fontVariant: ['tabular-nums'],
+  },
+  pasoDetalle: { fontSize: 12, color: color.textoTenue, lineHeight: 16 },
+  panelPie: {
+    fontSize: 12, color: color.textoTenue, lineHeight: 16, marginTop: espacio.xs,
+  },
+
   glifoExito: { fontSize: 56, color: color.exito },
   mensajeExito: { ...tipografia.cuerpo, textAlign: 'center', color: color.texto },
 });
