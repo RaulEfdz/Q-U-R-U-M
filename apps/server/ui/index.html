@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QUÓRUM — Base instalada</title>
+  <!--
+    Cuatro pantallas, cero build, cero dependencias. HTML plano + CSS + JS
+    vanilla, servido como archivos estáticos desde 127.0.0.1.
+    Sin framework, sin Tailwind, sin CDN: ningún recurso sale de este equipo.
+  -->
+  <!-- Favicon inline (data URI): sin petición de red, sin archivo extra. Es
+       el glifo de `Quórum`, el mismo que usa la interfaz. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%231a7f5a'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="marca">
+      <h1>QUÓRUM</h1>
+      <p class="tesis">La verdad tiene quórum.</p>
+    </div>
+    <div class="cabecera-meta">
+      <span id="marcador" class="marcador num"></span>
+      <span id="conexion" class="conexion">conectando…</span>
+    </div>
+    <nav aria-label="Pantallas">
+      <button type="button" data-vista="capturar" class="activo" aria-current="page">Capturar</button>
+      <button type="button" data-vista="cliente">Cliente 360</button>
+      <button type="button" data-vista="panorama">Panorama</button>
+      <button type="button" data-vista="auditoria">Auditoría</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 1 · CAPTURAR — velocidad: un campo grande, cero formularios. -->
+    <section id="capturar" aria-label="Capturar">
+      <label class="oculto-visual" for="texto">Nota de la visita</label>
+      <textarea id="texto" rows="4" spellcheck="true"
+        placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR de NovaMed, uno como de ocho años y otro más nuevo, y un CT de BluePeak Medical…"></textarea>
+
+      <div class="fila fila-acciones">
+        <label class="campo-fecha">Fecha de la visita
+          <input type="date" id="visita" />
+        </label>
+        <button type="button" id="dictar">🎙 Dictar</button>
+        <button type="button" id="enviar" class="primario">Interpretar</button>
+        <span class="pista small">⌘/Ctrl + Enter</span>
+      </div>
+
+      <p id="estado-captura" class="estado" hidden></p>
+      <p id="ruta" class="chip" hidden></p>
+
+      <!-- H-03 · paso 12: revisión obligatoria antes de guardar. -->
+      <div id="revision" class="revision" hidden>
+        <h3>Revisá antes de guardar</h3>
+        <p id="resumen" class="resumen"></p>
+        <div id="campos"></div>
+        <p id="pendiente" class="nota pendiente" hidden>
+          Queda una pregunta sin responder. Si la dejás así, la nota se guarda como
+          pendiente de revisión — no se descarta.
+        </p>
+        <div id="pregunta" class="seguimiento" hidden></div>
+        <p id="corregido" class="nota corregido" hidden>
+          Corregiste campos: se guardarán tus valores, no los del modelo.
+        </p>
+        <div class="fila">
+          <button type="button" id="confirmar" class="primario">Sí, es correcto — guardar</button>
+          <button type="button" id="descartar">Descartar</button>
+        </div>
+        <p class="nota">Nada se guarda hasta que vos lo confirmes.</p>
+      </div>
+    </section>
+
+    <!-- 2 · CLIENTE 360 — ★ la que gana. La pinta cliente.js. -->
+    <section id="cliente" aria-label="Cliente 360" hidden></section>
+
+    <!-- 3 · PANORAMA. La pinta panorama.js. -->
+    <section id="panorama" aria-label="Panorama" hidden></section>
+
+    <!-- 4 · AUDITORÍA. La pinta auditoria.js. -->
+    <section id="auditoria" aria-label="Auditoría" hidden></section>
+  </main>
+
+  <div id="alerta" class="denegado" role="alert" aria-live="assertive" hidden></div>
+
+  <footer>
+    <span>Toda la inferencia corre en este equipo o en un dispositivo autorizado de la red local. Nunca en la nube.</span>
+    <span class="leyenda-estados">
+      <b>● Quórum</b> <b>◐ Reportado</b> <b>○ Estimado</b> <b>· Sin datos</b> <b>▲ Sin quórum</b>
+      <i>◷ frescura — eje aparte</i>
+    </span>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

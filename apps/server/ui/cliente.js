@@ -1,0 +1,168 @@
+/**
+ * cliente.js — ★ CLIENTE 360. La pantalla que gana.
+ *
+ * Acá vive el 35% de Technical hecho visible. Tiene que lograr, EN ESTE
+ * ORDEN (doc maestro §B.2):
+ *   1. que se vea que la confianza es POR CAMPO, no por registro;
+ *   2. que las COHORTES expliquen que no hay contradicción sino composición;
+ *   3. que el CONFLICTO no parezca un error;
+ *   4. que la FRESCURA se distinga del estado de confianza — dos ejes.
+ *
+ * `Sin quórum` NUNCA muestra un promedio ni elige una versión: muestra
+ * todas las versiones en conflicto con quién dijo cada una (RD-2). Es la
+ * tesis del proyecto. Si esta pantalla promediara, el proyecto perdería su
+ * argumento, así que el bloque de versiones va SIEMPRE visible, nunca
+ * detrás de un click.
+ */
+import { h, pintar, formatearValor, testigos, testimonios, vacio, error } from './dom.js';
+import { claseEstado, insignia, insigniaFrescura, esAscensoAQuorum } from './estados.js';
+
+/** Estados de la pasada anterior, para detectar el ascenso a quórum.
+ *  Clave: `${grupo.clave}|${nombreCampo}`. */
+const estadoPrevio = new Map();
+
+function marcarAscenso(fila, clave, estado) {
+  const anterior = estadoPrevio.get(clave);
+  estadoPrevio.set(clave, estado);
+  if (esAscensoAQuorum(anterior, estado)) fila.classList.add('ascenso');
+}
+
+/**
+ * Bloque de conflicto: todas las versiones y quién sostiene cada una.
+ * No hay promedio, no hay "valor más probable", no hay ganador.
+ */
+function bloqueConflicto(campo) {
+  const clusters = campo.clusters ?? [];
+  return h('tr', { clase: 'detalle conflicto' },
+    h('td', { colspan: '4' },
+      h('p', { clase: 'conflicto-titulo', texto: 'No se promedia ni se elige. Cada versión, con quién la dijo:' }),
+      h('ul', { clase: 'versiones' },
+        clusters.map((k) => h('li', null,
+          h('b', { clase: 'num', texto: formatearValor(k.valor) }),
+          h('span', { clase: 'quien', texto: (k.observadores ?? []).join(', ') || 'observador sin identificar' }),
+          h('span', { clase: 'small', texto: testimonios((k.observadores ?? []).length) })))),
+      h('p', { clase: 'conflicto-pie', texto: 'Hace falta una visita más de un observador independiente para resolverlo.' })));
+}
+
+/** Una fila de campo: nombre · valor · estado de quórum · quién y desde cuándo. */
+function filaCampo(clave, nombre, campo, { sangrada = false } = {}) {
+  if (!campo) return null;
+  const esConflicto = campo.estado === 'Sin quórum';
+  const valor = esConflicto
+    ? 'en disputa'
+    : formatearValor(campo.rango ?? campo.valor);
+
+  const fila = h('tr', { clase: [claseEstado(campo.estado), sangrada && 'sangrada', esConflicto && 'es-conflicto'] },
+    h('td', { clase: 'campo', texto: nombre }),
+    h('td', { clase: esConflicto ? 'num disputa' : 'num', texto: valor }),
+    h('td', null, insignia(campo.estado)),
+    h('td', { clase: 'quienes' },
+      campo.estado === 'Sin datos' ? h('span', { clase: 'small', texto: 'nadie lo reportó' })
+        : h('span', { texto: testigos((campo.observadores ?? []).length) }),
+      insigniaFrescura(campo)));
+
+  marcarAscenso(fila, clave, campo.estado);
+  return esConflicto ? [fila, bloqueConflicto(campo)] : fila;
+}
+
+/** Fila de cohorte (H-02): el valor lo compone la pantalla, no la API.
+ *  Las cohortes son la respuesta visual a "tres MR, dos viejos y uno nuevo":
+ *  composición, no contradicción. */
+function filaCohorte(clave, cohorte, indice) {
+  const uds = cohorte.cantidad?.valor ?? '?';
+  const edad = formatearValor(cohorte.edad);
+  const partes = [`${uds} uds · ${edad} años`];
+  if (cohorte.anioInstalacion !== undefined) partes.push(`(≈${cohorte.anioInstalacion})`);
+
+  const fila = h('tr', { clase: [claseEstado(cohorte.estado), 'sangrada'] },
+    h('td', { clase: 'campo', texto: '— cohorte' }),
+    h('td', { clase: 'num', texto: partes.join(' ') }),
+    h('td', null, insignia(cohorte.estado)),
+    h('td', { clase: 'quienes' }, h('span', { texto: testigos((cohorte.observadores ?? []).length) })));
+
+  marcarAscenso(fila, `${clave}|cohorte${indice}`, cohorte.estado);
+  return fila;
+}
+
+function tituloEquipo(g) {
+  const modalidad = g.campos?.modalidad?.valor ?? '—';
+  const marca = g.campos?.marca?.valor;
+  return marca ? `${modalidad} · ${marca}` : String(modalidad);
+}
+
+const dec2 = (n) => (typeof n === 'number' ? n.toFixed(2) : '—');
+
+/** Un grupo de equipo = un cliente + una modalidad reconciliada. */
+export function pintarGrupo(g) {
+  const c = g.campos ?? {};
+  const p = g.puntaje ?? {};
+  const ubicacion = [g.cliente?.ciudad, g.cliente?.pais].filter(Boolean).join(', ');
+
+  return h('article', { clase: `grupo ${claseEstado(g.estadoGeneral)}` },
+    h('header', { clase: 'grupo-cabecera' },
+      h('div', null,
+        h('h3', { texto: g.cliente?.nombre ?? 'Cliente sin nombre' }),
+        ubicacion ? h('p', { clase: 'ubicacion', texto: ubicacion }) : null),
+      h('div', { clase: 'puntaje-caja' },
+        h('span', {
+          clase: 'puntaje num',
+          title: 'Puntaje de calidad del dato: 45×completitud + 25×frescura + 30×corroboración',
+        }, h('b', { texto: String(p.total ?? '—') }), h('small', { texto: '/100' })),
+        h('p', { clase: 'desglose num', texto:
+          `completitud ${dec2(p.completitud)} · frescura ${dec2(p.frescura)} · corroboración ${dec2(p.corroboracion)}` }))),
+
+    g.oportunidadRenovacion
+      ? h('p', { clase: 'oportunidad' },
+          h('i', { clase: 'glifo', 'aria-hidden': 'true', texto: '↻' }),
+          h('span', { texto: 'Oportunidad de renovación' }))
+      : null,
+
+    h('h4', { clase: 'equipo', texto: tituloEquipo(g) }),
+
+    h('table', { clase: 'confianza' },
+      h('thead', null, h('tr', null,
+        h('th', { texto: 'Campo' }),
+        h('th', { clase: 'num', texto: 'Valor' }),
+        h('th', { texto: 'Estado de quórum' }),
+        h('th', { texto: 'Quién lo sostiene' }))),
+      h('tbody', null,
+        filaCampo(`${g.clave}|modalidad`, 'Modalidad', c.modalidad),
+        filaCampo(`${g.clave}|marca`, 'Marca', c.marca),
+        filaCampo(`${g.clave}|modelo`, 'Modelo', c.modelo),
+        filaCampo(`${g.clave}|total`, 'Total unidades', c.totalUnidades),
+        // La fila `Edad` SOLO cuando no hay cohortes. Con cohortes es
+        // enganosa: `resolverEdad` aplica RD-3 (cada observador cuenta con su
+        // testimonio mas reciente), asi que un parque de 4 equipos de 3 anos
+        // mas 2 de 13 muestra "Edad 13 · Quorum" y se lee como si TODO
+        // tuviera 13. Las cohortes cuentan esa historia completa, y el mockup
+        // de §B.2 tampoco lleva fila de edad, por lo mismo. El estado del
+        // campo sigue pesando en `estadoGeneral`: eso lo decide MIN_ESTADO en
+        // el motor, no esta pantalla. Mismo criterio que la app movil
+        // (`apps/mobile/src/app/Cliente360Screen.tsx`).
+        (g.cohortes ?? []).length === 0
+          ? filaCampo(`${g.clave}|edad`, 'Edad', c.edad)
+          : null,
+        (g.cohortes ?? []).map((co, i) => filaCohorte(g.clave, co, i)))),
+
+    h('p', { clase: 'dupes', texto:
+      `${testimonios((g.observacionesIds ?? []).length)} se refieren a este mismo equipo` }));
+}
+
+export function pintarCliente(seccion, datos) {
+  const grupos = datos?.grupos ?? [];
+  if (!grupos.length) {
+    pintar(seccion, vacio(
+      'Todavía no hay base instalada reconciliada.',
+      'Capturá un primer testimonio en la pestaña «Capturar». Un solo testigo nunca da quórum (RD-1): hacen falta dos observadores independientes.'));
+    return;
+  }
+  pintar(seccion,
+    h('p', { clase: 'leyenda' },
+      h('span', { texto: 'La confianza es por campo. ' }),
+      h('span', { clase: 'small', texto: 'El color codifica solo el estado de quórum; la frescura (◷) es un eje aparte.' })),
+    grupos.map(pintarGrupo));
+}
+
+export function pintarClienteError(seccion, mensaje) {
+  pintar(seccion, error(mensaje));
+}

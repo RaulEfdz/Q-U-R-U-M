@@ -1,0 +1,464 @@
+/*
+ * style.css — QUÓRUM escritorio.
+ *
+ * Decisiones, no gustos (doc maestro §B.3):
+ *
+ *  1. EL COLOR CODIFICA CONFIANZA Y NADA MÁS. Cinco estados de quórum,
+ *     cinco tratamientos. Ningún otro elemento de la interfaz toma un
+ *     color de esa rampa para otra cosa.
+ *  2. EL COLOR NUNCA ES EL ÚNICO PORTADOR DE SIGNIFICADO. Cada estado sale
+ *     con glifo (● ◐ ○ · ▲) + etiqueta + color. Accesibilidad, y robustez
+ *     ante la compresión del video.
+ *  3. FRESCURA ES OTRO EJE, y por eso NO recibe hue: va en tinta neutra,
+ *     con su propio glifo (◷) y subrayado punteado. Si la pintáramos de
+ *     ámbar se leería como «Reportado» y confundiríamos los dos ejes —
+ *     que §B.2 marca como el error de diseño más fácil de cometer acá.
+ *  4. UNA FAMILIA TIPOGRÁFICA, TRES TAMAÑOS. Cifras tabulares para que las
+ *     columnas de números se alineen.
+ *  5. DENSIDAD ALTA, ORNAMENTO CERO. Herramienta de campo, no landing:
+ *     sin sombras, sin gradientes, sin bordes redondeados grandes.
+ *  6. UNA SOLA ANIMACIÓN: el ascenso a quórum, 600 ms (`.ascenso`).
+ *
+ * Sin @import y sin webfonts: ningún recurso sale de este equipo.
+ */
+
+:root {
+  /* Rampa de CONFIANZA — literal de §II.20. Reservada, nada más la usa. */
+  --quorum:      #1a7f5a;   /* verde sobrio, no neón */
+  --reportado:   #b8860b;   /* ámbar */
+  --estimado:    #6b6b63;
+  --sindatos:    #8f8c82;
+  --sinquorum:   #b0413e;   /* rojo contenido, no de alarma */
+  --denegado:    #7d1f1c;
+
+  --sinquorum-fondo: #fbeceb;
+  --quorum-fondo:    #eaf4ef;
+
+  /* Superficies y tinta (coherentes con apps/mobile/src/app/theme.ts). */
+  --fondo:      #f7f6f3;
+  --superficie: #ffffff;
+  --hundida:    #eeece7;
+  --borde:      #d8d5cd;
+  --borde-duro: #b9b5aa;
+  --texto:      #1c1b18;
+  --tenue:      #55524a;    /* oscuro de verdad: legible en proyector */
+
+  --primario:   #1a4d8f;    /* acción, no confianza */
+  --primario-texto: #ffffff;
+
+  /* Tres tamaños. Ni uno más. */
+  --t-chico:  12.5px;
+  --t-cuerpo: 14.5px;
+  --t-grande: 21px;
+
+  --sm: 4px; --md: 8px; --lg: 14px; --xl: 22px;
+}
+
+* { box-sizing: border-box; }
+
+/*
+ * El atributo `hidden` gana SIEMPRE. Sin esto, cualquier regla de clase con
+ * `display:flex` (`.denegado`, `.chip`) le pasa por encima a la regla del
+ * navegador y el elemento se muestra igual — la banda de «acción denegada»
+ * quedaba pegada al pie de la pantalla desde el arranque. La UI alterna
+ * visibilidad solo con `.hidden`, así que esta línea es la que lo sostiene.
+ */
+[hidden] { display: none !important; }
+
+html { background: var(--fondo); }
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: var(--t-cuerpo);
+  line-height: 1.4;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+.num { font-variant-numeric: tabular-nums; }   /* columnas alineadas */
+.small { font-size: var(--t-chico); color: var(--tenue); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--t-chico); }
+.glifo { font-style: normal; }
+.oculto-visual {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ─────────────────────────────── Cabecera ─────────────────────────────── */
+
+header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: var(--md) var(--lg);
+  padding: var(--lg) var(--xl) 0;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borde);
+}
+.marca { display: flex; align-items: baseline; gap: var(--md); }
+h1 {
+  margin: 0; font-size: var(--t-grande); font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.tesis { margin: 0; font-size: var(--t-chico); color: var(--tenue); }
+.cabecera-meta { display: flex; align-items: baseline; gap: var(--lg); font-size: var(--t-chico); }
+.marcador { color: var(--tenue); }
+.conexion { color: var(--tenue); }
+.conexion::before { content: '○ '; }
+.conexion.viva::before { content: '● '; }
+.conexion.muerta { color: var(--denegado); }
+
+nav {
+  grid-column: 1 / -1;
+  display: flex; gap: 2px; margin-top: var(--md);
+}
+nav button {
+  font: inherit; font-size: var(--t-cuerpo);
+  background: none; border: none; border-bottom: 3px solid transparent;
+  padding: var(--md) var(--lg); color: var(--tenue); cursor: pointer;
+}
+nav button:hover { color: var(--texto); background: var(--hundida); }
+nav button.activo { color: var(--texto); font-weight: 700; border-bottom-color: var(--primario); }
+nav button:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--primario); outline-offset: 1px;
+}
+
+main { padding: var(--xl); max-width: 1180px; min-height: 62vh; }  /* el pie no sube a media pantalla en Capturar */
+
+/* ──────────────────────────── Controles ──────────────────────────── */
+
+button {
+  font: inherit; font-size: var(--t-cuerpo);
+  padding: 7px 13px; cursor: pointer;
+  background: var(--superficie); color: var(--texto);
+  border: 1px solid var(--borde-duro); border-radius: 3px;
+}
+button:hover:not(:disabled) { background: var(--hundida); }
+button:disabled { opacity: 0.55; cursor: default; }
+button.primario {
+  background: var(--primario); color: var(--primario-texto);
+  border-color: var(--primario); font-weight: 700;
+}
+button.primario:hover:not(:disabled) { background: #163f75; }
+button.grabando { border-color: var(--sinquorum); color: var(--sinquorum); font-weight: 700; }
+
+input, textarea {
+  font: inherit; font-size: var(--t-cuerpo); color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde-duro); border-radius: 3px;
+  padding: 6px 8px;
+}
+input.invalido { border-color: var(--sinquorum); background: var(--sinquorum-fondo); }
+input.editado { border-color: var(--primario); font-weight: 700; }
+
+.fila { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--md); }
+.fila-acciones { margin-top: var(--md); }
+.pista { align-self: center; }
+
+/* ─────────────────────────── 1 · Capturar ─────────────────────────── */
+
+#texto {
+  width: 100%; min-height: 96px; resize: vertical;
+  font-size: var(--t-grande); line-height: 1.3;   /* campo grande = velocidad */
+}
+.campo-fecha { display: flex; flex-direction: column; gap: 3px; font-size: var(--t-chico); color: var(--tenue); }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: var(--md) 0 0; padding: 3px 9px;
+  font-size: var(--t-chico); color: var(--tenue);
+  background: var(--hundida); border: 1px solid var(--borde);
+}
+
+.estado { margin: var(--md) 0 0; font-size: var(--t-chico); }
+/* Feedback del sistema, no del dato: usa la paleta de ACCIÓN y el token
+   de denegado, nunca la rampa de quórum. La rampa describe datos y solo
+   datos — si «Guardado» fuera verde-quórum, el verde dejaría de significar
+   una sola cosa. */
+.estado.bueno { color: var(--primario); font-weight: 700; }
+.estado.malo { color: var(--denegado); font-weight: 700; }
+.estado.aviso { color: var(--texto); font-weight: 700; }
+.estado.trabajando { color: var(--tenue); }
+
+.revision {
+  margin-top: var(--xl); padding: var(--lg);
+  background: var(--superficie); border: 2px solid var(--primario);
+}
+.revision h3 { margin: 0 0 var(--md); font-size: var(--t-cuerpo); text-transform: uppercase; letter-spacing: 0.08em; }
+.resumen { margin: 0 0 var(--lg); }
+
+.lote {
+  padding: var(--md) 0; border-top: 1px solid var(--borde);
+}
+.lote-cabecera { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--md); }
+.lote-cabecera b { font-size: var(--t-cuerpo); }
+.evidencia {
+  margin: var(--sm) 0 var(--md); padding-left: var(--md);
+  border-left: 3px solid var(--borde-duro);
+  font-size: var(--t-chico); color: var(--tenue); font-style: italic;
+}
+.campos-editables {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--md);
+}
+.campo-editable { display: flex; flex-direction: column; gap: 3px; }
+.campo-editable .etiqueta { font-size: var(--t-chico); color: var(--tenue); }
+
+.seguimiento { margin: var(--lg) 0; }
+.seguimiento-label { display: flex; flex-direction: column; gap: var(--sm); font-size: var(--t-chico); }
+.seguimiento-label input { max-width: 460px; }
+
+.nota { margin: var(--md) 0 0; font-size: var(--t-chico); color: var(--tenue); }
+.nota.pendiente { color: var(--texto); font-weight: 700; }
+.nota.corregido { color: var(--primario); font-weight: 700; }
+
+/* ──────────────── 2 · Cliente 360 — estado por campo ──────────────── */
+
+.leyenda { margin: 0 0 var(--lg); font-size: var(--t-chico); color: var(--tenue); }
+
+.grupo {
+  margin-bottom: var(--xl); padding: var(--lg);
+  background: var(--superficie); border: 1px solid var(--borde);
+  border-left: 4px solid var(--sindatos);
+}
+.grupo.ok { border-left-color: var(--quorum); }
+.grupo.medio { border-left-color: var(--reportado); }
+.grupo.bajo { border-left-color: var(--estimado); }
+.grupo.nulo { border-left-color: var(--sindatos); }
+.grupo.sinquorum { border-left-color: var(--sinquorum); }
+
+.grupo-cabecera {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--lg); flex-wrap: wrap;
+}
+.grupo h3 { margin: 0; font-size: var(--t-grande); font-weight: 700; }
+.ubicacion { margin: 2px 0 0; font-size: var(--t-chico); color: var(--tenue); }
+.puntaje-caja { text-align: right; }
+.puntaje { font-size: var(--t-grande); font-weight: 700; }
+.puntaje small { font-size: var(--t-chico); color: var(--tenue); font-weight: 400; }
+.desglose { margin: 2px 0 0; font-size: var(--t-chico); color: var(--tenue); }
+
+.oportunidad {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: var(--md) 0 0; padding: 2px 8px;
+  font-size: var(--t-chico); font-weight: 700;
+  color: var(--texto); background: var(--hundida); border: 1px solid var(--borde-duro);
+}
+.equipo {
+  margin: var(--lg) 0 var(--md); font-size: var(--t-cuerpo); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; font-size: var(--t-chico); font-weight: 700;
+  color: var(--tenue); text-transform: uppercase; letter-spacing: 0.06em;
+  padding: var(--sm) var(--md); border-bottom: 1px solid var(--borde-duro);
+}
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td { padding: 5px var(--md); border-bottom: 1px solid var(--borde); vertical-align: baseline; }
+
+/* Anchos explícitos: sin esto la columna del estado queda a media pantalla
+   de la del testigo y la fila deja de leerse como una sola frase. */
+.confianza th:nth-child(1), .confianza td:nth-child(1) { width: 190px; }
+.confianza th:nth-child(2), .confianza td:nth-child(2) { width: 30%; }
+.confianza th:nth-child(3), .confianza td:nth-child(3) { width: 165px; white-space: nowrap; }
+.confianza td.campo { font-weight: 700; white-space: nowrap; }
+.confianza td.num { font-weight: 700; }
+.confianza tr.sangrada td.campo { font-weight: 400; color: var(--tenue); padding-left: var(--xl); }
+.confianza tr.sangrada { background: var(--hundida); }
+.confianza td.disputa { color: var(--sinquorum); font-weight: 700; }
+.quienes { display: flex; align-items: baseline; gap: var(--md); flex-wrap: wrap; font-size: var(--t-chico); color: var(--tenue); }
+
+/* Insignia de estado: glifo + etiqueta + color. Los tres, siempre. */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 1px 8px; border: 1.5px solid currentColor; border-radius: 999px;
+  font-size: var(--t-chico); font-weight: 700; white-space: nowrap;
+}
+.badge.ok { color: var(--quorum); }
+.badge.medio { color: var(--reportado); }
+.badge.bajo { color: var(--estimado); }
+.badge.nulo { color: var(--sindatos); }
+.badge.sinquorum { color: var(--sinquorum); }
+.badge.naturaleza { color: var(--primario); }   /* eje 1, paleta aparte */
+
+/*
+ * FRESCURA — sin hue a propósito (ver cabecera de este archivo). Glifo
+ * propio y subrayado punteado: se lee como «dato viejo», nunca como un
+ * estado de la escalera de quórum.
+ */
+.frescura {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--t-chico); font-weight: 700; color: var(--tenue);
+  border-bottom: 1px dotted var(--borde-duro);
+}
+
+/* `Sin quórum`: todas las versiones, con quién dijo cada una. Nunca un
+ * promedio, nunca un ganador. Siempre visible, nunca detrás de un click. */
+tr.es-conflicto { background: var(--sinquorum-fondo); }
+tr.conflicto td { background: var(--sinquorum-fondo); border-bottom: 1px solid var(--sinquorum); }
+.conflicto-titulo {
+  margin: 0 0 var(--md); font-size: var(--t-chico); font-weight: 700; color: var(--sinquorum);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.versiones { margin: 0; padding: 0; list-style: none; }
+.versiones li {
+  display: flex; align-items: baseline; gap: var(--lg);
+  padding: 3px 0; border-top: 1px solid var(--borde);
+}
+.versiones li b { min-width: 84px; font-size: var(--t-cuerpo); font-variant-numeric: tabular-nums; }
+.versiones .quien { flex: 1; }
+.conflicto-pie { margin: var(--md) 0 0; font-size: var(--t-chico); color: var(--tenue); font-style: italic; }
+
+.dupes { margin: var(--md) 0 0; font-size: var(--t-chico); color: var(--tenue); }
+
+/*
+ * LA ÚNICA ANIMACIÓN de la app: el ascenso a quórum, 600 ms. Es el pico
+ * del video: `Reportado · 1 testigo` → `QUÓRUM · 2 testigos independientes`.
+ */
+@keyframes ascenso {
+  0%   { background: var(--quorum-fondo); transform: translateX(-6px); }
+  40%  { background: var(--quorum-fondo); transform: none; }
+  100% { background: transparent; transform: none; }
+}
+tr.ascenso { animation: ascenso 600ms ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  tr.ascenso { animation: none; background: var(--quorum-fondo); }
+}
+
+/* ─────────────────────────── 3 · Panorama ─────────────────────────── */
+
+.kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1px; background: var(--borde); border: 1px solid var(--borde);
+  margin-bottom: var(--xl);
+}
+.kpi { padding: var(--lg); background: var(--superficie); }
+.kpi b { display: block; font-size: 34px; line-height: 1; font-weight: 700; }
+.kpi span { font-size: var(--t-chico); color: var(--tenue); }
+.kpi.ok b { color: var(--quorum); }
+.kpi.sinquorum b { color: var(--sinquorum); }
+
+.bloque {
+  margin-bottom: var(--xl); padding: var(--lg);
+  background: var(--superficie); border: 1px solid var(--borde);
+}
+.bloque h4 {
+  margin: 0 0 var(--md); font-size: var(--t-cuerpo); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.bloque.aviso-humano { border-left: 4px solid var(--borde-duro); }
+
+/* Barras: `div` con porcentaje. Sin librería de gráficos, sin mapa. */
+.barras { display: flex; flex-direction: column; gap: 3px; }
+.barra { display: grid; grid-template-columns: 150px 1fr 56px; align-items: center; gap: var(--md); }
+.barra-etiqueta { font-size: var(--t-chico); }
+.barra-pista { display: block; height: 14px; background: var(--hundida); }
+.barra-pista i { display: block; height: 100%; background: var(--primario); }
+.barra b { text-align: right; font-variant-numeric: tabular-nums; }
+
+#pregunta-nl { flex: 1; min-width: 260px; }
+.salida-consulta:not(:empty) { margin-top: var(--lg); }
+.respuesta { margin: 0 0 var(--md); }
+.filtro { margin: 0 0 var(--md); font-size: var(--t-chico); }
+.filtro .etiqueta { color: var(--tenue); margin-right: 6px; }
+.resultados td { font-size: var(--t-chico); }
+.bloqueado {
+  margin: var(--md) 0; padding: var(--md) var(--lg);
+  color: var(--denegado); background: var(--sinquorum-fondo);
+  border: 2px solid var(--denegado);
+}
+.bloqueado p { margin: var(--sm) 0 0; color: var(--denegado); }
+
+.duplicados { margin: 0; padding: 0; list-style: none; }
+.duplicados li { padding: 3px 0; border-top: 1px solid var(--borde); }
+
+/* ─────────────────────────── 4 · Auditoría ─────────────────────────── */
+
+.integridad {
+  display: flex; align-items: center; gap: var(--lg);
+  padding: var(--lg); margin-bottom: var(--lg);
+  background: var(--superficie); border: 2px solid var(--borde-duro);
+}
+.integridad > div { flex: 1; }
+.integridad.ok { border-color: var(--quorum); }
+.integridad.ok .glifo, .integridad.ok b { color: var(--quorum); }
+.integridad.sinquorum { border-color: var(--denegado); background: var(--sinquorum-fondo); }
+.integridad.sinquorum .glifo, .integridad.sinquorum b { color: var(--denegado); }
+.glifo.grande { font-size: 26px; }
+.integridad p { margin: 2px 0 0; }
+
+.auditoria-tabla { background: var(--superficie); border: 1px solid var(--borde); }
+.auditoria-tabla td { font-size: var(--t-chico); }
+.pares { display: flex; flex-wrap: wrap; gap: var(--md); }
+.par i { font-style: normal; color: var(--tenue); }
+.chip-inferencia {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 1px 7px; font-size: var(--t-chico); font-weight: 700;
+  color: var(--tenue); background: var(--hundida); border: 1px solid var(--borde);
+  white-space: nowrap;
+}
+
+/* ─────────────────── Denegación por política (SSE) ─────────────────── */
+
+.denegado {
+  position: fixed; inset: auto 0 0 0; z-index: 10;
+  display: flex; align-items: flex-start; gap: var(--lg);
+  padding: var(--lg) var(--xl);
+  color: #fff; background: var(--denegado);
+  border-top: 3px solid #fff;
+}
+.denegado .alerta-cuerpo { flex: 1; font-size: var(--t-chico); }
+.denegado b { display: block; font-size: var(--t-cuerpo); letter-spacing: 0.1em; margin-bottom: var(--sm); }
+.denegado code { color: #ffd9d7; }
+.denegado .cerrar {
+  background: none; border: 1px solid #fff; color: #fff;
+  font-size: var(--t-grande); line-height: 1; padding: 0 8px;
+}
+
+/* ──────────────────── Estados vacíos y errores ──────────────────── */
+
+.vacio {
+  padding: var(--xl); text-align: center;
+  background: var(--superficie); border: 1px dashed var(--borde-duro);
+}
+.vacio-titulo { margin: 0; font-weight: 700; }
+.vacio-detalle { margin: var(--md) auto 0; max-width: 62ch; font-size: var(--t-chico); color: var(--tenue); }
+
+.error-caja {
+  padding: var(--lg); color: var(--denegado);
+  background: var(--sinquorum-fondo); border: 1px solid var(--sinquorum);
+}
+.error-caja p { margin: var(--sm) 0 0; color: var(--denegado); }
+
+/* ─────────────────────────────── Pie ─────────────────────────────── */
+
+footer {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--lg);
+  padding: var(--lg) var(--xl) 60px;
+  font-size: var(--t-chico); color: var(--tenue);
+  border-top: 1px solid var(--borde);
+}
+.leyenda-estados { display: flex; gap: var(--lg); flex-wrap: wrap; }
+.leyenda-estados b:nth-child(1) { color: var(--quorum); }
+.leyenda-estados b:nth-child(2) { color: var(--reportado); }
+.leyenda-estados b:nth-child(3) { color: var(--estimado); }
+.leyenda-estados b:nth-child(4) { color: var(--sindatos); }
+.leyenda-estados b:nth-child(5) { color: var(--sinquorum); }
+.leyenda-estados i { color: var(--tenue); }
+
+/* Pantallas chicas: la tabla de confianza no se comprime hasta ser
+   ilegible, se deja desplazar. */
+@media (max-width: 720px) {
+  main, header, footer { padding-left: var(--lg); padding-right: var(--lg); }
+  .grupo { overflow-x: auto; }
+  .barra { grid-template-columns: 100px 1fr 44px; }
+  /* Los anchos fijos de columna dejan de servir acá: sin esto la insignia
+     de frescura se parte palabra por palabra en la última columna. */
+  .confianza th, .confianza td { width: auto !important; }
+  .quienes { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .frescura { white-space: nowrap; }
+  .puntaje-caja { text-align: left; }
+}
