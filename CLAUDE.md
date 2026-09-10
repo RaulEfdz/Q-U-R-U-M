@@ -20,7 +20,9 @@ apps/
 docs/         # documento maestro + doc único (MD) + anexo D pipeline android (MD)
 ```
 
-Ambas apps son código todavía por escribir (solo `.gitkeep` + CLAUDE.md por ahora). `apps/server` es la apuesta principal del hackathon; `apps/mobile` es plan si sobra tiempo tras el freeze del escritorio.
+Las dos apps tienen código. El núcleo compartido (contratos, motor de quórum, puntaje, policy, spotlighting, export) está escrito, congelado e **idéntico byte a byte entre las dos** — cualquier cambio ahí se replica a ambos lados. Estado por fase y pendientes: `CONTINUAR.md`. Historial de decisiones: `BITACORA.md`.
+
+La prioridad escritorio-vs-móvil sigue formalmente abierta (`ARCHITECTURE.md` §9), pero hoy el móvil está más avanzado y ya demostró lo que más pesa en este reto: el modelo corriendo on-device en un teléfono real.
 
 ## Restricciones duras (no negociables)
 
