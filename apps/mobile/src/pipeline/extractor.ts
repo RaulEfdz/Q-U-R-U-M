@@ -140,7 +140,14 @@ export interface ContextoExtraccion {
   fuente: 'voz' | 'texto' | 'foto';
 }
 
-function hashTexto(texto: string): string {
+/**
+ * Exportado (no solo interno) para que `audit/trace.ts` calcule el mismo
+ * `notaHash` con el MISMO algoritmo sobre el MISMO texto — es la clave que
+ * enlaza `RegistroPipeline.notaHash` con `Observacion.provenance.hash`
+ * (TRAZABILIDAD.md §3). Si cada módulo hasheara por su cuenta, un cambio
+ * de uno solo (ej. normalización distinta) rompería el enlace en silencio.
+ */
+export function hashTexto(texto: string): string {
   return createHash('sha256').update(texto, 'utf8').digest('hex');
 }
 
