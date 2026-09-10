@@ -5,6 +5,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import CapturarScreen from './src/app/CapturarScreen.tsx';
 import Cliente360Screen from './src/app/Cliente360Screen.tsx';
 import { BarraSuperior } from './src/app/components/BarraSuperior.tsx';
+import { Icono, type NombreIcono } from './src/app/components/Icono.tsx';
 import { color, espacio, tap, tipografia } from './src/app/theme.ts';
 
 type Pestana = 'capturar' | 'clientes';
@@ -71,17 +72,24 @@ function Marco() {
       {/* El inset de abajo es la barra de gestos: sin él las pestañas quedan
           pegadas a ella y se tocan sin querer al navegar. */}
       <View style={[estilos.barra, { paddingBottom: insets.bottom + espacio.xs }]}>
-        <Pestania etiqueta="Capturar" glifo="✎" activa={pestana === 'capturar'} onPress={() => ir('capturar')} />
-        <Pestania etiqueta="Clientes" glifo="◍" activa={pestana === 'clientes'} onPress={() => ir('clientes')} />
+        <Pestania etiqueta="Capturar" icono="capturar" activa={pestana === 'capturar'} onPress={() => ir('capturar')} />
+        <Pestania etiqueta="Clientes" icono="cliente" activa={pestana === 'clientes'} onPress={() => ir('clientes')} />
       </View>
     </View>
   );
 }
 
+/*
+ * Las pestañas llevaban los caracteres «✎» y «◍». Dos problemas: Android los
+ * resuelve con la fuente de emoji del sistema, así que se renderizaban en
+ * color propio saltándose la paleta y con un peso distinto al del resto de la
+ * interfaz; y su forma cambia entre versiones de Android. Ahora son trazos del
+ * set propio (`components/Icono.tsx`), los mismos que la UI de escritorio.
+ */
 function Pestania({
-  etiqueta, glifo, activa, onPress,
+  etiqueta, icono, activa, onPress,
 }: {
-  etiqueta: string; glifo: string; activa: boolean; onPress: () => void;
+  etiqueta: string; icono: NombreIcono; activa: boolean; onPress: () => void;
 }) {
   return (
     <Pressable
@@ -90,7 +98,7 @@ function Pestania({
       accessibilityRole="tab"
       accessibilityState={{ selected: activa }}
     >
-      <Text style={[estilos.glifoPestana, activa && estilos.textoPestanaActiva]}>{glifo}</Text>
+      <Icono nombre={icono} tamano={21} color={activa ? color.primario : color.textoTenue} />
       <Text style={[estilos.textoPestana, activa && estilos.textoPestanaActiva]}>{etiqueta}</Text>
     </Pressable>
   );
@@ -111,7 +119,6 @@ const estilos = StyleSheet.create({
     paddingVertical: espacio.sm, gap: 2, borderTopWidth: 3, borderTopColor: 'transparent',
   },
   pestanaActiva: { borderTopColor: color.primario },
-  glifoPestana: { fontSize: 18, color: color.textoTenue },
   textoPestana: { ...tipografia.etiqueta, color: color.textoTenue },
   textoPestanaActiva: { color: color.primario },
 });

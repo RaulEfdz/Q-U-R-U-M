@@ -9,6 +9,7 @@ import { cargar, diagnosticoUltimaCarga } from '../store/expo-store.ts';
 import { obtenerIdentidad } from './identidad.ts';
 import { mapaTestigos, type Testigo } from './testigos.ts';
 import { FilaCampo, FilaCohorte } from './components/FilaCampo.tsx';
+import { Icono, IconoModalidad } from './components/Icono.tsx';
 import { InsigniaNaturaleza } from './components/InsigniaNaturaleza.tsx';
 import { colorEstado, InsigniaQuorum } from './components/InsigniaQuorum.tsx';
 import { color, espacio, radio, tap, tipografia } from './theme.ts';
@@ -193,7 +194,13 @@ function TarjetaGrupo({
   return (
     <View style={[estilos.tarjeta, { borderTopColor: colorEstado(grupo.estadoGeneral) }]}>
       <View style={estilos.tarjetaCabecera}>
-        <Text style={estilos.tituloGrupo}>{tituloGrupo(grupo)}</Text>
+        {/* Mismo criterio que la UI de escritorio: la forma de la modalidad se
+            reconoce antes que el texto, y es lo que permite recorrer la lista
+            sin releer cada encabezado. */}
+        <View style={estilos.tituloConIcono}>
+          <IconoModalidad modalidad={grupo.campos.modalidad.valor} tamano={19} color={color.textoTenue} />
+          <Text style={estilos.tituloGrupo}>{tituloGrupo(grupo)}</Text>
+        </View>
         <Text style={estilos.puntaje}>{p.total}/100</Text>
       </View>
 
@@ -208,7 +215,10 @@ function TarjetaGrupo({
       </Text>
 
       {grupo.oportunidadRenovacion && (
-        <Text style={estilos.oportunidad}>Oportunidad de renovación</Text>
+        <View style={estilos.filaOportunidad}>
+          <Icono nombre="renovacion" tamano={15} color={color.quorumTinta} />
+          <Text style={estilos.oportunidad}>Oportunidad de renovación</Text>
+        </View>
       )}
 
       <View style={estilos.tabla}>
@@ -326,7 +336,14 @@ const estilos = StyleSheet.create({
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
     paddingHorizontal: espacio.md, paddingTop: espacio.md, gap: espacio.sm,
   },
+  tituloConIcono: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.sm, flexShrink: 1,
+  },
   tituloGrupo: { ...tipografia.subtitulo, color: color.texto, flexShrink: 1 },
+  filaOportunidad: {
+    flexDirection: 'row', alignItems: 'center', gap: espacio.xs,
+    paddingHorizontal: espacio.md, paddingTop: espacio.xs,
+  },
   puntaje: {
     fontSize: 20, fontWeight: '700', color: color.texto, fontVariant: ['tabular-nums'],
   },
@@ -338,10 +355,7 @@ const estilos = StyleSheet.create({
     ...tipografia.pequeno, color: color.textoTenue,
     paddingHorizontal: espacio.md, paddingTop: espacio.xs, fontVariant: ['tabular-nums'],
   },
-  oportunidad: {
-    ...tipografia.etiqueta, color: color.quorum,
-    paddingHorizontal: espacio.md, paddingTop: espacio.xs,
-  },
+  oportunidad: { ...tipografia.etiqueta, color: color.quorumTinta },
   tabla: { marginTop: espacio.md },
   notaCohortes: {
     ...tipografia.pequeno, color: color.textoTenue,
