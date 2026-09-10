@@ -156,12 +156,55 @@ export async function cargarASR(modelSrc: ModeloASR): Promise<string> {
   return cacheASR;
 }
 
+/**
+ * Prompt inicial de whisper. El SDK no expone parámetro de idioma (solo
+ * `modelId`, `prompt`, `metadata` y `audioChunk`), y sin ninguna pista whisper
+ * AUTODETECTA: medido en el teléfono, con audio flojo eligió inglés y devolvió
+ * una frase en inglés repetida quince veces sobre una grabación en silencio.
+ *
+ * El prompt ancla el idioma en castellano y mete el vocabulario del dominio,
+ * que es lo que un modelo tiny no conoce: las siglas de modalidad y las marcas
+ * del vocabulario ficticio.
+ */
+const PROMPT_ASR =
+  'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
+  'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
+  'Marcas: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.';
+
+/**
+ * Whisper ALUCINA con audio sin voz: devuelve una frase corta repetida muchas
+ * veces. Es un modo de falla conocido del modelo, no algo que el prompt
+ * arregle. Medido en el Pixel: «You remind me of the one who is on the other
+ * side.» quince veces seguidas sobre silencio.
+ *
+ * La detección va en el CÓDIGO y es determinista — mismo criterio que el resto
+ * del proyecto. Si una misma frase ocupa la mayor parte de la salida, no es
+ * una transcripción: meterle a la persona quince frases inventadas en una nota
+ * que después va a confirmar como propia es peor que no transcribir nada.
+ *
+ * Idéntica a la de `apps/mobile/src/pipeline/dictar.ts`, a propósito: el mismo
+ * modelo falla igual en las dos plataformas.
+ */
+function pareceAlucinacion(texto: string): boolean {
+  const frases = texto.split(/[.!?]+/)
+    .map((f) => f.trim().toLowerCase())
+    .filter((f) => f.length > 8);
+  if (frases.length < 4) return false;
+  const cuenta = new Map<string, number>();
+  for (const f of frases) cuenta.set(f, (cuenta.get(f) ?? 0) + 1);
+  const masRepetida = Math.max(...cuenta.values());
+  return masRepetida >= 4 && masRepetida / frases.length >= 0.6;
+}
+
 export async function transcribirLocal(audioPath: string, modelSrc: ModeloASR): Promise<string> {
   const modelId = await cargarASR(modelSrc);
   // El campo es `audioChunk` (string ruta o Buffer), no `audio` — y sin
   // `metadata:true` el overload resuelve directo a `Promise<string>`, sin
   // envoltorio `{ text }` que castear.
-  return await transcribe({ modelId, audioChunk: audioPath });
+  const crudo = String(await transcribe({ modelId, audioChunk: audioPath, prompt: PROMPT_ASR }) ?? '').trim();
+  // Se devuelve vacío en vez de la alucinación: la UI ya trata el texto vacío
+  // como «la transcripción vino vacía», que es exactamente lo que pasó.
+  return pareceAlucinacion(crudo) ? '' : crudo;
 }
 
 /** Completion con presupuesto. Devuelve tool calls SIN ejecutarlas:

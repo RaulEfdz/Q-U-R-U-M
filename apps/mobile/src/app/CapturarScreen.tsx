@@ -47,7 +47,15 @@ export default function CapturarScreen() {
         await grabadora.stop();
         const uri = grabadora.uri;
         if (!uri) throw new Error('la grabación no dejó archivo de audio');
-        const { texto } = await transcribirLocal(uri);
+        const { texto, descartadaPorAlucinacion } = await transcribirLocal(uri);
+        if (descartadaPorAlucinacion) {
+          // Whisper devolvió una frase repetida — su modo de falla típico con
+          // audio sin voz. Se descarta en `dictar.ts` y acá se dice por qué:
+          // meter quince frases inventadas en una nota que la persona va a
+          // confirmar como propia es peor que no transcribir nada.
+          setError('No se escuchó voz en la grabación. Acercá el micrófono y probá de nuevo, o escribí la nota.');
+          return;
+        }
         if (!texto) {
           setError('No se entendió nada en el audio. Probá de nuevo, o escribilo.');
           return;

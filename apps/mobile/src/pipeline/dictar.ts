@@ -79,11 +79,48 @@ async function conTecho<T>(tarea: Promise<T>, ms: number, mensaje: string): Prom
   }
 }
 
+/**
+ * Prompt inicial de whisper. El SDK no expone un parámetro de idioma (solo
+ * `modelId`, `prompt`, `metadata` y `audioChunk`), y sin ninguna pista whisper
+ * AUTODETECTA — con audio corto o flojo eligió inglés y devolvió una frase en
+ * inglés repetida quince veces sobre una grabación en silencio.
+ *
+ * El prompt hace dos cosas a la vez: ancla el idioma en castellano y le mete
+ * el vocabulario del dominio, que es justo lo que un modelo tiny no conoce
+ * (las siglas de modalidad y las marcas del vocabulario ficticio).
+ */
+const PROMPT_ASR =
+  'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
+  'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
+  'Marcas: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.';
+
+/**
+ * Whisper ALUCINA con audio sin voz: devuelve una frase corta repetida muchas
+ * veces (medido: «You remind me of the one who is on the other side.» quince
+ * veces seguidas sobre una grabación en silencio). Es un modo de falla
+ * conocido del modelo, no algo que el prompt arregle.
+ *
+ * La detección es determinista y va en el CÓDIGO, no en el modelo: si una
+ * misma frase ocupa la mayor parte de la salida, no es una transcripción. Mejor
+ * decirle a la persona que no se entendió que meterle quince frases inventadas
+ * en una nota que después va a confirmar como propia.
+ */
+function pareceAlucinacion(texto: string): boolean {
+  const frases = texto.split(/[.!?]+/).map((f) => f.trim().toLowerCase()).filter((f) => f.length > 8);
+  if (frases.length < 4) return false;
+  const cuenta = new Map<string, number>();
+  for (const f of frases) cuenta.set(f, (cuenta.get(f) ?? 0) + 1);
+  const masRepetida = Math.max(...cuenta.values());
+  return masRepetida >= 4 && masRepetida / frases.length >= 0.6;
+}
+
 /** Lo que el modelo devolvió, más de dónde salió. */
 export interface Transcripcion {
   texto: string;
   /** Duración de la transcripción en ms, para el chip de ruta de inferencia. */
   tardoMs: number;
+  /** `true` si se descartó la salida por parecer alucinación de whisper. */
+  descartadaPorAlucinacion: boolean;
 }
 
 /**
@@ -115,8 +152,16 @@ export async function transcribirLocal(
         // `expo-audio` viene como `file:///...`; el SDK espera una ruta del
         // sistema, así que se le quita el esquema.
         const ruta = uriAudio.startsWith('file://') ? uriAudio.slice('file://'.length) : uriAudio;
-        const texto = await transcribe({ modelId, audioChunk: ruta });
-        return { texto: String(texto ?? '').trim(), tardoMs: Date.now() - arranque };
+        // `prompt` ancla el idioma y el vocabulario: sin ninguna pista whisper
+        // autodetecta, y con audio flojo eligió inglés.
+        const crudo = String(
+          await transcribe({ modelId, audioChunk: ruta, prompt: PROMPT_ASR }) ?? '').trim();
+        const alucinada = pareceAlucinacion(crudo);
+        return {
+          texto: alucinada ? '' : crudo,
+          tardoMs: Date.now() - arranque,
+          descartadaPorAlucinacion: alucinada,
+        };
       })(),
       timeoutMs,
       'La transcripción tardó demasiado y se canceló. Probá de nuevo, o escribí la nota a mano — no se perdió lo que ya tenías.',
