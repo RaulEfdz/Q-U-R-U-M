@@ -14,7 +14,27 @@ import { zObservacion, type Observacion } from '../core/contracts.ts';
 const DIR = 'data';
 const RUTA = `${DIR}/observaciones.jsonl`;
 let memoria: Observacion[] | null = null;
-let lineasCorruptas: number[] = [];
+
+/**
+ * Última MEDICIÓN de líneas corruptas, con su procedencia.
+ *
+ * Por qué no es solo un array: `cargar()` cachea en `memoria` y solo parsea el
+ * archivo la primera vez —eso es deliberado, es lo que evita releer el JSONL
+ * en cada request—, mientras `verificarArchivo()` sí relee del disco. El
+ * endpoint `/api/auditoria` devuelve las dos cosas juntas, así que devolvía un
+ * conteo del arranque al lado de una verificación del instante, y se
+ * contradecían sin que nada dijera por qué.
+ *
+ * Un número de auditoría sin su momento de medición no es un dato, es una
+ * trampa. Así que la medición viaja con `medidoEn` y `origen`, y
+ * `verificarArchivo()` —que de verdad relee el archivo— la refresca. La
+ * semántica de caché de `cargar()` no se toca.
+ */
+let medicion: {
+  lineas: number[];
+  medidoEn: string | null;
+  origen: 'cargar' | 'verificarArchivo' | null;
+} = { lineas: [], medidoEn: null, origen: null };
 
 /**
  * Carga TOLERANTE. Filtra línea por línea: la que no parsea o no matchea
@@ -42,19 +62,31 @@ export async function cargar(): Promise<Observacion[]> {
     /* primer arranque: RUTA todavía no existe */
   }
   memoria = validas;
-  lineasCorruptas = descartadas;
+  medicion = { lineas: descartadas, medidoEn: new Date().toISOString(), origen: 'cargar' };
   return memoria;
 }
 
 /**
- * Líneas (1-index, del archivo en la última `cargar()`) que se descartaron
- * por no matchear `zObservacion`. Vacío si no hubo corrupción o si `cargar()`
- * todavía no corrió. Existe para que un endpoint/UI de auditoría pueda avisar
- * "se descartaron N líneas dañadas" — la corrección #9 exige que la pérdida
- * no sea invisible, no solo que no sea total.
+ * Líneas (1-index) que se descartaron por no matchear `zObservacion`, TAL
+ * COMO SE MIDIERON la última vez que alguien leyó el archivo de disco — sea
+ * `cargar()` en el arranque o `verificarArchivo()` recién.
+ *
+ * Existe para que un endpoint/UI de auditoría pueda avisar "se descartaron N
+ * líneas dañadas": la corrección #9 exige que la pérdida no sea invisible, no
+ * solo que no sea total. `medidoEn`/`origen` son parte de la respuesta y no un
+ * detalle: quien lee esto tiene que poder saber si está viendo el estado de
+ * ahora o el del arranque, porque `cargar()` cachea a propósito y entre las
+ * dos cosas puede haber horas de diferencia.
+ *
+ * `medidoEn: null` significa que nadie leyó el archivo todavía en este
+ * proceso — que NO es lo mismo que "no hay líneas corruptas".
  */
-export function lineasDescartadas(): readonly number[] {
-  return lineasCorruptas;
+export function lineasDescartadas(): {
+  lineas: readonly number[];
+  medidoEn: string | null;
+  origen: 'cargar' | 'verificarArchivo' | null;
+} {
+  return { lineas: medicion.lineas, medidoEn: medicion.medidoEn, origen: medicion.origen };
 }
 
 /**
@@ -91,12 +123,22 @@ export async function agregar(obs: Observacion[]): Promise<number> {
  * que no matchea `zObservacion`, sin descartar nada en silencio. Pensada
  * para un botón de auditoría/diagnóstico, no para el arranque — `cargar()`
  * ya resuelve eso de forma tolerante.
+ *
+ * Además REFRESCA la medición que devuelve `lineasDescartadas()`: es el único
+ * punto del módulo que relee el archivo después del arranque, así que es el
+ * único que puede hacerlo. Sin esto, `/api/auditoria` —que llama a las dos—
+ * devolvía una verificación del instante junto a un conteo del arranque, y se
+ * contradecían. No toca `memoria`: la caché de `cargar()` sigue siendo la
+ * misma, esto solo actualiza el dato de auditoría.
  */
 export async function verificarArchivo(): Promise<{ ok: boolean; total: number; corruptas: number[] }> {
   let contenido: string;
   try {
     contenido = await readFile(RUTA, 'utf8');
   } catch {
+    // Archivo inexistente (primer arranque) es un resultado VÁLIDO y medido:
+    // cero líneas, cero corruptas. Se registra como tal.
+    medicion = { lineas: [], medidoEn: new Date().toISOString(), origen: 'verificarArchivo' };
     return { ok: true, total: 0, corruptas: [] };
   }
   const lineas = contenido.trim().split('\n').filter(Boolean);
@@ -108,5 +150,8 @@ export async function verificarArchivo(): Promise<{ ok: boolean; total: number; 
       corruptas.push(i + 1);
     }
   });
+  medicion = {
+    lineas: [...corruptas], medidoEn: new Date().toISOString(), origen: 'verificarArchivo',
+  };
   return { ok: corruptas.length === 0, total: lineas.length, corruptas };
 }

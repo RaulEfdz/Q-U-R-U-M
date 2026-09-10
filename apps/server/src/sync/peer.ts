@@ -22,6 +22,80 @@ import { registrarAuditoria } from '../store/audit.ts';
 
 const TOPIC = createHash('sha256').update('quorum/base-instalada/v1').digest();
 
+/**
+ * Tope de bytes de UNA línea acumulada (hallazgo A-8).
+ *
+ * `buffer += chunk.toString('utf8')` sin límite: un peer de la allowlist —o
+ * uno cuya máquina fue comprometida, que es el caso realista— que abre el
+ * socket y escribe sin mandar nunca un `\n` hace crecer ese string hasta
+ * comerse la RAM del proceso. Todo el resto de este transporte es fail-closed
+ * (allowlist explícita, `zObservacion` estricto, re-marcado `origen: 'peer'`);
+ * esto era el único punto que fallaba abierto, y encima sin ruido.
+ *
+ * ¿Por qué 16 MB y no 64 KB? Porque `enviarPropias()` manda el dataset ENTERO
+ * en UNA sola línea JSON. Una observación serializada ronda los 700-900 bytes
+ * (cliente, lote, evidencia, `textoOriginal` completo, provenance), así que
+ * 16 MB dan margen para ~20.000 testimonios en un solo mensaje — dos órdenes
+ * de magnitud por encima de cualquier cosa que este producto vea en campo,
+ * mientras sigue siendo un techo que una máquina de demo absorbe sin sudar. Un
+ * tope de kilobytes rompería el sync legítimo el día que la base crezca, que
+ * es el peor momento para descubrirlo.
+ *
+ * Si se cambia este número, cambiarlo también en `apps/mobile`: el formato de
+ * la línea es el mismo a los dos lados del socket.
+ */
+export const MAX_BYTES_LINEA = 16 * 1024 * 1024;
+
+/**
+ * Acumulador de líneas con techo, extraído de la callback de `data`.
+ *
+ * Vive como función aparte y exportada por una razón concreta: es la única
+ * pieza de este módulo que se puede testear sin levantar un swarm ni tocar la
+ * red. La lógica de "cuándo descarto y destruyo" no puede quedar sepultada
+ * dentro de un handler que solo corre con dos peers reales conectados.
+ *
+ * `excedido: true` es terminal para la conexión: el llamador destruye el
+ * socket. No se intenta resincronizar buscando el próximo `\n` — un peer que
+ * mandó 16 MB sin delimitador no está teniendo un problema de red, está
+ * mandando otra cosa, y seguir leyéndolo es seguirle el juego.
+ */
+export interface AcumuladorLineas {
+  /** Bytes pendientes en la línea incompleta actual (para auditoría). */
+  pendientes(): number;
+  alRecibir(chunk: Buffer): { lineas: string[]; excedido: boolean };
+}
+
+export function crearAcumuladorLineas(maxBytes: number = MAX_BYTES_LINEA): AcumuladorLineas {
+  let buffer = '';
+  // Se cuentan BYTES, no caracteres: el tope es de memoria, y en UTF-8 un
+  // carácter puede ocupar hasta 4. Contar `buffer.length` dejaría pasar 4x.
+  // Se acumula desde los chunks (que ya son bytes) y solo se recalcula sobre
+  // el resto cuando una línea se completó, para no hacer un `byteLength` del
+  // buffer entero en cada chunk.
+  let bytes = 0;
+
+  return {
+    pendientes: () => bytes,
+    alRecibir(chunk: Buffer) {
+      bytes += chunk.length;
+
+      if (bytes > maxBytes) {
+        // Se descarta el buffer ANTES de devolver: si el llamador tardara en
+        // destruir el socket, la memoria ya está liberada.
+        buffer = '';
+        bytes = 0;
+        return { lineas: [], excedido: true };
+      }
+
+      buffer += chunk.toString('utf8');
+      const lineas = buffer.split('\n');
+      buffer = lineas.pop() ?? '';
+      if (lineas.length) bytes = Buffer.byteLength(buffer, 'utf8');
+      return { lineas, excedido: false };
+    },
+  };
+}
+
 export interface SyncHandle {
   destruir(): Promise<void>;
   pares(): number;
@@ -62,11 +136,26 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
 
     void enviarPropias(socket);
 
-    let buffer = '';
+    const acumulador = crearAcumuladorLineas();
     socket.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString('utf8');
-      const lineas = buffer.split('\n');
-      buffer = lineas.pop() ?? '';
+      const { lineas, excedido } = acumulador.alRecibir(chunk);
+
+      // Hallazgo A-8: un peer que nunca manda `\n` no puede hacer crecer la
+      // memoria del proceso sin límite. Se audita con la clave RECORTADA, el
+      // mismo criterio que el resto de este módulo — la clave completa
+      // identifica un dispositivo y no hace falta para investigar el hecho.
+      if (excedido) {
+        void registrarAuditoria({
+          traceId: 'sync', accion: 'sync:linea-excedida',
+          detalle: {
+            clave: clave.slice(0, 16), maxBytes: MAX_BYTES_LINEA,
+            razon: 'línea sin delimitador por encima del tope',
+          },
+        });
+        socket.destroy();
+        return;
+      }
+
       void procesarLineas(lineas, clave, opts.onCambio);
     });
 
