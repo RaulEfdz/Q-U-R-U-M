@@ -1,6 +1,6 @@
 # QUÓRUM · server (app central)
 
-> **v0.2.0 · 2026-09-10** — corregido tras la auditoría. Ver `../../docs/AUDITORIA.md` para los hallazgos y `../../README.md` para el historial de versiones.
+> **v0.4.0 · 2026-09-10** — las dos apps corren en su plataforma real. Ver `../../docs/AUDITORIA.md` para los hallazgos y `../../README.md` para el historial de versiones.
 
 Node ≥22.17, TypeScript sin build step (`--experimental-strip-types`), 3 dependencias totales: `@qvac/sdk` (usar **0.18.2**, no la 0.17.1 del doc), `hyperswarm`, `zod`. Ver monorepo raíz `../../CLAUDE.md` para restricciones duras (sin nube, sin Vercel). Diagrama y decisiones: `ARCHITECTURE.md`. Trazabilidad y auditoría: `TRAZABILIDAD.md`. Reparto de trabajo entre agentes: `ORQUESTACION.md`.
 

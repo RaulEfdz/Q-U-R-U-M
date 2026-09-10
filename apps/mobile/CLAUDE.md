@@ -1,6 +1,6 @@
 # QUÓRUM · mobile (app celular · Android)
 
-> **v0.2.0 · 2026-09-10** — corregido tras la auditoría. Ver `README.md` de esta carpeta para el historial de cambios y `../../docs/AUDITORIA.md` para los hallazgos completos.
+> **v0.4.0 · 2026-09-10** — las dos apps corren en su plataforma real. Ver `README.md` de esta carpeta para el historial de cambios y `../../docs/AUDITORIA.md` para los hallazgos completos.
 
 Fuente: `../../docs/QUORUM_pipeline_android.md` (Anexo D del doc maestro). Diseño y diagrama: `ARCHITECTURE.md`. Auditoría por nota: `TRAZABILIDAD.md`.
 

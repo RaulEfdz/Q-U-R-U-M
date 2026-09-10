@@ -14,11 +14,13 @@ Requisito duro: inferencia on-device o delegada P2P con QVAC. **Nube prohibida e
 
 | Componente | Versión | Fecha |
 |---|---|---|
-| Monorepo | **v0.3.0** | 2026-09-10 |
-| `apps/server` | v0.3.0 | 2026-09-10 |
-| `apps/mobile` | v0.3.0 | 2026-09-10 |
+| Monorepo | **v0.4.0** | 2026-09-10 |
+| `apps/server` | v0.4.0 | 2026-09-10 |
+| `apps/mobile` | v0.4.0 | 2026-09-10 |
 
-Estado: **primer código**. Núcleo compartido escrito y congelado (contratos + motor de quórum), `apps/mobile` con proyecto Expo inicializado y pool de modelos QVAC. Bitácora de avance en `BITACORA.md`, validación de reglas duras en `VALIDACION.md`.
+Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las nueve rutas de la API y las cuatro pantallas de escritorio en 127.0.0.1; `apps/mobile` arranca en un Pixel 7 con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`.
+
+**Lo que todavía no funciona:** el extractor entiende la nota pero no emite el tool call — Qwen3 arranca en modo *thinking* y gasta el presupuesto de tokens razonando en prosa. Está diagnosticado y en curso; ver `CONTINUAR.md`.
 
 Esquema de versionado: `MAJOR.MINOR.PATCH`. Mientras no exista código, `MINOR` sube con cada revisión de diseño que cambia decisiones; `PATCH` con correcciones puntuales de documentación. La versión de cada app vive en la cabecera de su `CLAUDE.md`.
 
@@ -43,6 +45,39 @@ Cada carpeta tiene `CLAUDE.md` (reglas), `ARCHITECTURE.md` (diseño y diagrama),
 ---
 
 ## Historial de cambios
+
+### v0.4.0 — 2026-09-10
+
+Las dos apps pasan de "compila" a "corre en su plataforma real". Fases 8 y 9 del server, Cliente 360 en mobile, cumplimiento automatizado, y una pasada de diseño sobre las dos superficies. Cinco bugs bloqueantes encontrados por ejecutar, no por leer.
+
+**Añadido — `apps/server`**
+- `src/index.ts` (Fase 8) — servidor HTTP local con las nueve rutas de la API, cero dependencias nuevas. Escucha en `127.0.0.1` hardcodeado y deliberadamente no leído de env. `/api/observar` produce solo un borrador; `/api/confirmar` es el único punto que escribe.
+- `ui/` (Fase 9) — las cuatro pantallas de escritorio: Capturar, Cliente 360, Panorama y Auditoría. `index.html` + `style.css` + seis módulos ES nativos. Sin framework, sin build, cero dependencias y ningún recurso externo.
+- `scripts/verify-no-cloud.sh` — los siete controles de cumplimiento, **7/7 en verde**. Se corre en vivo durante el video.
+- `data/seed.json` — 23 observaciones (las 20 del workbook más los tres testimonios diseñados), que producen los cuatro estados de quórum.
+
+**Añadido — `apps/mobile`**
+- Pantalla **Cliente 360** con la vista de reconciliación, verificada en un Pixel 7: confianza por campo, `Sin quórum` con todas las versiones y quién sostiene cada una, cohortes de edad, y frescura como eje separado.
+- Navegación de dos pestañas y barra de marca con los insets reales del dispositivo.
+- `dev/sembrar-demo.ts` — escenario de demo para ver la pantalla con datos sin depender del pipeline.
+
+**Corregido — bloqueantes que el typecheck no podía ver**
+- **La app móvil no arrancaba.** Cuatro archivos importaban `node:crypto`, que no existe en React Native. La aleatoriedad pasa a Web Crypto resuelto en runtime (con polyfill de `expo-crypto` en el entrypoint) y los hashes a `@noble/hashes`, verificado idéntico al SHA-256 de `node:crypto`.
+- **El server no arrancaba.** `core/errors.ts` usaba *parameter properties*, sintaxis que `--experimental-strip-types` rechaza.
+- **Los modelos se pasaban como string** en vez de los objetos descriptores del SDK, así que `loadModel` buscaba un `modelId` inexistente. Afectaba al extractor y a whisper.
+- **Path traversal en el server de estáticos**: `GET /../../../etc/passwd` servía cualquier archivo del disco. No estaba en la lista de bugs conocidos del doc.
+- **`seed.json` no se versionaba** (`data/` entero estaba en `.gitignore`), así que un `git clone` en máquina virgen arrancaba sin los escenarios de demo.
+- **`verify-no-cloud.sh` no verificaba nada.** Además del bug #2 documentado, los controles 2 y 3 tenían el mismo defecto de automatcheo, y una carpeta ausente hacía pasar un control sin mirar: `grep -r` sobre un directorio inexistente devuelve 2, y bajo `if grep` eso se lee igual que "no hubo match".
+
+**Corregido — diseño y accesibilidad**
+- **La rampa de confianza de §II.20 fallaba WCAG AA usada como texto**: `reportado` daba 2.76:1 y es el estado más frecuente; `sinDatos` 2.85:1. Se derivó una tinta por estado — mismo hue y croma en OKLCH, solo menos luminosidad — dejando el color original para glifo y borde. La rampa no cambió.
+- La **frescura** se pintaba con el color de `Reportado` en mobile: cruzaba los dos ejes de confianza, que es el error de diseño que el propio proyecto marca como el más fácil de cometer.
+- **Iconografía propia**: 15 iconos dibujados a medida como sprite SVG inline. Cero peticiones y ninguna librería. Los cinco glifos de estado siguen tipográficos a propósito.
+- Cliente 360 de escritorio **agrupa por cliente** en vez de repetir su nombre en cada tarjeta.
+- **Auditoría se rompía con un solo registro**: un error del SDK con 17.603 caracteres empujaba los otros 49 fuera de la vista.
+
+**Añadido — documentación**
+- `PRODUCT.md` — registro de producto: usuarios, posicionamiento, restricciones duras, y qué evidencia existe y cuál no (las métricas del pitch son hipótesis; no hay corrida sobre las 300 notas ciegas).
 
 ### v0.3.0 — 2026-09-10
 

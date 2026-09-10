@@ -1,6 +1,6 @@
 # QUÓRUM
 
-> **v0.2.0 · 2026-09-10** — corregido tras la auditoría. Historial: `README.md`. Hallazgos: `docs/AUDITORIA.md`.
+> **v0.4.0 · 2026-09-10** — las dos apps corren en su plataforma real. Historial: `README.md`. Hallazgos: `docs/AUDITORIA.md`.
 
 Monorepo. Reto: Customer Installed Base Intelligence (Philips) · Decentralized AI Hackathon · ISD Summit Panamá.
 Doc fuente completo: `docs/QUORUM_documento_unico.md` (leer ahí antes de tocar reglas de negocio — este archivo es resumen operativo).
