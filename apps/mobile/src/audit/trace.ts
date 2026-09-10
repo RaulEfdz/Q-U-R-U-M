@@ -127,8 +127,8 @@ const ARCHIVO = new File(Paths.document, 'audit-pipeline.jsonl');
  *  filtra pero no desaparece sin dejar rastro. */
 const ARCHIVO_CORRUPTAS = new File(Paths.document, 'audit-pipeline.corruptas.jsonl');
 
-let memoria: RegistroPipeline[] | null = null;
-let cargando: Promise<RegistroPipeline[]> | null = null;
+let memoria: EventoAuditoria[] | null = null;
+let cargando: Promise<EventoAuditoria[]> | null = null;
 
 export interface DiagnosticoCarga {
   validos: number;

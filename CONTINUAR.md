@@ -1,6 +1,6 @@
 # Para retomar — QUÓRUM
 
-> Escrito 2026-09-10 ~03:00. Último commit pusheado: `714109b`.
+> Escrito 2026-09-10 ~03:00. Último commit pusheado: `0ff9c57`.
 > Estado detallado de cada decisión: `BITACORA.md`. Reglas: `CLAUDE.md` de cada app.
 
 ## Arrancá por acá (5 minutos)
@@ -27,7 +27,7 @@ done
 
 - **El modelo corre on-device en el Pixel 7.** Qwen3.5 0.8B (533 MB) descarga, carga y responde. Cero inferencia en la nube. Este era el gate del proyecto.
 - Núcleo compartido completo y congelado: contratos, motor de quórum (RD-0..RD-7), puntaje, policy, spotlighting, export CSV.
-- `apps/mobile`: pipeline completo (precheck → portero → extractor → verificador → cruzar), pool de modelos, store.
+- `apps/mobile`: pipeline completo (precheck → portero → extractor → verificador → cruzar), pool de modelos, store, y las pantallas Capturar + confirmación editable del borrador.
 - `apps/server`: Fases 1-7 (contratos, trust, QVAC, policy+PEP, tools, store, sync).
 - 31 tests, todos verdes.
 
@@ -35,7 +35,8 @@ done
 
 | Qué | Dónde | Notas |
 |---|---|---|
-| **UI móvil** | `apps/mobile/src/app/` | Lo más importante. Es lo que ve el jurado. Había un agente arrancándola: dejó `theme.ts` e `identidad.ts`, faltan las pantallas Capturar y Cliente 360. |
+| **Cliente 360** | `apps/mobile/src/app/` | Lo más importante que queda de UI. La vista de reconciliación: los dos ejes de confianza, y `Sin quórum` mostrando ambas versiones con quién dijo cada una, nunca un promedio. |
+| Probar la UI en el teléfono | — | `CapturarScreen` y `ConfirmacionBorrador` compilan pero **nunca se vieron corriendo en el Pixel**. Primera tarea: levantarla y sacar screenshots. |
 | **Audio** | `apps/mobile` | Fase 10. `expo-audio`, NUNCA `expo-av` (removido en SDK 54). |
 | `server/index.ts` | `apps/server` | Fase 8, la última grande del server. |
 | UI escritorio | `apps/server/ui/` | Fase 9 del server. |
