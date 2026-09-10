@@ -1,4 +1,11 @@
 node_modules/
-data/
+# `data/` guarda estado de runtime (audit.jsonl, observaciones.jsonl): no se
+# versiona. `seed.json` es la EXCEPCION — son los tres escenarios de demo, es
+# codigo fuente, y sin el un `git clone` en maquina virgen arranca sin datos
+# (el checklist de entrega §IV.6 exige que ese clone funcione siguiendo solo
+# el README). Se ignora el CONTENIDO y no el directorio: una excepcion dentro
+# de un directorio ya ignorado no la aplica git.
+data/*
+!data/seed.json
 *.tsbuildinfo
 .DS_Store
