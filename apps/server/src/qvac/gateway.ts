@@ -174,8 +174,14 @@ export async function completar(params: {
   const run = completion({
     modelId: params.modelId, history: params.history, stream: false,
     ...(params.tools ? { tools: params.tools } : {}),
-    // temp 0 + seed fijo = reproducibilidad de la demo
-    generationParams: { temp: 0, seed: 42, predict: params.maxTokens ?? 512 },
+    // temp 0 + seed fijo = reproducibilidad de la demo.
+    // `reasoning_budget: 0`: Qwen3 (portero y extractor) arranca en modo
+    // *thinking* y quema el presupuesto de `predict` razonando en prosa sin
+    // emitir el tool call — `toolCalls: []`, y el extractor devuelve vacío con
+    // todo el pipeline corriendo bien (CONTINUAR.md §El extractor). El schema
+    // de `generationParams` es `$strict`: solo temp/top_p/top_k/predict/seed/
+    // penalties/reasoning_budget/remove_thinking_from_context.
+    generationParams: { temp: 0, seed: 42, predict: params.maxTokens ?? 512, reasoning_budget: 0 },
   });
   // CompletionFinal.contentText / .toolCalls son campos requeridos del SDK
   // (no hace falta castear ni parentizar mal el `await` como en el doc maestro).

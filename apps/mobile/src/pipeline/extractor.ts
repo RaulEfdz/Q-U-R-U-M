@@ -6,6 +6,7 @@ import { obtener, MODELOS } from '../qvac/pool.ts';
 import { nuevoId } from '../core/ids.ts';
 import { zObservacion, zRangoEdad, type Observacion } from '../core/contracts.ts';
 import { normalizarModalidad, detectarHedging, inferirNaturaleza } from '../trust/normalize.ts';
+import { diagModelo } from './_diag.ts';
 
 /* ═══════════════════════════════════════════════════════════════════════
  * Forma que devuelve el MODELO (validada con zExtraccion, nuestro zod).
@@ -259,12 +260,31 @@ export async function extraer(
     const run = completion({
       modelId,
       history: [
-        { role: 'system', content: SISTEMA },
+        // `/no_think`: switch suave entrenado de Qwen3 (el tag exacto). Hace
+        // que NO emita bloque `<think>…</think>`. Va junto a
+        // `reasoning_budget: 0` de abajo — dos mecanismos independientes (uno
+        // a nivel plantilla, el otro a nivel addon Bare); la fuente ya se
+        // quemó una vez con Qwen3 razonando en vez de llamar la tool.
+        { role: 'system', content: `${SISTEMA}\n\n/no_think` },
         { role: 'user', content: nota },
       ],
       stream: false,
       tools: [TOOL_EXTRACTOR],
-      generationParams: { temp: 0, seed: 42, predict: 80 },
+      // `reasoning_budget: 0`: sin esto Qwen3 1.7B arranca en modo *thinking*,
+      // razona en prosa (`<think>\nOkay, let me try to figure out…`) y NUNCA
+      // emite el tool call → `toolCalls: []` y `extraer()` devuelve `[]` con el
+      // pipeline entero corriendo bien: era EL bloqueante del proyecto.
+      // Doc del schema: `0` desactiva el canal de razonamiento por request.
+      //
+      // `predict: 512` (no 80): el 80 era copy-paste del portero, que devuelve
+      // `{hayEquipo, motivo}` y le sobra. El extractor emite un tool call con
+      // cliente + N lotes, cada uno con su cita `evidencia` literal — 80 tokens
+      // no alcanzan ni para un lote, el JSON se corta a la mitad y `safeParse`
+      // tira TODO. 512 iguala el default del server (`gateway.ts`). `ctx_size`
+      // del extractor es 2048, así que entra con el prompt.
+      // El schema de `generationParams` es `$strict` — verificado contra
+      // node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts.
+      generationParams: { temp: 0, seed: 42, predict: 512, reasoning_budget: 0 },
     });
     final = await run.final;
   } catch {
@@ -277,6 +297,7 @@ export async function extraer(
 
   const call = final.toolCalls?.find((c) => c.name === 'extraer');
   const p = zExtraccion.safeParse(call?.arguments);
+  diagModelo('extractor', final, !p.success);
   if (!p.success) return [];
 
   return aObservaciones(p.data, nota, ctx);

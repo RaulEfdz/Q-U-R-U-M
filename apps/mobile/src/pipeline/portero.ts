@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { completion, type CompletionFinal, type Tool } from '@qvac/sdk';
 import { obtener } from '../qvac/pool.ts';
+import { diagModelo } from './_diag.ts';
 
 /**
  * Tope de `motivo` — corrección #8 (apps/mobile/CLAUDE.md).
@@ -45,15 +46,25 @@ const TOOL_PORTERO: Tool = {
 };
 
 /** Prompt corto A PROPOSITO: 0.8B con prompt largo se pierde. */
-const SISTEMA = `Decides UNA cosa: si la nota describe equipos medicos INSTALADOS
-en un hospital o clinica.
+export const SYSTEM_PORTERO = `Decides UNA cosa: si la nota dice qué equipo médico hay instalado en el hospital.
 
-hayEquipo = true  -> menciona resonadores, tomografos, ecografos, rayos X,
-                     monitores u otro equipo medico presente en el sitio.
-hayEquipo = false -> solo habla de la visita, de personas, de logistica,
-                     o no pudo entrar y no vio nada.
+Equipos: resonador o RM, tomógrafo o TAC o TC, ecógrafo o ultrasonido,
+rayos X o radiografía, monitor de paciente, angiógrafo, arco en C, hemodinamia.
 
-No extraigas datos. Solo responde con la herramienta.`;
+hayEquipo = true  -> la nota dice qué hay, porque el colaborador lo vio,
+                     lo contó o se lo dijeron.
+hayEquipo = false -> nombra un equipo pero no dice qué hay, o no habla de equipo.
+
+Vi dos resonadores en la planta baja. -> true
+La sala de resonancia estaba cerrada. -> false
+Me dijeron que tienen tres tomógrafos. -> true
+Conté 5 ecógrafos, uno en mantenimiento. -> true
+Reunión con el jefe de radiología. -> false
+Tienen un servicio de imagen muy completo. -> false
+Un arco en C nuevo, no vi la marca. -> true
+No me dejaron pasar a imagenología. -> false
+
+Si dudas, true.`;
 
 export interface Veredicto {
   hayEquipo: boolean;
@@ -96,12 +107,27 @@ export async function portero(nota: string): Promise<Veredicto> {
     const run = completion({
       modelId,
       history: [
-        { role: 'system', content: SISTEMA },
+        // `/no_think`: switch suave entrenado de Qwen3 (el tag exacto, no
+        // `/nothink`). Va en el system y hace que el modelo NO emita bloque
+        // `<think>…</think>`. Refuerza a `reasoning_budget: 0` de abajo: son
+        // dos mecanismos distintos (uno a nivel plantilla/prompt, el otro a
+        // nivel addon) y el bug de fondo — Qwen3 razonando y quemando
+        // `predict` sin emitir el tool call — ya nos costó una vez.
+        // `SISTEMA` se renombró a `SYSTEM_PORTERO`.
+        { role: 'system', content: `${SYSTEM_PORTERO}\n\n/no_think` },
         { role: 'user', content: nota },
       ],
       stream: false,
       tools: [TOOL_PORTERO],
-      generationParams: { temp: 0, seed: 42, predict: 80 },
+      // `reasoning_budget: 0`: Qwen3 arranca en modo *thinking* y gasta todo
+      // el presupuesto de `predict` razonando en prosa (`<think>…`) sin llegar
+      // a emitir el tool call — `toolCalls: []` y el fail-open de abajo lo
+      // enmascara como "portero sin respuesta valida" → hayEquipo:true siempre.
+      // Doc del schema: `0` desactiva el canal de razonamiento para este
+      // request (equivale al config de load-time pero por llamada). El schema
+      // de `generationParams` es `$strict` — verificado contra
+      // node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts.
+      generationParams: { temp: 0, seed: 42, predict: 80, reasoning_budget: 0 },
     });
     final = await run.final;
   } catch {
@@ -111,6 +137,7 @@ export async function portero(nota: string): Promise<Veredicto> {
   }
 
   const call = final.toolCalls?.find((c) => c.name === 'responder');
+  diagModelo('portero', final, !call);
   const p = zVeredicto.safeParse(truncarMotivo(call?.arguments));
 
   // Fail-open hacia el extractor: si el portero no devuelve forma valida,
