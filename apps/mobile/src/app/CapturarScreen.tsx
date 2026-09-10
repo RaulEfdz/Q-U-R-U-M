@@ -94,10 +94,10 @@ export default function CapturarScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={tipografia.titulo}>QUÓRUM</Text>
-        <Text style={estilos.tesis}>La verdad tiene quórum.</Text>
-
-        <Text style={estilos.etiqueta}>¿Qué viste?</Text>
+        {/* La marca y la tesis viven en `components/BarraSuperior.tsx`,
+            fijas arriba de las dos pantallas — acá quedarían duplicadas y
+            se irían con el scroll. */}
+        <Text style={estilos.etiquetaPrimera}>¿Qué viste?</Text>
         <TextInput
           style={estilos.textarea}
           multiline
@@ -177,8 +177,9 @@ const estilos = StyleSheet.create({
     justifyContent: 'center', padding: espacio.xl, gap: espacio.lg,
   },
   scroll: { padding: espacio.lg, gap: espacio.sm },
-  tesis: { ...tipografia.cuerpo, color: color.textoTenue, marginBottom: espacio.lg },
   etiqueta: { ...tipografia.subtitulo, marginTop: espacio.md, marginBottom: espacio.xs },
+  // La primera etiqueta no lleva margen de arriba: ya la separa la barra.
+  etiquetaPrimera: { ...tipografia.subtitulo, marginBottom: espacio.xs },
   textarea: {
     minHeight: 140, borderWidth: 1.5, borderColor: color.borde, borderRadius: radio.lg,
     padding: espacio.md, fontSize: 16, color: color.texto, backgroundColor: color.superficie,
