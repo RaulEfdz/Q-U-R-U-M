@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { z } from 'zod';
 import { completion, type CompletionFinal, type Tool } from '@qvac/sdk';
 import { obtener, MODELOS } from '../qvac/pool.ts';
@@ -148,7 +149,12 @@ export interface ContextoExtraccion {
  * de uno solo (ej. normalización distinta) rompería el enlace en silencio.
  */
 export function hashTexto(texto: string): string {
-  return createHash('sha256').update(texto, 'utf8').digest('hex');
+  // `node:crypto` no existe en React Native y rompía el bundling de Metro.
+  // `@noble/hashes` es JS puro (sin módulo nativo, sin scripts de
+  // instalación) y produce el MISMO SHA-256 hex que
+  // `createHash('sha256').update(texto,'utf8').digest('hex')`, así que los
+  // hashes ya persistidos siguen validando.
+  return bytesToHex(sha256(utf8ToBytes(texto)));
 }
 
 /**

@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { aHex, bytesAleatorios } from '../core/ids.ts';
 
 /**
  * Empaqueta contenido NO CONFIABLE (texto de peers, notas dictadas, cualquier
@@ -9,7 +9,15 @@ import { randomBytes } from 'node:crypto';
  * cuyo valor no conoce.
  */
 export function empaquetarUntrusted(bloques: Array<{ fuente: string; texto: string }>): string {
-  const marca = randomBytes(6).toString('hex');
+  // `randomBytes` de node:crypto no existe en React Native (rompía el
+  // bundling de Metro). `bytesAleatorios` resuelve Web Crypto en runtime y
+  // es criptográfico en las dos plataformas — ver `core/ids.ts`.
+  //
+  // ★ Si `aleatoriedadDebil()` fuera true, esta marca sería PREDECIBLE y la
+  // defensa de este módulo se cae: el atacante podría cerrar el delimitador.
+  // `apps/mobile/index.ts` instala el polyfill de Web Crypto antes de cargar
+  // la app precisamente para que eso no pase.
+  const marca = aHex(bytesAleatorios(6));
   const cuerpo = bloques
     .map((b) => `<dato fuente="${sanearAtributo(b.fuente)}" marca="${marca}">\n${sanear(b.texto)}\n</dato>`)
     .join('\n');

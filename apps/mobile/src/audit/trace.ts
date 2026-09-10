@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { z } from 'zod';
 import { File, Paths } from 'expo-file-system';
 import { nuevoId } from '../core/ids.ts';
@@ -158,7 +159,7 @@ async function registrarLineaCorrupta(linea: string, motivo: string): Promise<vo
  * constancia en `ARCHIVO_CORRUPTAS`, nunca se vacía el archivo completo
  * por un byte roto en una sola línea.
  */
-export async function cargar(): Promise<RegistroPipeline[]> {
+export async function cargar(): Promise<EventoAuditoria[]> {
   if (memoria) return memoria;
   if (cargando) return cargando;
 
@@ -173,7 +174,7 @@ export async function cargar(): Promise<RegistroPipeline[]> {
       lineas = []; // archivo existe pero no se pudo leer como texto — no hay líneas que filtrar
     }
 
-    const validos: RegistroPipeline[] = [];
+    const validos: EventoAuditoria[] = [];
     let corruptos = 0;
     for (const linea of lineas) {
       let json: unknown;
@@ -184,12 +185,12 @@ export async function cargar(): Promise<RegistroPipeline[]> {
         await registrarLineaCorrupta(linea, `JSON invalido: ${(e as Error).message}`);
         continue;
       }
-      const chk = zRegistroPipeline.safeParse(json);
+      const chk = zEventoAuditoria.safeParse(json);
       if (chk.success) {
         validos.push(chk.data);
       } else {
         corruptos++;
-        await registrarLineaCorrupta(linea, `no cumple RegistroPipeline: ${chk.error.message}`);
+        await registrarLineaCorrupta(linea, `no cumple EventoAuditoria: ${chk.error.message}`);
       }
     }
 
@@ -205,44 +206,48 @@ export async function cargar(): Promise<RegistroPipeline[]> {
   }
 }
 
-function calcularHash(campos: Omit<RegistroPipeline, 'hash'>): string {
-  return createHash('sha256').update(JSON.stringify(campos), 'utf8').digest('hex');
+function calcularHash(campos: Record<string, unknown>): string {
+  // Mismo cambio y mismo motivo que `hashTexto` en `pipeline/extractor.ts`:
+  // `node:crypto` no existe en React Native. SHA-256 idéntico, así que la
+  // cadena de hashes ya escrita en disco sigue verificando — que es
+  // exactamente lo que el botón "Verificar integridad" promete.
+  return bytesToHex(sha256(utf8ToBytes(JSON.stringify(campos))));
 }
 
 /**
- * Escribe un registro al log de auditoría. A DIFERENCIA de
+ * Escribe un evento al log de auditoría. A DIFERENCIA de
  * `registrarLineaCorrupta` de arriba (canal secundario, best-effort), esto
  * NO es opcional: si `ARCHIVO.write` falla, la excepción se propaga. Un
  * registro de auditoría que no se pudo escribir es un problema real —
  * "la auditoría tiene huecos justo donde más importa" (TRAZABILIDAD.md) —
  * no algo que un `catch` vacío se trague.
  */
-async function escribir(registro: RegistroPipeline): Promise<RegistroPipeline> {
-  const chk = zRegistroPipeline.safeParse(registro);
+async function escribir<T extends EventoAuditoria>(evento: T): Promise<T> {
+  const chk = zEventoAuditoria.safeParse(evento);
   if (!chk.success) {
-    throw new Error(`RegistroPipeline invalido, no se escribe: ${chk.error.message}`);
+    throw new Error(`Evento de auditoria invalido, no se escribe: ${chk.error.message}`);
   }
   if (!ARCHIVO.exists) ARCHIVO.create({ intermediates: true });
   // Append real, igual que expo-store.ts (corrección #10 aplicada por
   // simetría): un corte a mitad de escritura pierde, como mucho, ESTE
-  // registro — nunca el log de auditoría completo.
+  // evento — nunca el log de auditoría completo.
   ARCHIVO.write(JSON.stringify(chk.data) + '\n', { append: true });
 
   const actual = memoria ?? await cargar();
   memoria = [...actual, chk.data];
   ultimoDiagnostico = { ...ultimoDiagnostico, validos: memoria.length };
-  return chk.data;
+  return evento;
 }
 
-/** Último hash de la cadena (o `GENESIS_HASH` si todavía no hay registros). */
+/** Último hash de la cadena (o `GENESIS_HASH` si todavía no hay eventos). */
 async function ultimoHash(): Promise<string> {
   const actual = await cargar();
   return actual.length > 0 ? actual[actual.length - 1]!.hash : GENESIS_HASH;
 }
 
 export type DatosPipeline = Omit<
-  RegistroPipeline, 'id' | 'at' | 'notaHash' | 'hashPrev' | 'hash' | 'respuestaUsuario'
-> & { respuestaUsuario?: RespuestaUsuario | null };
+  RegistroPipeline, 'tipo' | 'id' | 'at' | 'notaHash' | 'hashPrev' | 'hash'
+>;
 
 /**
  * Registra la decisión del pipeline para UNA nota. Se llama siempre —
@@ -258,6 +263,7 @@ export async function registrarPipeline(
 ): Promise<RegistroPipeline> {
   const hashPrev = await ultimoHash();
   const base = {
+    tipo: 'decision' as const,
     id: nuevoId(),
     at: new Date().toISOString(),
     observadorId: datos.observadorId,
@@ -274,7 +280,6 @@ export async function registrarPipeline(
     resultado: datos.resultado,
     msExtractor: datos.msExtractor,
     preguntaMostrada: datos.preguntaMostrada,
-    respuestaUsuario: datos.respuestaUsuario ?? null,
     hashPrev,
   };
   const registro: RegistroPipeline = { ...base, hash: calcularHash(base) };
@@ -286,68 +291,67 @@ export async function registrarPipeline(
  * (`confirmo`/`corrigio`/`descarto`/`ignoro`) — incluyendo el caso
  * `ignoro`, que TRAZABILIDAD.md exige no perder nunca.
  *
- * Diseño: el log es de solo-anexo e inmutable (no se reescribe el
- * registro original). Esta función busca el ÚLTIMO registro con ese
- * `notaHash` y anexa un registro NUEVO, idéntico en todos los campos de
- * decisión del pipeline, con `respuestaUsuario` completado — encadenado
- * igual que cualquier otro. Correlacionar por `notaHash` reconstruye la
- * historia completa de una nota sin mutar nada.
+ * `registroId` es el `id` del `RegistroPipeline` original, NO su
+ * `notaHash` — dos notas con el mismo TEXTO (dos visitas, o el mismo
+ * colaborador repitiendo la misma frase) producen el mismo `notaHash`, y
+ * correlacionar por ahí pega la respuesta al evento equivocado de forma
+ * silenciosa e irreversible. Quien llama esta función ya tiene el
+ * registro concreto en la mano (`cruzar.ts` lo generó, o la pantalla de
+ * confirmación lo está mostrando) — pásalo por su `id`.
+ *
+ * Diseño: el log es de solo-anexo e inmutable, así que esto NO reescribe
+ * el registro original. Anexa un `RegistroRespuestaUsuario` NUEVO —un
+ * evento de otro tipo, que referencia al original por `refId` y lleva
+ * SOLO la respuesta, sin duplicar los campos de decisión (si un bug
+ * futuro los hiciera divergir, no habría forma de saber cuál registro
+ * vale) — encadenado igual que cualquier otro evento.
  */
 export async function registrarRespuestaUsuario(
-  notaHash: string, respuesta: RespuestaUsuario,
-): Promise<RegistroPipeline> {
+  registroId: string, respuesta: RespuestaUsuario,
+): Promise<RegistroRespuestaUsuario> {
   const actual = await cargar();
-  const previo = [...actual].reverse().find((r) => r.notaHash === notaHash);
+  const previo = actual.find(
+    (e): e is RegistroPipeline => e.tipo === 'decision' && e.id === registroId,
+  );
   if (!previo) {
     throw new Error(
-      `No hay registro de pipeline para notaHash=${notaHash}; no se puede registrar la respuesta del usuario sin la traza original.`,
+      `No hay RegistroPipeline con id=${registroId}; no se puede registrar la respuesta del usuario sin la traza original.`,
     );
   }
 
   const hashPrev = await ultimoHash();
   const base = {
+    tipo: 'respuesta-usuario' as const,
     id: nuevoId(),
     at: new Date().toISOString(),
-    observadorId: previo.observadorId,
-    dispositivoId: previo.dispositivoId,
+    refId: previo.id,
     notaHash: previo.notaHash,
-    hayIndicios: previo.hayIndicios,
-    porteroDijo: previo.porteroDijo,
-    porteroMotivo: previo.porteroMotivo,
-    msPortero: previo.msPortero,
-    atajo: previo.atajo,
-    lotesPropuestos: previo.lotesPropuestos,
-    lotesValidos: previo.lotesValidos,
-    descartados: previo.descartados,
-    resultado: previo.resultado,
-    msExtractor: previo.msExtractor,
-    preguntaMostrada: previo.preguntaMostrada,
     respuestaUsuario: respuesta,
     hashPrev,
   };
-  const registro: RegistroPipeline = { ...base, hash: calcularHash(base) };
-  return escribir(registro);
+  const evento: RegistroRespuestaUsuario = { ...base, hash: calcularHash(base) };
+  return escribir(evento);
 }
 
 export interface ResultadoVerificacionCadena {
   intacta: boolean;
-  /** `id` del primer registro donde la cadena no cierra, si la hay. */
+  /** `id` del primer evento donde la cadena no cierra, si la hay. */
   rotoEn?: string;
 }
 
 /**
  * "Cualquier alteración retroactiva del log rompe la cadena y es
  * detectable" (TRAZABILIDAD.md) — esta función es el medio para
- * detectarla: recalcula el hash de cada registro cargado y confirma que
+ * detectarla: recalcula el hash de cada evento cargado y confirma que
  * coincide con el `hash` guardado y que `hashPrev` enlaza con el anterior.
  */
 export async function verificarCadena(): Promise<ResultadoVerificacionCadena> {
-  const registros = await cargar();
+  const eventos = await cargar();
   let esperado = GENESIS_HASH;
-  for (const r of registros) {
-    const { hash, ...resto } = r;
+  for (const e of eventos) {
+    const { hash, ...resto } = e;
     if (resto.hashPrev !== esperado || calcularHash(resto) !== hash) {
-      return { intacta: false, rotoEn: r.id };
+      return { intacta: false, rotoEn: e.id };
     }
     esperado = hash;
   }
