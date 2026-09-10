@@ -11,7 +11,7 @@
   -->
   <!-- Favicon inline (data URI): sin petición de red, sin archivo extra. Es
        el glifo de `Quórum`, el mismo que usa la interfaz. -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%231a7f5a'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/assets/qorum-favicon.png" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -123,12 +123,24 @@
         <circle cx="10.5" cy="10.5" r="6.5" />
         <path d="m15.2 15.2 4.3 4.3" />
       </symbol>
+
+      <!-- ── `workflow`, de Lucide (https://lucide.dev) · licencia ISC ──
+           Copiado como path, no cargado de un CDN: la restriccion dura del
+           proyecto es que ningun recurso salga de este equipo, y la CSP del
+           servidor (`default-src 'self'`) lo bloquearia igual. Encaja con el
+           resto del set sin retocarlo: viewBox 24x24, trazo uniforme, sin
+           relleno, `currentColor`. -->
+      <symbol id="ic-flujo" viewBox="0 0 24 24">
+        <rect width="8" height="8" x="3" y="3" rx="2" />
+        <path d="M7 11v4a2 2 0 0 0 2 2h4" />
+        <rect width="8" height="8" x="13" y="13" rx="2" />
+      </symbol>
     </defs>
   </svg>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Navegación principal">
       <div class="marca">
-        <span class="marca-glifo" aria-hidden="true">●</span>
+        <img class="marca-logo" src="/assets/qorum-mark.png" alt="" aria-hidden="true" />
         <div><h1>QUÓRUM</h1><p class="tesis">La verdad tiene quórum.</p></div>
       </div>
       <p class="sidebar-label">Workspace</p>
@@ -137,6 +149,7 @@
         <button type="button" data-vista="cliente"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-cliente" xlink:href="#ic-cliente" /></svg>Cliente 360</button>
         <button type="button" data-vista="panorama"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-panorama" xlink:href="#ic-panorama" /></svg>Panorama</button>
         <button type="button" data-vista="auditoria"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-auditoria" xlink:href="#ic-auditoria" /></svg>Auditoría</button>
+        <button type="button" data-vista="comofunciona"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-flujo" xlink:href="#ic-flujo" /></svg>Cómo funciona</button>
       </nav>
       <div class="sidebar-bottom">
         <span class="sidebar-dot" aria-hidden="true"></span>
@@ -149,6 +162,7 @@
         <div class="cabecera-meta">
           <span id="marcador" class="marcador num"></span>
           <span id="conexion" class="conexion">conectando…</span>
+          <span id="modelo-ia" class="modelo-ia" title="Modelo local usado por la aplicación">IA local · esperando modelo</span>
           <span class="avatar" aria-label="Usuario actual">Q</span>
         </div>
       </header>
@@ -164,9 +178,22 @@
     -->
     <!-- 1 · CAPTURAR — velocidad: un campo grande, cero formularios. -->
     <section id="capturar" aria-label="Capturar" tabindex="-1">
+      <div class="capturar-intro">
+        <div>
+          <p class="capturar-kicker">Nueva observación</p>
+          <h2>¿Qué viste hoy?</h2>
+          <p class="capturar-subtitulo">Contalo como se lo contarías a otra persona del equipo. QUÓRUM ordena la nota y te muestra la evidencia antes de guardar.</p>
+        </div>
+        <div class="modelo-captura"><span class="modelo-punto" aria-hidden="true"></span><span id="modelo-captura-label">Modelo local preparado</span></div>
+      </div>
       <label class="oculto-visual" for="texto">Nota de la visita</label>
       <textarea id="texto" rows="4" spellcheck="true"
         placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR de NovaMed, uno como de ocho años y otro más nuevo, y un CT de BluePeak Medical…"></textarea>
+
+      <div class="capturar-ayuda" aria-label="Ejemplo de captura">
+        <span class="capturar-ayuda-icono" aria-hidden="true">✦</span>
+        <span><b>Una nota alcanza.</b> Podés mencionar cliente, equipo, marca, modelo, cantidad o antigüedad en cualquier orden.</span>
+      </div>
 
       <div class="fila fila-acciones">
         <label class="campo-fecha">Fecha de la visita
@@ -227,6 +254,11 @@
 
     <!-- 4 · AUDITORÍA. La pinta auditoria.js. -->
     <section id="auditoria" aria-label="Auditoría" tabindex="-1" hidden></section>
+
+    <!-- 5 · CÓMO FUNCIONA — los estados y el flujo, con diagramas. La pinta
+         `comofunciona.js`. Es la única pantalla sin un solo dato de la API:
+         todo lo que dice está escrito en ese archivo. -->
+    <section id="comofunciona" aria-label="Cómo funciona" tabindex="-1" hidden></section>
   </main>
 
   <div id="alerta" class="denegado" role="alert" aria-live="assertive" hidden></div>

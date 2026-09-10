@@ -1,4 +1,45 @@
 /*
+ * ─────────────────────── Tipografía: IBM Plex, servida local ───────────────────────
+ *
+ * IBM Plex Sans para texto e IBM Plex Mono para código y cifras. Licencia
+ * SIL Open Font License 1.1 (ver `ui/fuentes/LICENSE.txt`).
+ *
+ * ★ Los .woff2 están EN ESTE REPO y se sirven desde 127.0.0.1. Nada de Google
+ * Fonts, nada de @import, nada de CDN: la restricción dura del proyecto es que
+ * ningún recurso salga de este equipo, un webfont remoto le avisaría al
+ * proveedor cada vez que alguien abre la interfaz, y la CSP del servidor
+ * (`default-src 'self'`) lo bloquearía sin decir nada.
+ *
+ * `font-display: block` y no `swap`: con la fuente local el archivo tarda
+ * milisegundos, y un `swap` produciría un parpadeo de tipografía en el arranque
+ * — visible y feo en la grabación del video.
+ *
+ * Tres pesos, no nueve: 400 para texto, 500 para etiquetas y cifras, 600 para
+ * títulos. La regla del proyecto es una familia y tres tamaños; sumar pesos
+ * intermedios sería ornamento y peso de descarga.
+ */
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fuentes/IBMPlexSans-Regular.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: block;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fuentes/IBMPlexSans-Medium.woff2") format("woff2");
+  font-weight: 500; font-style: normal; font-display: block;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fuentes/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: block;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fuentes/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: block;
+}
+
+/*
  * style.css — QUÓRUM escritorio.
  *
  * Decisiones, no gustos (doc maestro §B.3):
@@ -153,7 +194,7 @@ html { background: var(--fondo); }
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: var(--t-cuerpo);
   line-height: 1.4;
   color: var(--texto);
@@ -180,7 +221,7 @@ body {
 
 .num { font-variant-numeric: tabular-nums; }   /* columnas alineadas */
 .small { font-size: var(--t-chico); color: var(--tenue); }
-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--t-chico); }
+code { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--t-chico); }
 .glifo { font-style: normal; }
 .oculto-visual {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -718,7 +759,7 @@ body { background: var(--fondo); color: var(--texto); }
 .sidebar .marca { align-items: center; gap: 11px; padding: 0 12px 34px; }
 .sidebar .marca h1 { font-size: 18px; letter-spacing: .11em; line-height: 1; }
 .sidebar .tesis { margin-top: 5px; font-size: 12px; }
-.marca-glifo { color: var(--primario); font-size: 25px; line-height: 1; }
+.marca-logo { width: 31px; height: 31px; object-fit: contain; display: block; }
 .sidebar-label { margin: 0 12px 10px; color: #596579; font-size: 12px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
 .sidebar nav { display: flex; flex-direction: column; gap: 4px; margin: 0; }
 .sidebar nav button {
@@ -743,6 +784,7 @@ body { background: var(--fondo); color: var(--texto); }
 .cabecera-meta { align-items: center; gap: 18px; }
 .marcador { color: var(--tenue); font-size: 12px; }
 .conexion { font-size: 12px; }
+.modelo-ia { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 9px; color: var(--primario); background: var(--nav-activo); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .avatar { display: inline-grid; place-items: center; width: 30px; height: 30px; color: #fff; background: var(--primario); border-radius: 50%; font-size: 12px; font-weight: 800; }
 .app-frame main { width: min(1240px, 100%); min-height: calc(100vh - 148px); margin: 0 auto; padding: 34px 38px 50px; }
 .app-frame footer { padding: 17px 38px 28px; background: var(--superficie); border-top: 1px solid var(--borde); }
@@ -752,6 +794,16 @@ body { background: var(--fondo); color: var(--texto); }
   width: min(100%, 880px); min-height: 168px; padding: 22px 24px; font-size: 20px; line-height: 1.45;
   border: 1px solid var(--borde); border-radius: 10px; box-shadow: 0 5px 18px rgba(0, 0, 0, .04);
 }
+#capturar { max-width: 980px; }
+.capturar-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.capturar-kicker { margin: 0 0 7px; color: var(--primario); font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.capturar-intro h2 { margin: 0; color: var(--texto); font-size: 32px; line-height: 1.15; letter-spacing: -.035em; }
+.capturar-subtitulo { max-width: 620px; margin: 10px 0 0; color: var(--tenue); font-size: 15px; line-height: 1.5; }
+.modelo-captura { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; margin-top: 6px; padding: 8px 11px; color: var(--primario); background: var(--superficie); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.modelo-punto { width: 7px; height: 7px; border-radius: 50%; background: var(--quorum); }
+.capturar-ayuda { display: flex; align-items: flex-start; gap: 10px; width: min(100%, 880px); margin-top: 12px; padding: 12px 14px; color: var(--tenue); background: var(--superficie); border: 1px solid var(--borde); border-radius: 8px; font-size: 12.5px; line-height: 1.4; }
+.capturar-ayuda b { color: var(--texto); }
+.capturar-ayuda-icono { display: inline-grid; place-items: center; width: 20px; height: 20px; flex: 0 0 auto; color: var(--primario); background: var(--nav-activo); border-radius: 50%; font-size: 12px; }
 #capturar > #texto:focus { border-color: var(--primario); box-shadow: 0 0 0 3px rgba(45, 100, 216, .12); }
 .fila-acciones { align-items: center; margin-top: 15px; gap: 10px; }
 button { min-height: 40px; padding: 8px 15px; border-color: var(--borde-duro); border-radius: 7px; }
@@ -762,6 +814,7 @@ input, textarea, select { border-radius: 7px; border-color: var(--borde-duro); }
 .revision { max-width: 980px; padding: 22px; }
 .revision h2 { color: var(--primario); }
 .grupo { padding: 22px; margin-bottom: 18px; }
+.grupo::before { content: 'BASE INSTALADA'; display: block; margin: -4px 0 14px; color: #596579; font-size: 12px; font-weight: 800; letter-spacing: .12em; }
 .cliente-cabecera { margin-bottom: 22px; padding-bottom: 14px; }
 .cliente-nombre { font-size: 28px; }
 .grupo-cabecera { padding-bottom: 16px; }
@@ -774,6 +827,9 @@ td { padding: 11px 12px; }
 .barra-pista { height: 9px; background: var(--hundida); border-radius: 999px; }
 .barra-pista i { background: var(--primario); border-radius: 999px; }
 .kpi { border: 1px solid var(--borde); border-radius: 10px; background: var(--superficie); box-shadow: 0 4px 16px rgba(0, 0, 0, .045); }
+.grupo .puntaje-caja { padding-left: 16px; border-left: 1px solid var(--borde); }
+.grupo .desglose { max-width: 260px; }
+.modelo-card { display: inline-flex; width: fit-content; margin-left: 10px; padding: 3px 8px; color: var(--primario); background: var(--nav-activo); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none; vertical-align: middle; }
 .kpi b { color: var(--primario); }
 .respuesta, .filtro, .salida-consulta { border-radius: 8px; }
 .vacio { border-radius: 10px; background: var(--superficie); }
@@ -790,4 +846,107 @@ td { padding: 11px 12px; }
   .app-frame main { padding: 24px 18px 36px; }
   .app-frame footer { padding-left: 18px; padding-right: 18px; }
   .marcador { display: none; }
+  .modelo-ia { display: none; }
+  .capturar-intro { display: block; }
+  .capturar-intro h2 { font-size: 28px; }
+  .modelo-captura { margin-top: 16px; }
 }
+
+/* ══════════════════ Pantalla 5 · Cómo funciona (estados y flujo) ══════════════════
+ *
+ * Los diagramas son SVG dibujado en `comofunciona.js`. Todo el color sale de
+ * la rampa de confianza y de los neutros que ya existen: un diagrama que
+ * introdujera color propio rompería el invariante de que el color codifica
+ * confianza y nada más.
+ *
+ * Las clases van acá y no como atributos de presentación en el SVG por dos
+ * razones: el tema vive en un solo lugar, y `style` inline está bloqueado por
+ * la CSP del servidor (`style-src 'self'`).
+ */
+
+.explica .lista-explica { margin: var(--md) 0 0; padding-left: 1.3em; }
+.explica .lista-explica li { margin-bottom: var(--sm); max-width: 78ch; }
+.explica td { vertical-align: top; }
+
+.diagrama-caja { margin-top: var(--md); }
+
+/* El único lugar de la app donde se permite scroll horizontal: un diagrama
+ * comprimido hasta caber en 380 px no explica nada. */
+.diagrama-scroll { overflow-x: auto; }
+
+.diagrama {
+  display: block;
+  width: 100%;
+  min-width: 680px;          /* por debajo de esto, se desplaza */
+  height: auto;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+
+.diagrama-pie {
+  margin: var(--sm) 0 0;
+  font-size: var(--t-chico);
+  color: var(--tenue);
+  max-width: 92ch;
+}
+
+/* ── Nodos ── */
+.diagrama .nodo rect,
+.diagrama .nodo polygon {
+  fill: var(--hundida);
+  stroke: var(--borde-duro);
+  stroke-width: 1;
+}
+.diagrama .nodo-titulo { font-size: 12px; font-weight: 600; fill: var(--texto); }
+.diagrama .nodo-detalle { font-size: 10.5px; fill: var(--tenue); }
+.diagrama .izq { text-anchor: start; }
+.diagrama .glifo-svg { font-size: 13px; fill: var(--tenue); }
+
+/* Un estado del eje de quórum lleva SU color, y además su glifo: el color
+ * nunca es el único portador de significado, tampoco en un diagrama. */
+.diagrama .e-ok rect        { fill: var(--quorum-fondo); stroke: var(--quorum); }
+.diagrama .e-ok .glifo-svg  { fill: var(--quorum-ink); }
+.diagrama .e-medio rect     { stroke: var(--reportado); }
+.diagrama .e-medio .glifo-svg { fill: var(--reportado-ink); }
+.diagrama .e-bajo rect      { stroke: var(--estimado); }
+.diagrama .e-bajo .glifo-svg { fill: var(--estimado-ink); }
+.diagrama .e-nulo rect      { stroke: var(--sindatos); }
+.diagrama .e-nulo .glifo-svg { fill: var(--sindatos-ink); }
+.diagrama .e-sinquorum rect { fill: var(--sinquorum-fondo); stroke: var(--sinquorum); }
+.diagrama .e-sinquorum .glifo-svg { fill: var(--sinquorum-ink); }
+
+/* Frescura: tinta neutra y borde punteado, igual que la insignia ◷ de las
+ * otras pantallas. No entra en la rampa. */
+.diagrama .frescura-nodo rect { fill: var(--superficie); stroke: var(--borde-duro); stroke-dasharray: 3 2; }
+
+/* Un nodo inerte: existe en el contrato pero nada lo produce hoy. */
+.diagrama .inerte rect { fill: var(--superficie); stroke-dasharray: 2 3; }
+.diagrama .inerte .nodo-titulo { fill: var(--tenue); }
+
+/* ── Aristas ── */
+.diagrama .arista { stroke: var(--borde-duro); stroke-width: 1.4; }
+.diagrama .arista.deny { stroke: var(--sinquorum); stroke-dasharray: 5 3; }
+.diagrama .punta { fill: var(--borde-duro); }
+.diagrama .punta-deny { fill: var(--sinquorum); }
+.diagrama .arista-etiqueta { font-size: 10px; fill: var(--tenue); }
+.diagrama .arista-etiqueta.deny { fill: var(--sinquorum-ink); }
+.diagrama .escalera { stroke: var(--borde-duro); stroke-width: 1.2; }
+
+/* ── Paneles y carriles ── */
+.diagrama .panel { fill: var(--superficie); stroke: var(--borde); }
+.diagrama .panel.ok-suave { stroke: var(--quorum); }
+.diagrama .panel.alerta-suave { stroke: var(--reportado); }
+.diagrama .panel.conflicto-suave { stroke: var(--sinquorum); }
+.diagrama .panel-titulo { font-size: 11.5px; font-weight: 600; fill: var(--texto); letter-spacing: 0.04em; }
+.diagrama .panel-sub { font-size: 10px; fill: var(--tenue); }
+.diagrama .panel-pie { font-size: 10px; fill: var(--tenue); }
+
+.diagrama .carril rect { fill: var(--fondo); stroke: var(--borde); }
+.diagrama .carril-etiqueta { font-size: 10.5px; font-weight: 600; fill: var(--tenue); letter-spacing: 0.06em; }
+
+.diagrama .nota-svg { font-size: 10.5px; fill: var(--tenue); }
+.diagrama .nota-svg.deny { fill: var(--sinquorum-ink); }
+
+/* La leyenda de estados reusa las insignias reales de la app, no una copia:
+ * si cambia el tratamiento de un estado, cambia acá también. */
+.estados-leyenda { display: flex; flex-wrap: wrap; gap: var(--md); margin-top: var(--md); }
