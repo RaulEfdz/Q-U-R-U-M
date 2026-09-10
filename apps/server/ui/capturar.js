@@ -6,7 +6,11 @@
  * de apps/server/CLAUDE.md: la UI del doc dejaba `#campos` en solo lectura
  * y llamaba a `/api/confirmar` sin `correcciones`).
  *
- * DICTADO: `MediaRecorder` → POST `/api/transcribir` → whisper de QVAC
+ * DICTADO: WebAudio (WAV PCM 16 kHz) → POST `/api/transcribir` → whisper de
+ * QVAC on-device. El doc maestro dice `MediaRecorder`, pero eso solo produce
+ * webm/opus a 48 kHz y whisper devuelve basura con ese formato; lo esencial de
+ * la restricción se respeta igual — el audio se captura acá, va al server
+ * LOCAL y lo transcribe whisper en este equipo. NUNCA Web Speech API.
  * on-device. La API de reconocimiento de voz que trae el navegador está
  * PROHIBIDA: manda el audio a un servidor del proveedor y rompe el
  * requisito de que ninguna inferencia salga del equipo. Acá el navegador
@@ -208,7 +212,7 @@ function estado(mensaje, tono) {
   el.hidden = !mensaje;
 }
 
-/* ─────────────────────── Dictado: MediaRecorder ─────────────────────── */
+/* ──────────────── Dictado: WebAudio → WAV PCM 16 kHz mono ──────────────── */
 
 let grabadora = null;
 
@@ -221,7 +225,7 @@ async function alternarDictado() {
   const boton = $('#dictar');
   if (grabadora) { grabadora.stop(); return; }
 
-  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+  if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === 'undefined') {
     estado('Este navegador no puede grabar audio. Escribí la nota a mano.', 'malo');
     return;
   }
@@ -234,42 +238,111 @@ async function alternarDictado() {
     return;
   }
 
+  /*
+   * ★ WAV PCM 16 kHz mono escrito a mano, NO `MediaRecorder`.
+   *
+   * `MediaRecorder` produce webm/opus a 48 kHz — es lo único que ofrece
+   * Chrome — y whisper.cpp espera PCM de 16 kHz mono. Medido: el mismo audio
+   * dictado dio `" you"` como webm y transcribió la frase completa como WAV
+   * 16k. O sea, el dictado devolvía basura y parecía un problema del modelo.
+   *
+   * Se captura con WebAudio, se re-muestrea a 16 kHz y se arma la cabecera
+   * RIFF acá. Cero dependencias y sin transcodificar en el server, que tiene
+   * tres dependencias contadas y ninguna es ffmpeg.
+   */
+  const ctx = new AudioContext();
+  const fuente = ctx.createMediaStreamSource(stream);
+  // ScriptProcessor está deprecado pero es el único camino sin un archivo
+  // aparte para el worklet: `addModule` necesita una URL, y eso significaría
+  // servir otro estático solo para esto.
+  const nodo = ctx.createScriptProcessor(4096, 1, 1);
   const trozos = [];
-  const rec = new MediaRecorder(stream);
-  grabadora = rec;
-  rec.ondataavailable = (e) => { if (e.data?.size) trozos.push(e.data); };
+  let muestras = 0;
 
-  // Corrección obligatoria #3: el POST vive DENTRO de `onstop`, y no hay
-  // ningún `location.reload()` — el reload inmediato del doc maestro
-  // cancelaba la subida antes de que whisper devolviera el texto.
-  rec.onstop = async () => {
-    grabadora = null;
-    stream.getTracks().forEach((t) => t.stop());
-    // `textContent = ...` borraria el <svg> del boton: se repuebla con el
-    // icono del set mas la etiqueta.
-    etiquetarBoton(boton, 'microfono', 'Dictar');
-    boton.classList.remove('grabando');
-    if (!trozos.length) { estado('No se grabó audio.', 'aviso'); return; }
-    estado('Transcribiendo on-device con whisper…', 'trabajando');
-    try {
-      const res = await fetch('/api/transcribir', {
-        method: 'POST',
-        headers: { 'content-type': 'audio/webm' },
-        body: new Blob(trozos, { type: rec.mimeType || 'audio/webm' }),
-      });
-      if (!res.ok) throw new Error(`/api/transcribir devolvió ${res.status}`);
-      const { texto } = await res.json();
-      const caja = $('#texto');
-      caja.value = [caja.value.trim(), (texto ?? '').trim()].filter(Boolean).join(' ');
-      caja.dataset.fuente = 'voz';
-      caja.focus();
-      estado(texto ? 'Transcrito en este equipo. Revisá antes de interpretar.' : 'La transcripción vino vacía.', texto ? 'bueno' : 'aviso');
-    } catch (e) {
-      estado(`No se pudo transcribir: ${e.message}`, 'malo');
+  nodo.onaudioprocess = (e) => {
+    const entrada = e.inputBuffer.getChannelData(0);
+    trozos.push(new Float32Array(entrada));   // copia: el buffer se reusa
+    muestras += entrada.length;
+  };
+  fuente.connect(nodo);
+  // Destino silenciado: sin conectar a algo, varios navegadores no corren el
+  // procesador; con `gain 0` no se escucha el propio micrófono por el parlante.
+  const silencio = ctx.createGain();
+  silencio.gain.value = 0;
+  nodo.connect(silencio);
+  silencio.connect(ctx.destination);
+
+  /** Float32 [-1,1] → PCM 16 bits little-endian, re-muestreado a 16 kHz. */
+  function aWav(bloques, totalMuestras, tasaOriginal) {
+    const DESTINO = 16_000;
+    const plano = new Float32Array(totalMuestras);
+    let i = 0;
+    for (const b of bloques) { plano.set(b, i); i += b.length; }
+
+    // Re-muestreo lineal: para voz a 16 kHz alcanza y no necesita librería.
+    const largo = Math.max(1, Math.round(totalMuestras * DESTINO / tasaOriginal));
+    const pcm = new Int16Array(largo);
+    for (let n = 0; n < largo; n++) {
+      const pos = n * tasaOriginal / DESTINO;
+      const i0 = Math.floor(pos);
+      const frac = pos - i0;
+      const a = plano[i0] ?? 0;
+      const b = plano[i0 + 1] ?? a;
+      const v = Math.max(-1, Math.min(1, a + (b - a) * frac));
+      pcm[n] = v < 0 ? v * 0x8000 : v * 0x7fff;
     }
+
+    const cab = new ArrayBuffer(44);
+    const d = new DataView(cab);
+    const txt = (off, str) => { for (let k = 0; k < str.length; k++) d.setUint8(off + k, str.charCodeAt(k)); };
+    txt(0, 'RIFF'); d.setUint32(4, 36 + pcm.byteLength, true); txt(8, 'WAVE');
+    txt(12, 'fmt '); d.setUint32(16, 16, true);
+    d.setUint16(20, 1, true);                 // PCM sin comprimir
+    d.setUint16(22, 1, true);                 // mono
+    d.setUint32(24, DESTINO, true);
+    d.setUint32(28, DESTINO * 2, true);       // bytes por segundo
+    d.setUint16(32, 2, true);                 // bytes por muestra
+    d.setUint16(34, 16, true);                // bits por muestra
+    txt(36, 'data'); d.setUint32(40, pcm.byteLength, true);
+    return new Blob([cab, pcm], { type: 'audio/wav' });
+  }
+
+  // Corrección obligatoria #3: el POST vive DENTRO del handler de detención, y
+  // no hay ningún `location.reload()` — el reload inmediato del doc maestro
+  // cancelaba la subida antes de que whisper devolviera el texto.
+  grabadora = {
+    async stop() {
+      grabadora = null;
+      nodo.disconnect(); fuente.disconnect(); silencio.disconnect();
+      nodo.onaudioprocess = null;
+      const tasa = ctx.sampleRate;
+      stream.getTracks().forEach((t) => t.stop());
+      try { await ctx.close(); } catch { /* ya cerrado */ }
+
+      etiquetarBoton(boton, 'microfono', 'Dictar');
+      boton.classList.remove('grabando');
+      if (!muestras) { estado('No se grabó audio.', 'aviso'); return; }
+
+      estado('Transcribiendo on-device con whisper…', 'trabajando');
+      try {
+        const res = await fetch('/api/transcribir', {
+          method: 'POST',
+          headers: { 'content-type': 'audio/wav' },
+          body: aWav(trozos, muestras, tasa),
+        });
+        if (!res.ok) throw new Error(`/api/transcribir devolvió ${res.status}`);
+        const { texto } = await res.json();
+        const caja = $('#texto');
+        caja.value = [caja.value.trim(), (texto ?? '').trim()].filter(Boolean).join(' ');
+        caja.dataset.fuente = 'voz';
+        caja.focus();
+        estado(texto ? 'Transcrito en este equipo. Revisá antes de interpretar.' : 'La transcripción vino vacía.', texto ? 'bueno' : 'aviso');
+      } catch (e) {
+        estado(`No se pudo transcribir: ${e.message}`, 'malo');
+      }
+    },
   };
 
-  rec.start();
   etiquetarBoton(boton, 'detener', 'Detener');
   boton.classList.add('grabando');
   estado('Grabando… el audio no sale de este equipo.', 'trabajando');

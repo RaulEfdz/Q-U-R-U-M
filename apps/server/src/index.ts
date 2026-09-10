@@ -75,6 +75,7 @@ import { extraerBorrador } from './qvac/extract.ts';
 import { decidirRuta, asegurarRuta } from './qvac/delegation.ts';
 import { empaquetarUntrusted } from './context/spotlight.ts';
 import { TOOL_FILTRAR, filtrar, zFiltro } from './tools/filtrar.ts';
+import { TOOL_EXPORTAR } from './tools/exportar.ts';
 import { exportarDataset } from './tools/exportar.ts';
 import { aplicar } from './policy/pep.ts';
 import { PolicyDenied, QuorumError } from './core/errors.ts';
@@ -591,7 +592,24 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
           'No cuentes ni inventes cifras: el sistema ejecuta el filtro.' },
         { role: 'user', content: `${empaquetarUntrusted(bloques)}\n\nPregunta: ${pregunta}` },
       ],
-      tools: [TOOL_FILTRAR], maxTokens: 300,
+      /*
+       * ★ Se le ofrecen LAS DOS tools, y `exportar_dataset` a proposito.
+       *
+       * Antes iba solo `TOOL_FILTRAR`, y con tool calling nativo un modelo no
+       * puede nombrar una tool que no se le ofrecio. Consecuencia: la
+       * inyeccion que viene en el texto de un peer no tenia forma de
+       * intentar el export, el `case 'exportar_dataset'` de
+       * `despacharToolCall` era codigo inalcanzable en vivo, y el momento que
+       * el proyecto quiere mostrarle al jurado — el modelo lo intenta, el
+       * CODIGO lo detiene — no se podia reproducir.
+       *
+       * Ofrecerla no abre un agujero: es lo que prueba que la defensa existe.
+       * El PEP recibe la llamada con `origenArgumentos: 'modelo'` y
+       * `riskLevel: 'critical'`, la deniega, y eso queda en la auditoria y
+       * viaja por SSE hasta la banda roja de la UI. La unica via de export que
+       * pasa es la del humano, con sus tres campos explicitos (correccion #1).
+       */
+      tools: [TOOL_FILTRAR, TOOL_EXPORTAR], maxTokens: 300,
     });
 
     const invalidas: Array<{ tool: string; motivo: string }> = [];
