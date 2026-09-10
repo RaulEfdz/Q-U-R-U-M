@@ -21,6 +21,48 @@
 
 /** `grave: false` = estado esperado, no una falla. Cambia el tratamiento visual. */
 const CATALOGO = [
+  /*
+   * Los dos topes de tiempo van PRIMEROS: el mensaje que los describe
+   * también contiene números («no respondió en 240 s») y la entrada
+   * genérica de `5xx` matchea cualquier `\b5\d\d\b`, así que si estuvieran
+   * al final un tope de 500 s se leería como «el servidor falló».
+   *
+   * No se redactan como error: vencer el tope casi nunca significa que algo
+   * se rompió — significa que el modelo todavía está cargando (la primera
+   * vez baja alrededor de 1 GB) o que el equipo es lento. Lo importante es
+   * que el texto diga que la nota NO se perdió, porque sigue escrita en el
+   * campo grande, y que reintentar es gratis: la segunda vez el modelo ya
+   * está en memoria.
+   */
+  {
+    coincide: (m) => /tope de tiempo · interpretaci/i.test(m),
+    grave: false,
+    titulo: 'La interpretación está tardando más de lo esperado',
+    explicacion:
+      'El modelo corre entero en este equipo y todavía no devolvió la ' +
+      'estructura. Si es la primera nota de la sesión, lo más probable es que ' +
+      'el modelo se esté cargando (la primera descarga es de alrededor de 1 GB). ' +
+      'Tu nota NO se perdió: sigue escrita tal cual en el campo de arriba.',
+    pasos: [
+      'Volvé a tocar «Interpretar»: si el modelo terminó de cargar, la segunda vez responde en segundos.',
+      'Mirá la terminal donde corre npm start: ahí se ve si el modelo sigue descargando.',
+      'Si no podés esperar, guardá la nota como está en la próxima interpretación: nada se descarta.',
+    ],
+  },
+  {
+    coincide: (m) => /tope de tiempo · transcripci/i.test(m),
+    grave: false,
+    titulo: 'La transcripción está tardando más de lo esperado',
+    explicacion:
+      'El audio se grabó bien y no salió de este equipo, pero whisper todavía ' +
+      'no devolvió el texto. La primera vez tiene que cargar el modelo de voz; ' +
+      'después transcribe en segundos.',
+    pasos: [
+      'Volvé a dictar, más corto: los tramos largos tardan proporcionalmente más.',
+      'Mirá la terminal donde corre npm start para ver si el modelo de voz sigue cargando.',
+      'Mientras tanto, escribí la nota a mano: es el mismo pipeline.',
+    ],
+  },
   {
     // `fetch` que no llega a destino. El caso más frecuente de todos.
     coincide: (m) => /failed to fetch|networkerror|load failed|fetch failed/i.test(m),

@@ -18,11 +18,18 @@ import { explicar } from './errores.js';
 
 export const $ = (sel, raiz = document) => raiz.querySelector(sel);
 
-/** Fetch JSON. GET si no hay cuerpo, POST JSON si lo hay. */
-export async function api(ruta, cuerpo) {
+/**
+ * Fetch JSON. GET si no hay cuerpo, POST JSON si lo hay.
+ *
+ * Acepta `señal` (un `AbortSignal`) porque las rutas que invocan al modelo
+ * pueden tardar minutos la primera vez y necesitan tope de tiempo desde
+ * quien llama: sin eso, un modelo colgado deja el botón deshabilitado para
+ * siempre y el único camino es recargar la página. Ver `capturar.js`.
+ */
+export async function api(ruta, cuerpo, { senal } = {}) {
   const res = await fetch(ruta, cuerpo
-    ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) }
-    : undefined);
+    ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo), signal: senal }
+    : { signal: senal });
   const texto = await res.text();
   let datos;
   try { datos = texto ? JSON.parse(texto) : {}; }
@@ -43,9 +50,10 @@ function agregar(el, hijos) {
 /**
  * `h('td', { clase: 'num', texto: valor }, ...hijos)`.
  *
- * Props soportadas: `clase`, `texto` (→ textContent), `datos` (→ dataset),
- * `on*` (handler), cualquier otra → `setAttribute`. Los hijos string se
- * insertan como nodos de texto. No hay forma de inyectar marcado.
+ * Props soportadas: `clase`, `texto` (→ textContent), `style` (→ CSSOM, ver
+ * abajo por qué no es un atributo), `datos` (→ dataset), `on*` (handler),
+ * cualquier otra → `setAttribute`. Los hijos string se insertan como nodos de
+ * texto. No hay forma de inyectar marcado.
  */
 /**
  * `icono('mr')` → un <svg><use href="#ic-mr"> listo para insertar.
@@ -105,6 +113,19 @@ export function h(tag, props, ...hijos) {
       if (v === undefined || v === null || v === false) continue;
       if (k === 'clase') el.className = Array.isArray(v) ? v.filter(Boolean).join(' ') : String(v);
       else if (k === 'texto') el.textContent = String(v);
+      /*
+       * `style` se aplica por CSSOM, NUNCA con `setAttribute`. No es gusto:
+       * la CSP del servidor declara `style-src 'self'`, y eso bloquea el
+       * ATRIBUTO `style` inline, no solo los bloques `<style>`. Un
+       * `setAttribute('style', 'width:42%')` queda descartado en silencio —
+       * las barras de Panorama se veían en ancho cero— mientras que escribir
+       * sobre `el.style` no pasa por la CSP. Si alguien "simplifica" esto de
+       * vuelta al camino genérico, se rompe otra vez y sin error visible.
+       */
+      else if (k === 'style') {
+        if (typeof v === 'string') el.style.cssText = v;
+        else Object.assign(el.style, v);
+      }
       else if (k === 'datos') for (const [dk, dv] of Object.entries(v)) el.dataset[dk] = String(dv);
       else if (k.startsWith('on')) el[k] = v;
       else if (v === true) el.setAttribute(k, '');

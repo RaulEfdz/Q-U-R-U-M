@@ -130,6 +130,25 @@
   outline-offset: 2px;
 }
 
+/*
+ * La sección que se abre recibe el foco al cambiar de pantalla (ver
+ * `mostrar()` en app.js), y ahí el anillo NO corresponde: encuadraría la
+ * pantalla entera con un rectángulo de 900 px que se lee como un error.
+ * Quien navega con teclado ya tiene la señal donde importa —el botón de la
+ * pestaña queda marcado y el lector de pantalla anuncia la sección por su
+ * `aria-label`—, y el foco sigue ahí para que el próximo Tab entre al
+ * contenido en vez de volver a recorrer el header.
+ */
+main > section:focus { outline: none; }
+
+/*
+ * Sprite de iconos de `index.html`. Sacado del atributo `style` inline por la
+ * CSP (`style-src 'self'`), con el mismo comportamiento de antes: fuera del
+ * flujo y de tamaño cero, pero NO `display:none` — un contenedor oculto así
+ * impide que `<use>` resuelva los símbolos en varios navegadores.
+ */
+.sprite { position: absolute; }
+
 html { background: var(--fondo); }
 
 body {
@@ -238,7 +257,21 @@ input, textarea {
   padding: 6px 8px;
 }
 input.invalido { border-color: var(--sinquorum); background: var(--sinquorum-fondo); }
-input.editado { border-color: var(--primario); font-weight: 700; }
+input.editado, select.editado { border-color: var(--primario); font-weight: 700; }
+
+/*
+ * Un vocabulario CERRADO se elige, no se escribe (ver `MODALIDADES` en
+ * capturar.js). El select toma exactamente la caja de un input para que la
+ * grilla de campos editables no se parta en dos patrones visuales, y comparte
+ * la marca `.editado`: el borde de acción significa «esto lo cambió el
+ * humano», sin importar con qué control lo cambió.
+ */
+select {
+  font: inherit; font-size: var(--t-cuerpo); color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde-duro); border-radius: 3px;
+  padding: 6px 8px;
+}
 
 .fila { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--md); }
 .fila-acciones { margin-top: var(--md); }
@@ -268,6 +301,9 @@ input.editado { border-color: var(--primario); font-weight: 700; }
 .estado.malo { color: var(--denegado); font-weight: 700; }
 .estado.aviso { color: var(--texto); font-weight: 700; }
 .estado.trabajando { color: var(--tenue); }
+/* Los segundos de una espera larga: señal de vida, en tinta tenue y cifras
+   tabulares para que el número no salte de ancho al cambiar. */
+.estado .contador { color: var(--tenue); font-weight: 400; font-variant-numeric: tabular-nums; }
 
 .revision {
   margin-top: var(--xl); padding: var(--lg);
@@ -472,6 +508,12 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .kpi span { font-size: var(--t-chico); color: var(--tenue); }
 .kpi.ok b { color: var(--quorum-ink); }
 .kpi.sinquorum b { color: var(--sinquorum-ink); }
+/* Un total que excluye unidades tiene que decirlo pegado al total, no en una
+   nota al pie. Glifo + etiqueta + color, como cualquier estado de quórum. */
+.nota.no-computadas {
+  display: inline-flex; align-items: baseline; gap: var(--sm);
+  margin: calc(-1 * var(--lg)) 0 var(--xl); color: var(--sinquorum-ink); font-weight: 700;
+}
 
 .bloque {
   margin-bottom: var(--xxl); padding: var(--lg);
@@ -488,7 +530,16 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 
 /* Barras: `div` con porcentaje. Sin librería de gráficos, sin mapa. */
 .barras { display: flex; flex-direction: column; gap: var(--xs); }
-.barra { display: grid; grid-template-columns: 150px 1fr 56px; align-items: center; gap: var(--md); }
+/* Cuarta columna `auto`: cuando ninguna fila trae unidades en disputa queda
+   vacía y no ocupa nada, así que la distribución se ve igual que siempre. */
+.barra { display: grid; grid-template-columns: 150px 1fr 56px auto; align-items: center; gap: var(--md); }
+/* Lo que NO entró en la barra. Lleva el glifo ▲ y su etiqueta: el color de
+   `Sin quórum` acompaña, nunca informa solo. */
+.barra-fuera {
+  display: inline-flex; align-items: center; gap: var(--sm);
+  font-size: var(--t-chico); font-weight: 700; color: var(--sinquorum-ink);
+  white-space: nowrap;
+}
 .barra-etiqueta { font-size: var(--t-chico); }
 .barra-pista { display: block; height: 14px; background: var(--hundida); }
 .barra-pista i { display: block; height: 100%; background: var(--primario); }
@@ -523,6 +574,11 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .integridad.ok b { color: var(--quorum-ink); }
 .integridad.sinquorum { border-color: var(--denegado); background: var(--sinquorum-fondo); }
 .integridad.sinquorum .glifo, .integridad.sinquorum b { color: var(--denegado); }
+/* «No me lo informaron» no es «está sano»: tercer tratamiento, en el neutro
+   de `Sin datos`, para no afirmar salud sin dato. */
+.integridad.nulo { border-color: var(--borde-duro); }
+.integridad.nulo .glifo { color: var(--sindatos); }
+.integridad.nulo b { color: var(--sindatos-ink); }
 .glifo.grande { font-size: 26px; }
 .integridad p { margin: 2px 0 0; }
 
@@ -631,4 +687,107 @@ footer {
   .quienes { flex-direction: column; align-items: flex-start; gap: var(--xs); }
   .frescura { white-space: nowrap; }
   .puntaje-caja { text-align: left; }
+}
+
+/* ──────────────────── QUÓRUM / workspace shell ────────────────────
+ * Reemplaza la composición de documento por un espacio de trabajo de
+ * escritorio: navegación persistente, contexto arriba y contenido en cards.
+ * La lógica de datos y los estados semánticos de arriba permanecen intactos.
+ */
+:root {
+  --fondo: #f6f8fc;
+  --superficie: #ffffff;
+  --hundida: #f0f3f8;
+  --borde: #e1e6ef;
+  --borde-duro: #cbd3df;
+  --texto: #172033;
+  --tenue: #687386;
+  --primario: #2d64d8;
+  --primario-hover: #2456bc;
+  --rail: #ffffff;
+  --nav-activo: #edf3ff;
+  --xs: 4px; --sm: 8px; --md: 12px; --lg: 18px; --xl: 28px; --xxl: 42px;
+}
+
+body { background: var(--fondo); color: var(--texto); }
+.app-shell { min-height: 100vh; display: flex; }
+.sidebar {
+  width: 238px; flex: 0 0 238px; min-height: 100vh; display: flex; flex-direction: column;
+  padding: 28px 16px 20px; background: var(--rail); border-right: 1px solid var(--borde);
+}
+.sidebar .marca { align-items: center; gap: 11px; padding: 0 12px 34px; }
+.sidebar .marca h1 { font-size: 18px; letter-spacing: .11em; line-height: 1; }
+.sidebar .tesis { margin-top: 5px; font-size: 12px; }
+.marca-glifo { color: var(--primario); font-size: 25px; line-height: 1; }
+.sidebar-label { margin: 0 12px 10px; color: #596579; font-size: 12px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.sidebar nav button {
+  width: 100%; min-height: 44px; justify-content: flex-start; gap: 12px; padding: 10px 12px;
+  border: 0; border-radius: 8px; color: var(--tenue); font-size: 13px; font-weight: 600;
+}
+.sidebar nav button:hover { color: var(--texto); background: #f5f7fb; }
+.sidebar nav button.activo { color: var(--primario); background: var(--nav-activo); border: 0; }
+.sidebar nav button.activo::before { content: ''; width: 3px; height: 22px; margin-left: -12px; margin-right: 1px; background: var(--primario); border-radius: 0 3px 3px 0; }
+.sidebar-bottom { display: flex; align-items: center; gap: 10px; margin: auto 8px 0; padding: 14px 12px; color: var(--tenue); border-top: 1px solid var(--borde); font-size: 12px; }
+.sidebar-bottom b, .sidebar-bottom small { display: block; }
+.sidebar-bottom b { color: var(--texto); font-size: 12px; }
+.sidebar-bottom small { margin-top: 3px; font-size: 12px; }
+.sidebar-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--quorum); }
+.app-frame { min-width: 0; flex: 1; }
+.app-frame > header {
+  min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: var(--lg);
+  padding: 0 38px; background: var(--superficie); border-bottom: 1px solid var(--borde);
+}
+.breadcrumb { display: flex; align-items: center; gap: 10px; color: #9aa3b2; font-size: 12px; }
+.breadcrumb b { color: var(--texto); font-size: 13px; }
+.cabecera-meta { align-items: center; gap: 18px; }
+.marcador { color: var(--tenue); font-size: 12px; }
+.conexion { font-size: 12px; }
+.avatar { display: inline-grid; place-items: center; width: 30px; height: 30px; color: #fff; background: var(--primario); border-radius: 50%; font-size: 12px; font-weight: 800; }
+.app-frame main { width: min(1240px, 100%); min-height: calc(100vh - 148px); margin: 0 auto; padding: 34px 38px 50px; }
+.app-frame footer { padding: 17px 38px 28px; background: var(--superficie); border-top: 1px solid var(--borde); }
+
+/* Hero and content blocks */
+#capturar > #texto {
+  width: min(100%, 880px); min-height: 168px; padding: 22px 24px; font-size: 20px; line-height: 1.45;
+  border: 1px solid var(--borde); border-radius: 10px; box-shadow: 0 5px 18px rgba(0, 0, 0, .04);
+}
+#capturar > #texto:focus { border-color: var(--primario); box-shadow: 0 0 0 3px rgba(45, 100, 216, .12); }
+.fila-acciones { align-items: center; margin-top: 15px; gap: 10px; }
+button { min-height: 40px; padding: 8px 15px; border-color: var(--borde-duro); border-radius: 7px; }
+button.primario { background: var(--primario); border-color: var(--primario); }
+button.primario:hover:not(:disabled) { background: var(--primario-hover); }
+input, textarea, select { border-radius: 7px; border-color: var(--borde-duro); }
+.revision, .grupo, .bloque, .integridad-caja { border-radius: 10px; box-shadow: 0 4px 16px rgba(0, 0, 0, .045); }
+.revision { max-width: 980px; padding: 22px; }
+.revision h2 { color: var(--primario); }
+.grupo { padding: 22px; margin-bottom: 18px; }
+.cliente-cabecera { margin-bottom: 22px; padding-bottom: 14px; }
+.cliente-nombre { font-size: 28px; }
+.grupo-cabecera { padding-bottom: 16px; }
+.puntaje { color: var(--primario); }
+.oportunidad { border-radius: 999px; padding: 5px 10px; }
+.badge { padding: 3px 9px; border-radius: 999px; }
+th { padding: 10px 12px; border-bottom-color: var(--borde-duro); }
+td { padding: 11px 12px; }
+.confianza tr.sangrada { background: #f8fafd; }
+.barra-pista { height: 9px; background: var(--hundida); border-radius: 999px; }
+.barra-pista i { background: var(--primario); border-radius: 999px; }
+.kpi { border: 1px solid var(--borde); border-radius: 10px; background: var(--superficie); box-shadow: 0 4px 16px rgba(0, 0, 0, .045); }
+.kpi b { color: var(--primario); }
+.respuesta, .filtro, .salida-consulta { border-radius: 8px; }
+.vacio { border-radius: 10px; background: var(--superficie); }
+
+@media (max-width: 800px) {
+  .app-shell { display: block; }
+  .sidebar { width: 100%; min-height: auto; padding: 14px 16px 8px; border-right: 0; border-bottom: 1px solid var(--borde); }
+  .sidebar .marca { padding: 0 4px 14px; }
+  .sidebar-label, .sidebar-bottom { display: none; }
+  .sidebar nav { flex-direction: row; overflow-x: auto; }
+  .sidebar nav button { width: auto; flex: 0 0 auto; min-height: 40px; }
+  .sidebar nav button.activo::before { display: none; }
+  .app-frame > header { min-height: 58px; padding: 0 18px; }
+  .app-frame main { padding: 24px 18px 36px; }
+  .app-frame footer { padding-left: 18px; padding-right: 18px; }
+  .marcador { display: none; }
 }
