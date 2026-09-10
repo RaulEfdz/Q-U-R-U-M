@@ -78,7 +78,7 @@ export async function pintarAuditoria(seccion) {
   try {
     d = await api('/api/auditoria');
   } catch (e) {
-    pintar(seccion, error(e.message));
+    pintar(seccion, error(e));
     return;
   }
 

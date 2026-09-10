@@ -14,6 +14,8 @@
  * datos de la API, pasa por `h()`.
  */
 
+import { explicar } from './errores.js';
+
 export const $ = (sel, raiz = document) => raiz.querySelector(sel);
 
 /** Fetch JSON. GET si no hay cuerpo, POST JSON si lo hay. */
@@ -127,10 +129,31 @@ export function vacio(titulo, detalle) {
     detalle ? h('p', { clase: 'vacio-detalle', texto: detalle }) : null);
 }
 
-export function error(mensaje) {
-  return h('div', { clase: 'error-caja' },
-    h('b', { texto: 'No se pudo leer del servidor' }),
-    h('p', { clase: 'small', texto: mensaje }));
+/**
+ * Caja de error legible: qué pasó, por qué, y qué hacer.
+ *
+ * Acepta un `Error` o un texto y lo pasa por el diccionario de
+ * `errores.js`. Antes mostraba «No se pudo leer del servidor» más el mensaje
+ * crudo (`TypeError: Failed to fetch`), que no le dice a nadie que lo único
+ * que falta es levantar el servidor.
+ *
+ * El mensaje técnico NO se esconde: va al final, en un `<details>` cerrado.
+ * Un desarrollador lo necesita; taparlo del todo es el otro extremo del mismo
+ * problema.
+ */
+export function error(e) {
+  const x = explicar(e);
+  return h('div', { clase: `error-caja ${x.grave ? 'grave' : 'estado'}` },
+    h('b', { clase: 'error-titulo', texto: x.titulo }),
+    h('p', { clase: 'error-explicacion', texto: x.explicacion }),
+    x.pasos?.length
+      ? h('ol', { clase: 'error-pasos' }, x.pasos.map((p) => h('li', { texto: p })))
+      : null,
+    x.tecnico
+      ? h('details', { clase: 'error-tecnico' },
+          h('summary', { texto: 'Detalle técnico' }),
+          h('code', { texto: x.tecnico }))
+      : null);
 }
 
 /** `2` → `"2"`, `[7,8]` → `"7–8"`, ausente → `"—"`. */

@@ -16,6 +16,31 @@ const TOOLS_POR_AGENTE: Record<string, string[]> = {
 
 const EGRESS_PERMITIDO: string[] = [];                   // vacío = nada externo
 
+/**
+ * ★ El predicado del export humano, en UN solo lugar.
+ *
+ * Lo usan dos reglas: `export-local-por-humano` (que permite) y la excepción
+ * de `critico-requiere-aprobacion` (que evita volver a pedir una aprobación
+ * que ya se dio). Estaban escritos dos veces, y si alguien endurece uno y se
+ * olvida del otro, el resultado no es un error visible: es un hueco hacia
+ * `deny-by-default` o una aprobación que se pide dos veces. Con un predicado
+ * compartido eso no puede pasar.
+ *
+ * Incluye `principal.tipo === 'humano'`, que ANTES no se verificaba en ninguna
+ * regla: la única capa que separaba el export legítimo del inyectado era el
+ * string `agenteId === 'ui-humano'`, y un string lo fija quien construye el
+ * contexto. El campo ya existe en `SecurityContext` y ahora se usa — defensa
+ * en profundidad sobre la operación más sensible del sistema, que es la única
+ * que puede sacar el dataset completo.
+ */
+function esExportHumanoLocal(a: ActionRequest, c: SecurityContext): boolean {
+  return a.tool === 'exportar_dataset' &&
+    a.origenArgumentos === 'usuario' &&
+    c.principal.tipo === 'humano' &&
+    a.args['destino'] === 'local' &&
+    (TOOLS_POR_AGENTE[c.agenteId] ?? []).includes(a.tool);
+}
+
 const REGLAS: Regla[] = [
   { id: 'tool-fuera-de-allowlist', efecto: 'deny',
     razon: 'La herramienta no está en la allowlist del agente',
@@ -37,10 +62,7 @@ const REGLAS: Regla[] = [
     // Excepción quirúrgica: la exportación local iniciada por humano (ver regla
     // 'export-local-por-humano') YA ES la aprobación humana fuera de banda —
     // no debe volver a pedirse. No se relaja para ningún otro caso 'critical'.
-    aplica: (a, c) => a.riskLevel === 'critical' &&
-      !(a.tool === 'exportar_dataset' && a.origenArgumentos === 'usuario' &&
-        a.args['destino'] === 'local' &&
-        (TOOLS_POR_AGENTE[c.agenteId] ?? []).includes(a.tool)) },
+    aplica: (a, c) => a.riskLevel === 'critical' && !esExportHumanoLocal(a, c) },
 
   { id: 'lectura-permitida', efecto: 'allow',
     razon: 'Operación de solo lectura en la allowlist del agente',
@@ -48,9 +70,7 @@ const REGLAS: Regla[] = [
 
   { id: 'export-local-por-humano', efecto: 'allow',
     razon: 'Exportación local iniciada por un humano',
-    aplica: (a, c) => a.tool === 'exportar_dataset' && a.origenArgumentos === 'usuario' &&
-                      a.args['destino'] === 'local' &&
-                      (TOOLS_POR_AGENTE[c.agenteId] ?? []).includes(a.tool) },
+    aplica: esExportHumanoLocal },
 ];
 
 export function evaluar(a: ActionRequest, c: SecurityContext): PolicyDecision {

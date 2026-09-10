@@ -87,7 +87,7 @@ async function preguntar(cajaTexto, salida) {
     if (r.resultados) hijos.push(tablaResultados(r.resultados));
     pintar(salida, hijos.length ? hijos : h('p', { clase: 'small', texto: 'El modelo no produjo ningún filtro.' }));
   } catch (e) {
-    pintar(salida, error(e.message));
+    pintar(salida, error(e));
   }
 }
 

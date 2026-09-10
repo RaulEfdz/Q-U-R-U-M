@@ -39,7 +39,7 @@
    *
    * Los valores de §II.20 estan elegidos como color de identidad (glifo,
    * borde, franja) y varios no llegan a 4.5:1 como texto: medido sobre
-   * `--hundida` (#eeece7), el peor fondo donde aparecen, `--reportado` da
+   * `--hundida` (#e9ecf1), el peor fondo donde aparecen, `--reportado` da
    * 2.76 y `--sindatos` 2.85, y `--quorum` queda en 4.21. `Reportado` es
    * ademas el estado MAS frecuente en datos reales — un solo testigo — asi
    * que la etiqueta mas repetida de la interfaz era la menos legible.
@@ -47,7 +47,7 @@
    * No se cambia la rampa: se deriva. Mismo hue y mismo croma en OKLCH,
    * bajando solo la luminosidad hasta pasar AA. El estado conserva su
    * identidad cromatica y el texto se puede leer en un proyector.
-   * Ratios sobre #eeece7 / #ffffff:
+   * Ratios sobre #e9ecf1 / #ffffff:
    *   quorum    4.58 / 5.41      reportado  4.59 / 5.42
    *   estimado  4.55 / 5.37      sindatos   4.58 / 5.41
    *   sinquorum 4.84 / 5.72
@@ -58,14 +58,23 @@
   --sindatos-ink:  #6d6a61;
   --sinquorum-ink: #b0413e;   /* ya pasaba: sin cambio */
 
-  /* Superficies y tinta (coherentes con apps/mobile/src/app/theme.ts). */
-  --fondo:      #f7f6f3;
+  /*
+   * Superficies y tinta (coherentes con apps/mobile/src/app/theme.ts).
+   *
+   * ★ Neutros tintados hacia el HUE DEL AZUL DE MARCA, no hacia el cálido.
+   * El fondo era `#f7f6f3` — crema cálido, el neutro por defecto de casi
+   * cualquier interfaz generada — y no decía nada sobre este producto. Ahora
+   * el mismo valor de luminosidad lleva su croma mínima hacia el hue de
+   * `--primario`. Se movió el HUE, no la luminosidad: los contrastes
+   * verificados no cambian.
+   */
+  --fondo:      #f4f6f9;
   --superficie: #ffffff;
-  --hundida:    #eeece7;
-  --borde:      #d8d5cd;
-  --borde-duro: #b9b5aa;
-  --texto:      #1c1b18;
-  --tenue:      #55524a;    /* oscuro de verdad: legible en proyector */
+  --hundida:    #e9ecf1;
+  --borde:      #d1d6dd;
+  --borde-duro: #b1b6bc;
+  --texto:      #191b1e;
+  --tenue:      #4f5257;    /* oscuro de verdad: legible en proyector */
 
   --primario:   #1a4d8f;    /* acción, no confianza */
   --primario-texto: #ffffff;
@@ -553,6 +562,40 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 }
 .vacio-titulo { margin: 0; font-weight: 700; }
 .vacio-detalle { margin: var(--md) auto 0; max-width: 62ch; font-size: var(--t-chico); color: var(--tenue); }
+
+/*
+ * Caja de error legible (ver `ui/errores.js`). Dos tratamientos:
+ *
+ *  `.estado` — situaciones ESPERADAS que no son fallas del producto: el
+ *    servidor no está levantado, el modelo todavía se descarga, no hay
+ *    permiso de micrófono. Fondo hundido y tinta normal: informa sin alarmar.
+ *  `.grave` — lo que sí pide una decisión. Ahí sí entra el rojo.
+ *
+ * El rojo de `--sinquorum` se usa acá para un error de la INTERFAZ, no para un
+ * nivel de confianza sobre un dato. Es la excepción declarada a «el color
+ * codifica confianza y nada más», y por eso está acotada a `.grave`.
+ */
+.error-caja.estado {
+  background: var(--hundida);
+  border: 1px solid var(--borde-duro);
+}
+.error-titulo { display: block; font-size: var(--t-cuerpo); }
+.error-explicacion {
+  margin: var(--xs) 0 0; font-size: var(--t-chico); color: var(--tenue);
+  max-width: 68ch;
+}
+.error-pasos {
+  margin: var(--md) 0 0; padding-left: var(--xl);
+  font-size: var(--t-chico); max-width: 68ch;
+}
+.error-pasos li { margin-bottom: var(--xs); }
+.error-tecnico { margin-top: var(--md); font-size: var(--t-chico); }
+.error-tecnico summary { color: var(--tenue); cursor: pointer; }
+.error-tecnico code {
+  display: block; margin-top: var(--sm); padding: var(--sm);
+  background: var(--hundida); color: var(--tenue);
+  overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+}
 
 .error-caja {
   padding: var(--lg); color: var(--denegado);
