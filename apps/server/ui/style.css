@@ -34,6 +34,30 @@
   --sinquorum-fondo: #fbeceb;
   --quorum-fondo:    #eaf4ef;
 
+  /*
+   * TINTAS de la misma rampa, para cuando el estado se pinta como TEXTO.
+   *
+   * Los valores de §II.20 estan elegidos como color de identidad (glifo,
+   * borde, franja) y varios no llegan a 4.5:1 como texto: medido sobre
+   * `--hundida` (#eeece7), el peor fondo donde aparecen, `--reportado` da
+   * 2.76 y `--sindatos` 2.85, y `--quorum` queda en 4.21. `Reportado` es
+   * ademas el estado MAS frecuente en datos reales — un solo testigo — asi
+   * que la etiqueta mas repetida de la interfaz era la menos legible.
+   *
+   * No se cambia la rampa: se deriva. Mismo hue y mismo croma en OKLCH,
+   * bajando solo la luminosidad hasta pasar AA. El estado conserva su
+   * identidad cromatica y el texto se puede leer en un proyector.
+   * Ratios sobre #eeece7 / #ffffff:
+   *   quorum    4.58 / 5.41      reportado  4.59 / 5.42
+   *   estimado  4.55 / 5.37      sindatos   4.58 / 5.41
+   *   sinquorum 4.84 / 5.72
+   */
+  --quorum-ink:    #0f7954;
+  --reportado-ink: #916000;
+  --estimado-ink:  #6b6b63;   /* ya pasaba: sin cambio */
+  --sindatos-ink:  #6d6a61;
+  --sinquorum-ink: #b0413e;   /* ya pasaba: sin cambio */
+
   /* Superficies y tinta (coherentes con apps/mobile/src/app/theme.ts). */
   --fondo:      #f7f6f3;
   --superficie: #ffffff;
@@ -51,7 +75,25 @@
   --t-cuerpo: 14.5px;
   --t-grande: 21px;
 
-  --sm: 4px; --md: 8px; --lg: 14px; --xl: 22px;
+  /*
+   * Escala de espaciado. `xs` y `sm` son para lo que va JUNTO (glifo y su
+   * etiqueta, valor y su unidad); `lg` y `xl` separan bloques distintos. La
+   * densidad alta es un principio del producto, pero densidad no es
+   * monotonía: sin variación entre "pegado" y "separado" la pantalla pierde
+   * el agrupamiento y todo pesa igual.
+   *
+   * Los valores sueltos de 2/3/5/6/7px que había desperdigados eran ruido:
+   * la diferencia entre 5 y 6px no la ve nadie, y hacía imposible ajustar el
+   * ritmo en un solo lugar.
+   *
+   * EXCEPCIÓN ASUMIDA: un detector de diseño va a marcar esta hoja por
+   * «espaciado monótono», porque el extremo chico de la escala (--xs/--sm)
+   * concentra la mayoría de los usos. Es deliberado y no un descuido: la
+   * densidad alta es un principio del producto — se lee de pie o se escanean
+   * 16 grupos de una — y lo que va junto tiene que ir junto. El ritmo se
+   * construye con --xl/--xxl entre secciones, no aflojando el agrupamiento.
+   */
+  --xs: 2px; --sm: 5px; --md: 9px; --lg: 15px; --xl: 24px; --xxl: 38px;
 }
 
 * { box-sizing: border-box; }
@@ -65,6 +107,20 @@
  */
 [hidden] { display: none !important; }
 
+/*
+ * Foco visible y uniforme. El navegador da un anillo por defecto que varias
+ * reglas de esta hoja pisaban al redefinir `border` en los controles; se
+ * declara una sola vez acá para que ningún control quede sin foco visible al
+ * navegar con teclado. `:focus-visible` y no `:focus`: no aparece al hacer
+ * clic con el mouse, solo cuando hace falta.
+ *
+ * El color es `--primario` (acción), nunca uno de la rampa de confianza.
+ */
+:focus-visible {
+  outline: 2px solid var(--primario);
+  outline-offset: 2px;
+}
+
 html { background: var(--fondo); }
 
 body {
@@ -75,6 +131,24 @@ body {
   color: var(--texto);
   background: var(--fondo);
 }
+
+/*
+ * Iconos (sprite de `index.html`, instanciados por `dom.js`).
+ *
+ * `currentColor` en el trazo y nunca `fill`: un icono no introduce color
+ * propio, porque en esta interfaz el color codifica confianza y nada más.
+ * `vertical-align` en vez de flex para los que van dentro de una línea de
+ * texto: alinea con la base de la tipografía, no con la caja.
+ */
+.icono {
+  width: 1.15em; height: 1.15em; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+  vertical-align: -0.2em;
+}
+.icono-modalidad { width: 1.35em; height: 1.35em; color: var(--tenue); }
+/* En una celda de tabla el icono va junto al texto sin separarse de él. */
+.con-icono { display: inline-flex; align-items: center; gap: var(--md); }
 
 .num { font-variant-numeric: tabular-nums; }   /* columnas alineadas */
 .small { font-size: var(--t-chico); color: var(--tenue); }
@@ -111,24 +185,29 @@ h1 {
 
 nav {
   grid-column: 1 / -1;
-  display: flex; gap: 2px; margin-top: var(--md);
+  display: flex; gap: var(--xs); margin-top: var(--md);
 }
 nav button {
+  display: inline-flex; align-items: center; gap: var(--md);
   font: inherit; font-size: var(--t-cuerpo);
   background: none; border: none; border-bottom: 3px solid transparent;
   padding: var(--md) var(--lg); color: var(--tenue); cursor: pointer;
 }
 nav button:hover { color: var(--texto); background: var(--hundida); }
 nav button.activo { color: var(--texto); font-weight: 700; border-bottom-color: var(--primario); }
-nav button:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
-  outline: 2px solid var(--primario); outline-offset: 1px;
-}
+/* `max-width` acotado y centrado: a 2000px de ancho el contenido alineado a
+   la izquierda dejaba media pantalla vacía, y las filas de la tabla de
+   confianza se estiraban hasta perder la relación entre columnas. */
+main { padding: var(--xl); max-width: 1080px; margin: 0 auto; min-height: 62vh; }
 
-main { padding: var(--xl); max-width: 1180px; min-height: 62vh; }  /* el pie no sube a media pantalla en Capturar */
+/* La nota de captura es texto que se lee, no un campo que se rellena: se
+   acota la medida en vez de estirarla al ancho del contenedor. */
+#texto { max-width: 68ch; }
 
 /* ──────────────────────────── Controles ──────────────────────────── */
 
 button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--md);
   font: inherit; font-size: var(--t-cuerpo);
   padding: 7px 13px; cursor: pointer;
   background: var(--superficie); color: var(--texto);
@@ -141,7 +220,7 @@ button.primario {
   border-color: var(--primario); font-weight: 700;
 }
 button.primario:hover:not(:disabled) { background: #163f75; }
-button.grabando { border-color: var(--sinquorum); color: var(--sinquorum); font-weight: 700; }
+button.grabando { border-color: var(--sinquorum); color: var(--sinquorum-ink); font-weight: 700; }
 
 input, textarea {
   font: inherit; font-size: var(--t-cuerpo); color: var(--texto);
@@ -162,10 +241,10 @@ input.editado { border-color: var(--primario); font-weight: 700; }
   width: 100%; min-height: 96px; resize: vertical;
   font-size: var(--t-grande); line-height: 1.3;   /* campo grande = velocidad */
 }
-.campo-fecha { display: flex; flex-direction: column; gap: 3px; font-size: var(--t-chico); color: var(--tenue); }
+.campo-fecha { display: flex; flex-direction: column; gap: var(--xs); font-size: var(--t-chico); color: var(--tenue); }
 
 .chip {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: var(--sm);
   margin: var(--md) 0 0; padding: 3px 9px;
   font-size: var(--t-chico); color: var(--tenue);
   background: var(--hundida); border: 1px solid var(--borde);
@@ -185,7 +264,7 @@ input.editado { border-color: var(--primario); font-weight: 700; }
   margin-top: var(--xl); padding: var(--lg);
   background: var(--superficie); border: 2px solid var(--primario);
 }
-.revision h3 { margin: 0 0 var(--md); font-size: var(--t-cuerpo); text-transform: uppercase; letter-spacing: 0.08em; }
+.revision h2 { margin: 0 0 var(--md); font-size: var(--t-cuerpo); text-transform: uppercase; letter-spacing: 0.08em; }
 .resumen { margin: 0 0 var(--lg); }
 
 .lote {
@@ -193,16 +272,25 @@ input.editado { border-color: var(--primario); font-weight: 700; }
 }
 .lote-cabecera { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--md); }
 .lote-cabecera b { font-size: var(--t-cuerpo); }
+/*
+ * La evidencia es la cita LITERAL de la nota que respalda un lote — la pieza
+ * central del diseño anti-alucinación. Se trata como cita: comillas
+ * tipográficas y fondo hundido, sin barra de color al costado. El borde
+ * izquierdo hacía que se leyera como un bloque con acento decorativo en vez
+ * de como una transcripción de lo que dijo la persona.
+ */
 .evidencia {
-  margin: var(--sm) 0 var(--md); padding-left: var(--md);
-  border-left: 3px solid var(--borde-duro);
+  margin: var(--sm) 0 var(--md); padding: var(--sm) var(--md);
+  background: var(--hundida);
   font-size: var(--t-chico); color: var(--tenue); font-style: italic;
 }
+.evidencia::before { content: '\201C'; }
+.evidencia::after  { content: '\201D'; }
 .campos-editables {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--md);
 }
-.campo-editable { display: flex; flex-direction: column; gap: 3px; }
+.campo-editable { display: flex; flex-direction: column; gap: var(--xs); }
 .campo-editable .etiqueta { font-size: var(--t-chico); color: var(--tenue); }
 
 .seguimiento { margin: var(--lg) 0; }
@@ -217,22 +305,51 @@ input.editado { border-color: var(--primario); font-weight: 700; }
 
 .leyenda { margin: 0 0 var(--lg); font-size: var(--t-chico); color: var(--tenue); }
 
+/*
+ * Borde completo, NO una franja de color a la izquierda.
+ *
+ * La franja repetía una información que el grupo ya da mejor: su badge de
+ * cabecera dice el estado con glifo + etiqueta + color, que es el contrato de
+ * §II.20. Con 16 grupos en pantalla, cinco colores de franja compitiendo
+ * contra los badges de cada fila convertían la rampa de confianza en textura.
+ *
+ * `Sin quórum` es la excepción, y por una razón de producto: es el estado que
+ * el sistema NO quiere que se lea como un error, pero tampoco que pase
+ * desapercibido. Ahí el contenedor entero toma el color — borde completo más
+ * fondo tintado, no una franja.
+ */
 .grupo {
-  margin-bottom: var(--xl); padding: var(--lg);
+  margin-bottom: var(--lg); padding: var(--lg);
   background: var(--superficie); border: 1px solid var(--borde);
-  border-left: 4px solid var(--sindatos);
 }
-.grupo.ok { border-left-color: var(--quorum); }
-.grupo.medio { border-left-color: var(--reportado); }
-.grupo.bajo { border-left-color: var(--estimado); }
-.grupo.nulo { border-left-color: var(--sindatos); }
-.grupo.sinquorum { border-left-color: var(--sinquorum); }
+.grupo.sinquorum { border-color: var(--sinquorum); }
+
+/*
+ * Cliente → sus grupos de equipo. El nombre del cliente aparece UNA vez y
+ * los grupos cuelgan de él: lo que cambia entre tarjetas vecinas es la
+ * modalidad, y es eso lo que tiene que ganar la mirada.
+ */
+.cliente-bloque { margin-bottom: var(--xxl); }
+.cliente-cabecera {
+  padding-bottom: var(--md); margin-bottom: var(--lg);
+  border-bottom: 2px solid var(--borde-duro);
+}
+.cliente-nombre {
+  margin: 0; font-size: 25px; font-weight: 700; letter-spacing: -0.015em;
+}
+.cliente-cabecera .ubicacion { margin: 3px 0 0; }
+.cliente-cabecera .small { margin: 2px 0 0; }
 
 .grupo-cabecera {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: var(--lg); flex-wrap: wrap;
+  padding-bottom: var(--md); margin-bottom: var(--md);
+  border-bottom: 1px solid var(--borde);
 }
-.grupo h3 { margin: 0; font-size: var(--t-grande); font-weight: 700; }
+.equipo-titulo {
+  margin: 0; font-size: var(--t-cuerpo); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
 .ubicacion { margin: 2px 0 0; font-size: var(--t-chico); color: var(--tenue); }
 .puntaje-caja { text-align: right; }
 .puntaje { font-size: var(--t-grande); font-weight: 700; }
@@ -240,7 +357,7 @@ input.editado { border-color: var(--primario); font-weight: 700; }
 .desglose { margin: 2px 0 0; font-size: var(--t-chico); color: var(--tenue); }
 
 .oportunidad {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: var(--sm);
   margin: var(--md) 0 0; padding: 2px 8px;
   font-size: var(--t-chico); font-weight: 700;
   color: var(--texto); background: var(--hundida); border: 1px solid var(--borde-duro);
@@ -261,27 +378,33 @@ td { padding: 5px var(--md); border-bottom: 1px solid var(--borde); vertical-ali
 
 /* Anchos explícitos: sin esto la columna del estado queda a media pantalla
    de la del testigo y la fila deja de leerse como una sola frase. */
-.confianza th:nth-child(1), .confianza td:nth-child(1) { width: 190px; }
-.confianza th:nth-child(2), .confianza td:nth-child(2) { width: 30%; }
-.confianza th:nth-child(3), .confianza td:nth-child(3) { width: 165px; white-space: nowrap; }
+/* La fila se lee como una frase: campo → valor → estado → quién. Con la 2ª
+   columna al 30% de un monitor ancho, «quién lo sostiene» arrancaba a media
+   pantalla del badge y la frase se partía. Anchos acotados y una última
+   columna que absorbe el resto. */
+.confianza th:nth-child(1), .confianza td:nth-child(1) { width: 180px; }
+.confianza th:nth-child(2), .confianza td:nth-child(2) { width: 230px; }
+.confianza th:nth-child(3), .confianza td:nth-child(3) { width: 160px; white-space: nowrap; }
 .confianza td.campo { font-weight: 700; white-space: nowrap; }
 .confianza td.num { font-weight: 700; }
 .confianza tr.sangrada td.campo { font-weight: 400; color: var(--tenue); padding-left: var(--xl); }
 .confianza tr.sangrada { background: var(--hundida); }
-.confianza td.disputa { color: var(--sinquorum); font-weight: 700; }
+.confianza td.disputa { color: var(--sinquorum-ink); font-weight: 700; }
 .quienes { display: flex; align-items: baseline; gap: var(--md); flex-wrap: wrap; font-size: var(--t-chico); color: var(--tenue); }
 
 /* Insignia de estado: glifo + etiqueta + color. Los tres, siempre. */
 .badge {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: var(--sm);
   padding: 1px 8px; border: 1.5px solid currentColor; border-radius: 999px;
   font-size: var(--t-chico); font-weight: 700; white-space: nowrap;
 }
-.badge.ok { color: var(--quorum); }
-.badge.medio { color: var(--reportado); }
-.badge.bajo { color: var(--estimado); }
-.badge.nulo { color: var(--sindatos); }
-.badge.sinquorum { color: var(--sinquorum); }
+/* Texto → tinta AA. El glifo mantiene el color de identidad de la rampa
+   (es una forma, no un texto que haya que leer letra por letra). */
+.badge.ok { color: var(--quorum-ink); }
+.badge.medio { color: var(--reportado-ink); }
+.badge.bajo { color: var(--estimado-ink); }
+.badge.nulo { color: var(--sindatos-ink); }
+.badge.sinquorum { color: var(--sinquorum-ink); }
 .badge.naturaleza { color: var(--primario); }   /* eje 1, paleta aparte */
 
 /*
@@ -290,7 +413,7 @@ td { padding: 5px var(--md); border-bottom: 1px solid var(--borde); vertical-ali
  * estado de la escalera de quórum.
  */
 .frescura {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: var(--sm);
   font-size: var(--t-chico); font-weight: 700; color: var(--tenue);
   border-bottom: 1px dotted var(--borde-duro);
 }
@@ -338,21 +461,24 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .kpi { padding: var(--lg); background: var(--superficie); }
 .kpi b { display: block; font-size: 34px; line-height: 1; font-weight: 700; }
 .kpi span { font-size: var(--t-chico); color: var(--tenue); }
-.kpi.ok b { color: var(--quorum); }
-.kpi.sinquorum b { color: var(--sinquorum); }
+.kpi.ok b { color: var(--quorum-ink); }
+.kpi.sinquorum b { color: var(--sinquorum-ink); }
 
 .bloque {
-  margin-bottom: var(--xl); padding: var(--lg);
+  margin-bottom: var(--xxl); padding: var(--lg);
   background: var(--superficie); border: 1px solid var(--borde);
 }
 .bloque h4 {
   margin: 0 0 var(--md); font-size: var(--t-cuerpo); font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.08em;
 }
-.bloque.aviso-humano { border-left: 4px solid var(--borde-duro); }
+/* El bloque de "revisión humana requerida" se marca con fondo hundido y
+   borde duro completo, no con una franja al costado: es el mismo criterio
+   que en `.grupo`. */
+.bloque.aviso-humano { background: var(--hundida); border-color: var(--borde-duro); }
 
 /* Barras: `div` con porcentaje. Sin librería de gráficos, sin mapa. */
-.barras { display: flex; flex-direction: column; gap: 3px; }
+.barras { display: flex; flex-direction: column; gap: var(--xs); }
 .barra { display: grid; grid-template-columns: 150px 1fr 56px; align-items: center; gap: var(--md); }
 .barra-etiqueta { font-size: var(--t-chico); }
 .barra-pista { display: block; height: 14px; background: var(--hundida); }
@@ -384,7 +510,8 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 }
 .integridad > div { flex: 1; }
 .integridad.ok { border-color: var(--quorum); }
-.integridad.ok .glifo, .integridad.ok b { color: var(--quorum); }
+.integridad.ok .glifo { color: var(--quorum); }
+.integridad.ok b { color: var(--quorum-ink); }
 .integridad.sinquorum { border-color: var(--denegado); background: var(--sinquorum-fondo); }
 .integridad.sinquorum .glifo, .integridad.sinquorum b { color: var(--denegado); }
 .glifo.grande { font-size: 26px; }
@@ -395,7 +522,7 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .pares { display: flex; flex-wrap: wrap; gap: var(--md); }
 .par i { font-style: normal; color: var(--tenue); }
 .chip-inferencia {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: var(--sm);
   padding: 1px 7px; font-size: var(--t-chico); font-weight: 700;
   color: var(--tenue); background: var(--hundida); border: 1px solid var(--borde);
   white-space: nowrap;
@@ -442,10 +569,10 @@ footer {
   border-top: 1px solid var(--borde);
 }
 .leyenda-estados { display: flex; gap: var(--lg); flex-wrap: wrap; }
-.leyenda-estados b:nth-child(1) { color: var(--quorum); }
-.leyenda-estados b:nth-child(2) { color: var(--reportado); }
-.leyenda-estados b:nth-child(3) { color: var(--estimado); }
-.leyenda-estados b:nth-child(4) { color: var(--sindatos); }
+.leyenda-estados b:nth-child(1) { color: var(--quorum-ink); }
+.leyenda-estados b:nth-child(2) { color: var(--reportado-ink); }
+.leyenda-estados b:nth-child(3) { color: var(--estimado-ink); }
+.leyenda-estados b:nth-child(4) { color: var(--sindatos-ink); }
 .leyenda-estados b:nth-child(5) { color: var(--sinquorum); }
 .leyenda-estados i { color: var(--tenue); }
 
@@ -458,7 +585,7 @@ footer {
   /* Los anchos fijos de columna dejan de servir acá: sin esto la insignia
      de frescura se parte palabra por palabra en la última columna. */
   .confianza th, .confianza td { width: auto !important; }
-  .quienes { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .quienes { flex-direction: column; align-items: flex-start; gap: var(--xs); }
   .frescura { white-space: nowrap; }
   .puntaje-caja { text-align: left; }
 }

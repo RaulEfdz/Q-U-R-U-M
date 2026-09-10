@@ -5,18 +5,40 @@
  * visible: ahí está la prueba de cumplimiento, no en una diapositiva
  * (§B.2).
  */
-import { h, api, pintar, error } from './dom.js';
+import { h, api, pintar, error, icono } from './dom.js';
 
-/** El detalle de un registro es un objeto arbitrario; se muestra como
- *  pares clave=valor por `textContent`. Nunca como marcado. */
+/*
+ * Tope de longitud por valor. El detalle de un registro es un objeto
+ * ARBITRARIO — y en un registro de error puede traer el mensaje crudo del
+ * SDK, que llega a miles de caracteres (por ejemplo, la lista completa de
+ * modelos del registro local). Sin tope, UN registro empuja los otros 49
+ * fuera de la pantalla y la cadena de auditoría deja de poder leerse: justo
+ * la pantalla donde se demuestra la integridad.
+ *
+ * El valor completo queda en el `title`, así que no se pierde nada: se puede
+ * leer al pasar el mouse, y sigue estando entero en `data/audit.jsonl`, que
+ * es la fuente que el jurado puede abrir y alterar.
+ */
+const TOPE_VALOR = 240;
+
 function detalle(d) {
   if (!d || typeof d !== 'object') return h('span', { clase: 'small', texto: '—' });
   const pares = Object.entries(d);
   if (!pares.length) return h('span', { clase: 'small', texto: '—' });
   return h('span', { clase: 'small pares' },
-    pares.map(([k, v]) => h('span', { clase: 'par' },
-      h('i', { texto: `${k}=` }),
-      h('span', { texto: typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v) }))));
+    pares.map(([k, v]) => {
+      const completo = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+      const recortado = completo.length > TOPE_VALOR
+        ? `${completo.slice(0, TOPE_VALOR)}… (+${completo.length - TOPE_VALOR} caracteres)`
+        : completo;
+      return h('span', { clase: 'par' },
+        h('i', { texto: `${k}=` }),
+        h('span', {
+          texto: recortado,
+          // `title` solo cuando hay algo mas que ver.
+          ...(recortado === completo ? {} : { title: completo }),
+        }));
+    }));
 }
 
 /** ¿Este registro habla de una inferencia, y fue local o delegada? */
@@ -65,7 +87,7 @@ export async function pintarAuditoria(seccion) {
   // al más viejo, sin mutar el array de la respuesta.
   const registros = [...(d.registros ?? [])].reverse();
 
-  const boton = h('button', { texto: 'Verificar integridad' });
+  const boton = h('button', null, icono('integridad'), 'Verificar integridad');
   boton.onclick = () => pintarAuditoria(seccion);
 
   pintar(seccion,

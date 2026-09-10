@@ -29,6 +29,27 @@ export const color = {
   estimado: '#6b6b63',
   sinDatos: '#8f8c82',
   sinQuorum: '#b0413e',
+
+  /*
+   * ★ Tintas de la MISMA rampa, para cuando el estado se pinta como TEXTO.
+   *
+   * Los valores de §II.20 están elegidos como color de identidad (glifo,
+   * borde, franja) y varios no llegan a 4.5:1 como texto. Medido sobre
+   * `superficieHundida` (#eeece7), el peor fondo donde aparecen:
+   * `reportado` da 2.76 y `sinDatos` 2.85 — bien por debajo del mínimo — y
+   * `quorum` queda en 4.21. Y esta app se usa A SOL DIRECTO, que es donde
+   * el contraste real importa más, no menos. `reportado` es además el
+   * estado más frecuente en datos reales (un solo testigo), así que la
+   * etiqueta más repetida de la interfaz era la menos legible.
+   *
+   * No se cambia la rampa: se deriva. Mismo hue y mismo croma en OKLCH,
+   * bajando solo la luminosidad hasta pasar AA. Ratios sobre #eeece7:
+   *   quorumTinta 4.58 · reportadoTinta 4.59 · sinDatosTinta 4.58
+   * `estimado` y `sinQuorum` ya pasaban y quedan igual, sin token propio.
+   */
+  quorumTinta: '#0f7954',
+  reportadoTinta: '#916000',
+  sinDatosTinta: '#6d6a61',
   sinQuorumFondo: '#fbeceb',
   denegado: '#7d1f1c',
 
@@ -38,7 +59,9 @@ export const color = {
   // corroboró" — son dos preguntas distintas.
   directo: '#1a4d8f',
   referido: '#6b4fa0',
-  estimadoNaturaleza: '#a3651b',
+  // 4.01:1 sobre `superficieHundida` con el ocre original (#a3651b): mismo
+  // criterio que las tintas de arriba, oscurecido a 4.57:1.
+  estimadoNaturaleza: '#995c0c',
   desconocido: '#6b6b63',
 
   exito: '#1a7f5a',

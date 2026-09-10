@@ -142,13 +142,22 @@ const estilos = StyleSheet.create({
   },
   meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: espacio.sm },
   textoMeta: { ...tipografia.pequeno, color: color.textoTenue },
-  frescura: { ...tipografia.pequeno, color: color.reportado, fontWeight: '600' },
+  /*
+   * ★ La frescura NO lleva un color de la rampa de quórum. Estaba en
+   * `color.reportado`, y eso rompía dos cosas a la vez: se leía como el
+   * estado «Reportado» — el cruce de ejes que el propio proyecto marca como
+   * el error de diseño más fácil de cometer acá — y encima ese ocre da
+   * 2.76:1 sobre el fondo hundido, en texto de 12px, en una app que se usa a
+   * sol directo. Va en tinta neutra con su propio peso, igual que en la UI
+   * de escritorio.
+   */
+  frescura: { ...tipografia.pequeno, color: color.texto, fontWeight: '700' },
   conflicto: {
     marginTop: espacio.xs, padding: espacio.sm, gap: espacio.xs,
     backgroundColor: color.superficie, borderRadius: radio.sm,
     borderWidth: 1, borderColor: color.sinQuorum,
   },
-  conflictoTitulo: { ...tipografia.pequeno, fontWeight: '700', color: color.sinQuorum },
+  conflictoTitulo: { ...tipografia.pequeno, fontWeight: '700', color: color.sinQuorum },  /* 4.84:1, pasa */
   version: { flexDirection: 'row', alignItems: 'baseline', gap: espacio.sm },
   versionValor: {
     ...tipografia.cuerpo, fontWeight: '700', color: color.texto,

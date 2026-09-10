@@ -10,7 +10,7 @@
  * política prohíbe, la respuesta trae `bloqueado` y además llega el evento
  * SSE `policy-denied` que pinta la banda roja (ver `app.js`).
  */
-import { h, api, pintar, formatearValor, vacio, error } from './dom.js';
+import { h, api, pintar, formatearValor, vacio, error, icono, iconoModalidad } from './dom.js';
 import { claseEstado, insignia } from './estados.js';
 
 function kpi(valor, etiqueta, clase) {
@@ -19,13 +19,18 @@ function kpi(valor, etiqueta, clase) {
     h('span', { texto: etiqueta }));
 }
 
-function barras(pares) {
+function barras(pares, { conIconoModalidad = false } = {}) {
   const filas = pares ?? [];
   if (!filas.length) return h('p', { clase: 'small', texto: 'Sin datos suficientes todavía.' });
   const max = Math.max(...filas.map(([, v]) => Number(v) || 0)) || 1;
   return h('div', { clase: 'barras' },
     filas.map(([k, v]) => h('div', { clase: 'barra' },
-      h('span', { clase: 'barra-etiqueta', texto: String(k) }),
+      // Solo el eje de modalidad lleva icono: para país no existe un set, y
+      // meter una bandera ahí sería ornamento — el nombre ya lo dice.
+      conIconoModalidad
+        ? h('span', { clase: 'barra-etiqueta con-icono' },
+            iconoModalidad(String(k), { clase: 'icono-modalidad' }), String(k))
+        : h('span', { clase: 'barra-etiqueta', texto: String(k) }),
       h('span', { clase: 'barra-pista' }, h('i', { style: `width:${(Number(v) / max) * 100}%` })),
       h('b', { clase: 'num', texto: String(v) }))));
 }
@@ -131,7 +136,8 @@ export function pintarPanorama(seccion, datos) {
   cajaConsulta.onkeydown = (e) => { if (e.key === 'Enter') preguntar(cajaConsulta, salidaConsulta); };
 
   const avisoExport = h('p', { clase: 'estado', hidden: true });
-  const botonExport = h('button', { texto: 'Exportar CSV (esquema del workbook, 19 columnas)' });
+  const botonExport = h('button', null,
+    icono('exportar'), 'Exportar CSV (esquema del workbook, 19 columnas)');
   botonExport.onclick = () => exportar(botonExport, avisoExport);
 
   pintar(seccion,
@@ -153,7 +159,8 @@ export function pintarPanorama(seccion, datos) {
       h('h4', { texto: 'Unidades por país' }), barras(datos?.porPais)),
 
     h('section', { clase: 'bloque' },
-      h('h4', { texto: 'Unidades por modalidad' }), barras(datos?.porModalidad)),
+      h('h4', { texto: 'Unidades por modalidad' }),
+      barras(datos?.porModalidad, { conIconoModalidad: true })),
 
     candidatos.length
       ? h('section', { clase: 'bloque aviso-humano' },

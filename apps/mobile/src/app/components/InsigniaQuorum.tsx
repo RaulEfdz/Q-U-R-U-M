@@ -11,16 +11,27 @@ import { color } from '../theme.ts';
  * Deliberadamente distinta de `InsigniaNaturaleza` (eje 1): un usuario nunca
  * debe confundir "quién lo vio" con "cuánto se corroboró".
  */
-const INFO: Record<EstadoCampo, { glifo: string; color: string }> = {
-  'Quórum': { glifo: '●', color: color.quorum },
-  'Reportado': { glifo: '◐', color: color.reportado },
-  'Estimado': { glifo: '○', color: color.estimado },
-  'Sin datos': { glifo: '·', color: color.sinDatos },
-  'Sin quórum': { glifo: '▲', color: color.sinQuorum },
+/*
+ * `color` es la IDENTIDAD del estado (glifo y borde) y `tinta` la que se usa
+ * para TEXTO. Varios valores de §II.20 no llegan a 4.5:1 como texto sobre
+ * los fondos de esta app, y se usa a sol directo — ver la nota de las tintas
+ * en `theme.ts`. Donde el original ya pasaba, ambos son el mismo valor.
+ */
+const INFO: Record<EstadoCampo, { glifo: string; color: string; tinta: string }> = {
+  'Quórum': { glifo: '●', color: color.quorum, tinta: color.quorumTinta },
+  'Reportado': { glifo: '◐', color: color.reportado, tinta: color.reportadoTinta },
+  'Estimado': { glifo: '○', color: color.estimado, tinta: color.estimado },
+  'Sin datos': { glifo: '·', color: color.sinDatos, tinta: color.sinDatosTinta },
+  'Sin quórum': { glifo: '▲', color: color.sinQuorum, tinta: color.sinQuorum },
 };
 
 export function colorEstado(estado: EstadoCampo): string {
   return INFO[estado].color;
+}
+
+/** Para pintar el ESTADO como texto. Ver la nota de `INFO`. */
+export function tintaEstado(estado: EstadoCampo): string {
+  return INFO[estado].tinta;
 }
 
 export function glifoEstado(estado: EstadoCampo): string {
@@ -32,7 +43,7 @@ export function InsigniaQuorum({ estado }: { estado: EstadoCampo }) {
   return (
     <View style={[estilos.chip, { borderColor: info.color }]}>
       <Text style={[estilos.glifo, { color: info.color }]}>{info.glifo}</Text>
-      <Text style={[estilos.texto, { color: info.color }]}>{estado}</Text>
+      <Text style={[estilos.texto, { color: info.tinta }]}>{estado}</Text>
     </View>
   );
 }

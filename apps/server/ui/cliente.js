@@ -14,7 +14,7 @@
  * argumento, así que el bloque de versiones va SIEMPRE visible, nunca
  * detrás de un click.
  */
-import { h, pintar, formatearValor, testigos, testimonios, vacio, error } from './dom.js';
+import { h, pintar, formatearValor, testigos, testimonios, vacio, error, iconoModalidad } from './dom.js';
 import { claseEstado, insignia, insigniaFrescura, esAscensoAQuorum } from './estados.js';
 
 /** Estados de la pasada anterior, para detectar el ascenso a quórum.
@@ -71,7 +71,10 @@ function filaCampo(clave, nombre, campo, { sangrada = false } = {}) {
 function filaCohorte(clave, cohorte, indice) {
   const uds = cohorte.cantidad?.valor ?? '?';
   const edad = formatearValor(cohorte.edad);
-  const partes = [`${uds} uds · ${edad} años`];
+  // «1 uds» se lee como un bug de plantilla en una pantalla que promete
+  // precisión sobre los datos.
+  const unidad = uds === 1 ? 'ud' : 'uds';
+  const partes = [`${uds} ${unidad} · ${edad} años`];
   if (cohorte.anioInstalacion !== undefined) partes.push(`(≈${cohorte.anioInstalacion})`);
 
   const fila = h('tr', { clase: [claseEstado(cohorte.estado), 'sangrada'] },
@@ -96,13 +99,17 @@ const dec2 = (n) => (typeof n === 'number' ? n.toFixed(2) : '—');
 export function pintarGrupo(g) {
   const c = g.campos ?? {};
   const p = g.puntaje ?? {};
-  const ubicacion = [g.cliente?.ciudad, g.cliente?.pais].filter(Boolean).join(', ');
 
   return h('article', { clase: `grupo ${claseEstado(g.estadoGeneral)}` },
     h('header', { clase: 'grupo-cabecera' },
-      h('div', null,
-        h('h3', { texto: g.cliente?.nombre ?? 'Cliente sin nombre' }),
-        ubicacion ? h('p', { clase: 'ubicacion', texto: ubicacion }) : null),
+      // El nombre del cliente NO se repite acá: lo pone `pintarCliente` una
+      // vez por cliente. Con 16 grupos, repetirlo en cada tarjeta hacía que
+      // el dato que cambia (la modalidad) quedara subordinado al que no
+      // cambia. Es además el criterio que ya usa la app móvil, que agrupa por
+      // cliente — mantenerlos distintos era drift entre las dos superficies.
+      h('h3', { clase: 'equipo-titulo con-icono' },
+        iconoModalidad(g.campos?.modalidad?.valor, { clase: 'icono-modalidad' }),
+        tituloEquipo(g)),
       h('div', { clase: 'puntaje-caja' },
         h('span', {
           clase: 'puntaje num',
@@ -116,8 +123,6 @@ export function pintarGrupo(g) {
           h('i', { clase: 'glifo', 'aria-hidden': 'true', texto: '↻' }),
           h('span', { texto: 'Oportunidad de renovación' }))
       : null,
-
-    h('h4', { clase: 'equipo', texto: tituloEquipo(g) }),
 
     h('table', { clase: 'confianza' },
       h('thead', null, h('tr', null,
@@ -144,8 +149,12 @@ export function pintarGrupo(g) {
           : null,
         (g.cohortes ?? []).map((co, i) => filaCohorte(g.clave, co, i)))),
 
-    h('p', { clase: 'dupes', texto:
-      `${testimonios((g.observacionesIds ?? []).length)} se refieren a este mismo equipo` }));
+    // Concordancia: «1 testimonio se refieren» se lee como un bug de
+    // plantilla, y esta pantalla se apoya en parecer precisa.
+    h('p', { clase: 'dupes', texto: (() => {
+      const n = (g.observacionesIds ?? []).length;
+      return `${testimonios(n)} se ${n === 1 ? 'refiere' : 'refieren'} a este mismo equipo`;
+    })() }));
 }
 
 export function pintarCliente(seccion, datos) {
@@ -156,11 +165,30 @@ export function pintarCliente(seccion, datos) {
       'Capturá un primer testimonio en la pestaña «Capturar». Un solo testigo nunca da quórum (RD-1): hacen falta dos observadores independientes.'));
     return;
   }
+  // Los grupos vienen ordenados por `clave`, que empieza con el nombre del
+  // cliente normalizado, así que agrupar preserva ese orden.
+  const porCliente = new Map();
+  for (const g of grupos) {
+    const nombre = g.cliente?.nombre ?? 'Cliente sin nombre';
+    if (!porCliente.has(nombre)) porCliente.set(nombre, []);
+    porCliente.get(nombre).push(g);
+  }
+
   pintar(seccion,
     h('p', { clase: 'leyenda' },
       h('span', { texto: 'La confianza es por campo. ' }),
       h('span', { clase: 'small', texto: 'El color codifica solo el estado de quórum; la frescura (◷) es un eje aparte.' })),
-    grupos.map(pintarGrupo));
+    [...porCliente.entries()].map(([nombre, suyos]) => {
+      const ref = suyos[0];
+      const ubicacion = [ref.cliente?.ciudad, ref.cliente?.pais].filter(Boolean).join(', ');
+      return h('section', { clase: 'cliente-bloque' },
+        h('header', { clase: 'cliente-cabecera' },
+          h('h2', { clase: 'cliente-nombre', texto: nombre }),
+          ubicacion ? h('p', { clase: 'ubicacion', texto: ubicacion }) : null,
+          h('p', { clase: 'small', texto: suyos.length === 1
+            ? '1 grupo de equipo' : `${suyos.length} grupos de equipo` })),
+        suyos.map(pintarGrupo));
+    }));
 }
 
 export function pintarClienteError(seccion, mensaje) {

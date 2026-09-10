@@ -45,6 +45,57 @@ function agregar(el, hijos) {
  * `on*` (handler), cualquier otra → `setAttribute`. Los hijos string se
  * insertan como nodos de texto. No hay forma de inyectar marcado.
  */
+/**
+ * `icono('mr')` → un <svg><use href="#ic-mr"> listo para insertar.
+ *
+ * Los paths viven una sola vez en el sprite de `index.html`; esto los
+ * instancia. `createElementNS` es obligatorio: `createElement('svg')` crea un
+ * elemento HTML con ese nombre, no un SVG, y no renderiza nada.
+ *
+ * Decorativo por defecto (`aria-hidden`), porque en esta UI el icono siempre
+ * acompaña a un texto que ya dice lo mismo — anunciarlo dos veces con lector
+ * de pantalla es ruido. Cuando el icono va SOLO (un botón sin etiqueta
+ * visible), se le pasa `etiqueta` y entonces sí se expone con `role="img"` y
+ * su nombre accesible.
+ */
+export function icono(nombre, { etiqueta, clase } = {}) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', clase ? `icono ${clase}` : 'icono');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  if (etiqueta) {
+    svg.setAttribute('role', 'img');
+    const titulo = document.createElementNS(NS, 'title');
+    titulo.textContent = etiqueta;      // textContent, igual que todo acá
+    svg.append(titulo);
+  } else {
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+  }
+  const use = document.createElementNS(NS, 'use');
+  // href y xlink:href: el segundo es el que entienden los WebKit viejos.
+  use.setAttribute('href', `#ic-${nombre}`);
+  use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#ic-${nombre}`);
+  svg.append(use);
+  return svg;
+}
+
+/**
+ * Icono de una modalidad del vocabulario controlado (`MODALIDADES` en
+ * `core/contracts.ts`). Devuelve `null` para lo que no reconoce, en vez de un
+ * icono genérico: un icono equivocado sobre un dato clínico es peor que
+ * ninguno.
+ */
+const ICONO_MODALIDAD = {
+  MR: 'mr', CT: 'ct', Ultrasound: 'ultrasound', XRay: 'xray',
+  PatientMonitoring: 'monitoring', ImageGuidedTherapy: 'therapy',
+};
+
+export function iconoModalidad(modalidad, opciones) {
+  const nombre = ICONO_MODALIDAD[modalidad];
+  return nombre ? icono(nombre, opciones) : null;
+}
+
 export function h(tag, props, ...hijos) {
   const el = document.createElement(tag);
   if (props) {

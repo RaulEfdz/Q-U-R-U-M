@@ -15,6 +15,113 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+  <!--
+    Set de iconos, dibujado a medida para este proyecto. Un solo lugar con los
+    paths; las pantallas los instancian con <use href="#ic-..."> desde
+    `dom.js`. Cero peticiones de red, cero dependencias, y nada de librerias
+    de iconos: ningun recurso sale de este equipo.
+
+    Reglas del set: viewBox 24x24, trazo 1.6 uniforme, sin relleno, extremos
+    redondeados, y `currentColor` para que hereden la tinta del contexto
+    (importa: un icono nunca introduce color propio, porque el color de esta
+    interfaz codifica confianza y nada mas).
+
+    ★ Los cinco glifos de estado (● ◐ ○ · ▲) NO estan aca a proposito: siguen
+    siendo tipograficos. Los fija §II.20 del doc maestro y son el portador de
+    significado no-cromatico; cambiarlos por SVG los volveria un detalle de
+    implementacion de esta UI en lugar de una decision del producto.
+
+    `width/height 0` + `position:absolute` en vez de `hidden`: un contenedor
+    con `display:none` impide que `<use>` resuelva en varios navegadores.
+  -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <!-- ── Modalidades. Sirven para escanear una tabla densa: en Cliente 360
+           y Panorama el tipo de equipo se reconoce por forma antes que por
+           texto, que es lo que permite leer 16 grupos sin releer cada fila. ── -->
+      <symbol id="ic-mr" viewBox="0 0 24 24">
+        <rect x="3" y="6" width="18" height="12" rx="3" />
+        <circle cx="12" cy="12" r="3.2" />
+        <path d="M3.5 18.5h17" />
+      </symbol>
+      <symbol id="ic-ct" viewBox="0 0 24 24">
+        <circle cx="12" cy="10.5" r="7" />
+        <circle cx="12" cy="10.5" r="2.8" />
+        <path d="M6 20.5h12" />
+      </symbol>
+      <symbol id="ic-ultrasound" viewBox="0 0 24 24">
+        <rect x="10" y="3" width="4" height="4.5" rx="1" />
+        <path d="M7 11.5c1.6-1.2 3.3-1.8 5-1.8s3.4.6 5 1.8" />
+        <path d="M5.5 15.5c2.1-1.7 4.3-2.5 6.5-2.5s4.4.8 6.5 2.5" />
+        <path d="M4 19.5c2.6-2.2 5.3-3.3 8-3.3s5.4 1.1 8 3.3" />
+      </symbol>
+      <symbol id="ic-xray" viewBox="0 0 24 24">
+        <path d="M12 3v2.5" />
+        <path d="M12 5.5 6 18" />
+        <path d="m12 5.5 6 12.5" />
+        <path d="M12 5.5V18" />
+        <path d="M4 20.5h16" />
+      </symbol>
+      <symbol id="ic-monitoring" viewBox="0 0 24 24">
+        <rect x="3" y="4.5" width="18" height="12" rx="2" />
+        <path d="M6.5 10.5h2.2l1.4-2.8 2 5.6 1.3-2.8h3.1" />
+        <path d="M12 16.5v4" />
+        <path d="M9 20.5h6" />
+      </symbol>
+      <symbol id="ic-therapy" viewBox="0 0 24 24">
+        <path d="M16.5 4.5a8 8 0 1 0 0 15" />
+        <rect x="14" y="2.5" width="5.5" height="4" rx="1" />
+        <rect x="14" y="17.5" width="5.5" height="4" rx="1" />
+      </symbol>
+
+      <!-- ── Navegacion ── -->
+      <symbol id="ic-capturar" viewBox="0 0 24 24">
+        <path d="M4 20h4L20 8l-4-4L4 16z" />
+        <path d="m14.5 5.5 4 4" />
+      </symbol>
+      <symbol id="ic-cliente" viewBox="0 0 24 24">
+        <path d="M4 20.5V8.5L12 3l8 5.5v12" />
+        <path d="M12 11.5v4.5" />
+        <path d="M9.75 13.75h4.5" />
+        <path d="M3 20.5h18" />
+      </symbol>
+      <symbol id="ic-panorama" viewBox="0 0 24 24">
+        <path d="M3 20.5h18" />
+        <path d="M6.5 20.5v-6" />
+        <path d="M11 20.5V5.5" />
+        <path d="M15.5 20.5v-9" />
+        <path d="M20 20.5v-4" />
+      </symbol>
+      <symbol id="ic-auditoria" viewBox="0 0 24 24">
+        <path d="M9.5 12a3.5 3.5 0 0 1 3.5-3.5h2a3.5 3.5 0 0 1 0 7h-1.2" />
+        <path d="M14.5 12a3.5 3.5 0 0 1-3.5 3.5H9a3.5 3.5 0 0 1 0-7h1.2" />
+      </symbol>
+
+      <!-- ── Acciones y estado ── -->
+      <symbol id="ic-microfono" viewBox="0 0 24 24">
+        <rect x="9.25" y="2.5" width="5.5" height="10" rx="2.75" />
+        <path d="M6 11a6 6 0 0 0 12 0" />
+        <path d="M12 17v4" />
+        <path d="M9 21h6" />
+      </symbol>
+      <symbol id="ic-detener" viewBox="0 0 24 24">
+        <rect x="6" y="6" width="12" height="12" rx="2" />
+      </symbol>
+      <symbol id="ic-exportar" viewBox="0 0 24 24">
+        <path d="M12 3.5v10.5" />
+        <path d="m8 10.5 4 4 4-4" />
+        <path d="M4 17v2.5a1.5 1.5 0 0 0 1.5 1.5h13a1.5 1.5 0 0 0 1.5-1.5V17" />
+      </symbol>
+      <symbol id="ic-integridad" viewBox="0 0 24 24">
+        <path d="M12 3 19 6v6c0 4-3 7.4-7 9-4-1.6-7-5-7-9V6z" />
+        <path d="m9 12 2.2 2.2L15.5 10" />
+      </symbol>
+      <symbol id="ic-buscar" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <path d="m15.2 15.2 4.3 4.3" />
+      </symbol>
+    </defs>
+  </svg>
   <header>
     <div class="marca">
       <h1>QUÓRUM</h1>
@@ -25,10 +132,10 @@
       <span id="conexion" class="conexion">conectando…</span>
     </div>
     <nav aria-label="Pantallas">
-      <button type="button" data-vista="capturar" class="activo" aria-current="page">Capturar</button>
-      <button type="button" data-vista="cliente">Cliente 360</button>
-      <button type="button" data-vista="panorama">Panorama</button>
-      <button type="button" data-vista="auditoria">Auditoría</button>
+      <button type="button" data-vista="capturar" class="activo" aria-current="page"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-capturar" xlink:href="#ic-capturar" /></svg>Capturar</button>
+      <button type="button" data-vista="cliente"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-cliente" xlink:href="#ic-cliente" /></svg>Cliente 360</button>
+      <button type="button" data-vista="panorama"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-panorama" xlink:href="#ic-panorama" /></svg>Panorama</button>
+      <button type="button" data-vista="auditoria"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-auditoria" xlink:href="#ic-auditoria" /></svg>Auditoría</button>
     </nav>
   </header>
 
@@ -43,7 +150,7 @@
         <label class="campo-fecha">Fecha de la visita
           <input type="date" id="visita" />
         </label>
-        <button type="button" id="dictar">🎙 Dictar</button>
+        <button type="button" id="dictar"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-microfono" xlink:href="#ic-microfono" /></svg>Dictar</button>
         <button type="button" id="enviar" class="primario">Interpretar</button>
         <span class="pista small">⌘/Ctrl + Enter</span>
       </div>
@@ -53,7 +160,7 @@
 
       <!-- H-03 · paso 12: revisión obligatoria antes de guardar. -->
       <div id="revision" class="revision" hidden>
-        <h3>Revisá antes de guardar</h3>
+        <h2>Revisá antes de guardar</h2>
         <p id="resumen" class="resumen"></p>
         <div id="campos"></div>
         <p id="pendiente" class="nota pendiente" hidden>

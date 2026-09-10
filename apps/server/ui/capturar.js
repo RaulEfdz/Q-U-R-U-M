@@ -14,7 +14,7 @@
  * archivo no la nombra ni la referencia por ningún nombre, a propósito:
  * el control de cumplimiento es un grep automatizado.
  */
-import { $, h, api, pintar, formatearValor } from './dom.js';
+import { $, h, api, pintar, formatearValor, icono } from './dom.js';
 
 /** Campos del lote que el humano puede corregir antes de guardar. */
 const EDITABLES = [
@@ -212,6 +212,11 @@ function estado(mensaje, tono) {
 
 let grabadora = null;
 
+/** Reemplaza el contenido de un boton por icono + etiqueta, sin marcado crudo. */
+function etiquetarBoton(boton, nombreIcono, etiqueta) {
+  boton.replaceChildren(icono(nombreIcono), document.createTextNode(etiqueta));
+}
+
 async function alternarDictado() {
   const boton = $('#dictar');
   if (grabadora) { grabadora.stop(); return; }
@@ -240,7 +245,9 @@ async function alternarDictado() {
   rec.onstop = async () => {
     grabadora = null;
     stream.getTracks().forEach((t) => t.stop());
-    boton.textContent = '🎙 Dictar';
+    // `textContent = ...` borraria el <svg> del boton: se repuebla con el
+    // icono del set mas la etiqueta.
+    etiquetarBoton(boton, 'microfono', 'Dictar');
     boton.classList.remove('grabando');
     if (!trozos.length) { estado('No se grabó audio.', 'aviso'); return; }
     estado('Transcribiendo on-device con whisper…', 'trabajando');
@@ -263,7 +270,7 @@ async function alternarDictado() {
   };
 
   rec.start();
-  boton.textContent = '⏹ Detener';
+  etiquetarBoton(boton, 'detener', 'Detener');
   boton.classList.add('grabando');
   estado('Grabando… el audio no sale de este equipo.', 'trabajando');
 }
