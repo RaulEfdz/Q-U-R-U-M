@@ -8,7 +8,9 @@ Fuente: `../../docs/QUORUM_pipeline_android.md` (Anexo D del doc maestro). Dise�
 
 ## Stack
 
-Expo ≥54, React Native, TypeScript estricto. Android 12+, arm64, GPU Adreno 700+ (Vulkan) u OpenCL. **Solo dispositivo físico** — los emuladores no corren llama.cpp. Node ≥22.17 para dev.
+Expo ≥54, React Native, TypeScript estricto. Android 12+, arm64. **Solo dispositivo físico** — los emuladores no corren llama.cpp. Node ≥22.17 para dev.
+
+**GPU:** el doc pide Adreno 800+ (Vulkan) u OpenCL, pero verificado 2026-09-10: el **Immortalis-G715 del Pixel 8 Pro (familia Mali)** corre Vulkan bien — 11-17 tok/s. Requiere `device: 'gpu'` + `gpu_layers: 99` explícitos en el `modelConfig` (ver `qvac/pool.ts`); sin eso cae a CPU (0.5-1.4 tok/s, ~4 min/nota). Los Pixel/Tensor **no tienen OpenCL** (sin driver del fabricante) — sale por Vulkan. Confirmá siempre con `diagModelo` (`dev=gpu`).
 
 ## Paso 0 — antes de escribir código
 
@@ -104,7 +106,20 @@ No copiar y pegar. Aplicar esto:
 
 **Cláusula del prompt del extractor, textual:** *"Si no podés copiar un fragmento literal que lo justifique, NO generes ese lote."* Es la que le da al modelo una salida honesta en vez de inventar la cita.
 
-**Determinismo:** `generationParams: { temp: 0, seed: 42, predict: 80 }`. Sin `temp: 0` las cinco métricas no son comparables entre corridas. `ctx_size`: 1024 el portero, 2048 el extractor (`tools: true`).
+**Determinismo:** `temp: 0` + `seed: 42` — sin eso las cinco métricas no son comparables entre corridas.
+
+**Qwen3 sin razonamiento — TRES capas (`Qwen3-1.7B` y `Qwen3.5-0.8B` son híbridos, razonan por defecto):**
+1. `reasoning_budget: 0` en `generationParams` de cada `completion()` (`portero.ts`, `extractor.ts`) — por request; doc del schema: `0` desactiva el canal de razonamiento.
+2. `reasoning_budget: 0` en `modelConfig` al `loadModel` (`qvac/pool.ts` `CONFIG`) — default del modelo.
+3. `/no_think` (tag exacto, no `/nothink`) al final del `content` del system — switch suave entrenado de Qwen3, actúa a nivel plantilla, independiente de si el addon Bare cablea bien `reasoning_budget`.
+
+El SDK **no** expone `enable_thinking` ni `chat_template_kwargs` (solo `chatTemplatePath`, y solo en finetune) — `/no_think` + `reasoning_budget` es todo lo que hay. `remove_thinking_from_context` NO sirve para esto (solo limpia el KV cache post-generación; ya default `true` para la familia Qwen3).
+
+Sin esto, Qwen3 quema `predict` razonando en prosa y nunca emite el tool call — era el bloqueante "el extractor no extrae". Para confirmar en runtime: `diagModelo()` (`pipeline/_diag.ts`) loguea `think=N` (largo de `thinkingText`; `>0` = razonó), `stop=length` (truncado), `dev=cpu|gpu` y `tok/s` al canal `[QUÓRUM·modelo]`.
+
+**`predict`:** `80` el portero (devuelve `{hayEquipo, motivo}`, le sobra), **`512` el extractor** — un tool call con cliente + N lotes + citas `evidencia` no entra en 80 y el JSON truncado tira el `safeParse` entero. `ctx_size`: 1024 el portero, 2048 el extractor (`tools: true`).
+
+El schema de `generationParams` es `$strict` (`node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts`): solo `temp`, `top_p`, `top_k`, `predict`, `seed`, las penalties, `reasoning_budget` y `remove_thinking_from_context`.
 
 ## Presupuesto de memoria
 
