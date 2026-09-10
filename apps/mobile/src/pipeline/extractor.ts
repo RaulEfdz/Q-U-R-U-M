@@ -264,7 +264,22 @@ export async function extraer(
       ],
       stream: false,
       tools: [TOOL_EXTRACTOR],
-      generationParams: { temp: 0, seed: 42, predict: 80 },
+      /*
+       * ★ Dos correcciones sobre el valor del doc maestro, y las dos hacen
+       * falta para que el extractor extraiga:
+       *
+       * 1. `reasoning_budget: 0` apaga el modo *thinking* de Qwen3. Con el
+       *    thinking activo el modelo razonaba en prosa dentro de un `<think>`
+       *    y nunca emitía el tool call — `toolCalls` volvía vacío y la nota
+       *    terminaba como `POSIBLE_OMISION_EXTRACTOR` con una pregunta al
+       *    usuario, en vez de con los lotes que el modelo SÍ había entendido.
+       *
+       * 2. `predict: 80` era el valor del doc y es para el PORTERO, que
+       *    responde un sí/no. El extractor tiene que devolver un array de
+       *    lotes con `evidencia` literal por cada uno: 80 tokens se agotan a
+       *    mitad del primer lote y el JSON llega truncado.
+       */
+      generationParams: { temp: 0, seed: 42, predict: 512, reasoning_budget: 0 },
     });
     final = await run.final;
   } catch {

@@ -174,8 +174,23 @@ export async function completar(params: {
   const run = completion({
     modelId: params.modelId, history: params.history, stream: false,
     ...(params.tools ? { tools: params.tools } : {}),
-    // temp 0 + seed fijo = reproducibilidad de la demo
-    generationParams: { temp: 0, seed: 42, predict: params.maxTokens ?? 512 },
+    /*
+     * temp 0 + seed fijo = reproducibilidad de la demo.
+     *
+     * ★ `reasoning_budget: 0` apaga el modo *thinking* de Qwen3, y es lo que
+     * hacía que el extractor NO extrajera nada. El modelo entendía la nota
+     * perfectamente pero gastaba todo el presupuesto de tokens razonando en
+     * prosa dentro de un bloque `<think>`, y nunca llegaba a emitir el tool
+     * call: `toolCalls` volvía vacío y el pipeline respondía "El modelo no
+     * produjo una extracción utilizable".
+     *
+     * Sin esto no hay captura ni consulta — el tool calling es la única vía
+     * por la que el modelo devuelve estructura. El parámetro lo acepta el
+     * SDK dentro de `generationParams` (ver
+     * `@qvac/sdk/dist/schemas/completion-stream.d.ts`; el schema es
+     * `$strict`, así que solo entran las claves que declara).
+     */
+    generationParams: { temp: 0, seed: 42, predict: params.maxTokens ?? 512, reasoning_budget: 0 },
   });
   // CompletionFinal.contentText / .toolCalls son campos requeridos del SDK
   // (no hace falta castear ni parentizar mal el `await` como en el doc maestro).

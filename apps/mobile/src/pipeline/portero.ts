@@ -101,7 +101,10 @@ export async function portero(nota: string): Promise<Veredicto> {
       ],
       stream: false,
       tools: [TOOL_PORTERO],
-      generationParams: { temp: 0, seed: 42, predict: 80 },
+      // ★ `reasoning_budget: 0` apaga el modo *thinking* de Qwen3: sin esto
+      // el modelo gasta el presupuesto de tokens razonando en prosa y nunca
+      // emite el tool call. 80 tokens alcanzan para la decisión del portero.
+      generationParams: { temp: 0, seed: 42, predict: 80, reasoning_budget: 0 },
     });
     final = await run.final;
   } catch {
