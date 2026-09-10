@@ -23,7 +23,7 @@ function confianza(puntaje: number): 'High' | 'Medium' | 'Low' {
 export function exportarCSV(obs: Observacion[], ahora = new Date()): string {
   const grupos = new Map(reconciliar(obs, ahora).map((g) => [g.clave, g]));
 
-  const filas = obs.map((o, i) => {
+  const filas = obs.map((o) => {
     const g = grupos.get(claveGrupo(o));
     const e = o.lote.edadAnios;
     const edad = e === undefined ? '' : Array.isArray(e) ? `${e[0]}-${e[1]}` : e;
@@ -32,7 +32,12 @@ export function exportarCSV(obs: Observacion[], ahora = new Date()): string {
     const s = o.seguimiento[0];
 
     return [
-      i + 1, o.cliente.pais, o.cliente.ciudad, o.cliente.nombre, o.observadorId,
+      // `o.id`, no un contador de fila: el CSV es lo que ve el cliente, y su
+      // `Observation ID` tiene que poder cruzarse contra `store/audit.ts` y
+      // contra la observación real. Un `i+1` cambia según qué filas se
+      // exporten y no identifica nada — rompe la trazabilidad que promete
+      // TRAZABILIDAD.md.
+      o.id, o.cliente.pais, o.cliente.ciudad, o.cliente.nombre, o.observadorId,
       o.visitadoEn.slice(0, 10), o.lote.modalidad, o.lote.cantidad,
       o.lote.marca ?? 'Unknown', o.lote.modelo ?? '', edad, anio,
       confianza(g?.puntaje.total ?? 0),
