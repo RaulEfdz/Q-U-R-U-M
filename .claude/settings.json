@@ -19,7 +19,6 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(npm *)",
             "command": "cmd=$(jq -r '.tool_input.command // empty'); case \"$cmd\" in *--ignore-scripts*) exit 0 ;; *npm\\ install*|*npm\\ ci*) echo \"BLOQUEADO: instalar dependencias sin --ignore-scripts viola la politica de cadena de suministro de la organizacion (ver CLAUDE.md). Agrega --ignore-scripts al comando.\" >&2; exit 2 ;; *) exit 0 ;; esac",
             "statusMessage": "Verificando --ignore-scripts en instalacion npm..."
           }

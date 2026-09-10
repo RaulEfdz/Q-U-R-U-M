@@ -1,5 +1,15 @@
 # QUÓRUM server — Orquestación con Agent Teams (Haiku + Sonnet)
 
+## Estado (2026-09-10)
+
+- **Fase 1 (Núcleo)**: ✅ escrito. `core/contracts.ts` congelado (con 2 correcciones agregadas: `estadoRevision` en `Borrador`, `campos.edad` en `GrupoEquipo` — ver mobile/CLAUDE.md bug #12). `core/ids.ts`, `core/errors.ts` escritos.
+- **Fase 2 (Trust)**: ✅ escrito. `normalize.ts`, `similarity.ts`, `entity.ts` transcritos. `reconcile.ts` con corrección #12 (edad como campo, no solo cohortes). `score.ts` con corrección #11 (corroboración mira convergencia, clúster mayoritario).
+- **Fase 3 (QVAC)** — pendiente, siguiente paso.
+- **Fase 4 (Policy)** — `policy/engine.ts` ya existe pero **sin la corrección #1 aplicada** (bug real: export queda 403 siempre). Corregir esto es prioridad antes de seguir, aunque cronológicamente sea Fase 4 — el archivo ya está escrito y se copió a mobile tal cual, buggeado.
+- Fases 5-11: no empezadas.
+
+Todos los archivos de Fase 1 y 2 están duplicados sin cambios en `apps/mobile/src/` (ver mobile/ORQUESTACION.md Fase 1). Cualquier fix acá debe replicarse ahí para mantener el diff vacío.
+
 > Solo dos modelos: **Haiku** (mecánico, sin ambigüedad) y **Sonnet** (lógica, seguridad, políticas). Nunca Opus.
 
 Usar [Agent Teams](https://code.claude.com/docs/en/agent-teams): los teammates comparten task list y se mensajean directo, sin pasar por vos para cada resultado.
