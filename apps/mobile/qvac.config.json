@@ -1,0 +1,7 @@
+{
+  "plugins": [
+    "@qvac/sdk/llamacpp-completion/plugin",
+    "@qvac/sdk/whispercpp-transcription/plugin"
+  ],
+  "bareRuntimeVersion": "1.32.0"
+}

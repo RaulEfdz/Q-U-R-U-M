@@ -28,7 +28,7 @@ export interface Indicios {
  *  `noUnusedLocals`.
  */
 export function precheck(texto: string): Indicios {
-  const t = texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const t = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   // \b al inicio Y al final: sin el cierre, "eco" matchea "economía" y
   // "monitor" matchea "monitorear" (bug de la fuente). La lista ya trae
   // singulares y plurales como entradas separadas ('ecografo' Y

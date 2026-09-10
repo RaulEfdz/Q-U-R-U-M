@@ -19,7 +19,7 @@ import {
   loadModel, completion, unloadModel,
   getLoadedModelInfo, getModelInfo, heartbeat, transcribe,
 } from '@qvac/sdk';
-import type { Tool } from '@qvac/sdk';
+import type { Tool, LoadModelOptions } from '@qvac/sdk';
 
 export interface RutaInferencia {
   readonly modelId: string;
@@ -27,9 +27,25 @@ export interface RutaInferencia {
   readonly modeloSha256?: string;
 }
 
-/** modelSrc de un LLM: descriptor de registro del SDK (objeto), no string. */
-export type ModeloLLM = Parameters<typeof loadModel>[0]['modelSrc'];
-export type ModeloASR = Parameters<typeof loadModel>[0]['modelSrc'];
+/**
+ * modelSrc de un modelo built-in: ruta/URL (string) o descriptor de registro
+ * del SDK (objeto, p. ej. `WHISPER_TINY`, `QWEN3_1_7B_INST_Q4`).
+ *
+ * Deliberadamente permisivo (no indexado en `LoadModelOptions['modelSrc']`
+ * ni derivado de `Parameters<typeof loadModel>[0]`): `loadModel` está
+ * sobrecargado 4 veces (una de ellas genérica por descriptor) con un
+ * `modelSrc`/`modelConfig` propio por cada tipo de modelo (llm, whisper,
+ * embeddings, nmt, tts, …). Indexar sobre la unión completa de
+ * `LoadModelOptions` no preserva qué campos de `modelConfig` van con qué
+ * `modelSrc` — el compilador termina intentando encajar nuestro
+ * `modelConfig` de LLM contra el arm de whisper y viceversa. Se resuelve acá
+ * con un tipo local ancho y un cast puntual a `LoadModelOptions` en cada
+ * llamada real a `loadModel` (ver `cargarLLMLocal`/`cargarLLMDelegado`/
+ * `cargarASR`) — el único lugar del proyecto que toca el SDK.
+ */
+export type ModeloSrc = string | Record<string, unknown>;
+export type ModeloLLM = ModeloSrc;
+export type ModeloASR = ModeloSrc;
 
 let cacheLLMLocal: RutaInferencia | null = null;
 // Corrección #15 de ../../CLAUDE.md: cargarLLMDelegado no cacheaba y se
@@ -62,7 +78,7 @@ export async function cargarLLMLocal(modelSrc: ModeloLLM): Promise<RutaInferenci
       // tools:true habilita el tool calling nativo.
       // ctx_size se DIVIDE entre slots: parallel 2 sobre 4096 da ~2048 por request.
       modelConfig: { tools: true, ctx_size: 4096, parallel: 2 },
-    });
+    } as LoadModelOptions);
     const ruta = await verificarRuta(modelId);
     if (ruta.delegado) throw new Error('Se pidió carga local y el modelo resultó delegado');
     cacheLLMLocal = ruta;
@@ -92,7 +108,7 @@ export async function cargarLLMDelegado(
       modelSrc, modelType: 'llm',
       modelConfig: { tools: true, ctx_size: 4096 },
       delegate: { providerPublicKey, fallbackToLocal: true, timeout },
-    });
+    } as LoadModelOptions);
     const ruta = await verificarRuta(modelId);
     cacheLLMDelegado.set(clave, ruta);
     return ruta;
@@ -118,25 +134,34 @@ export async function verificarRuta(modelId: string): Promise<RutaInferencia> {
   const info = await getLoadedModelInfo({ modelId });
   let sha: string | undefined;
   try {
-    sha = (await getModelInfo({ modelId }) as { sha256Checksum?: string }).sha256Checksum;
+    // getModelInfo se indexa por `name`, no por `modelId` (nombres de campo
+    // distintos entre las dos llamadas — verificado en el .d.ts real).
+    // `sha256Checksum` es requerido en `ModelInfo`, no hace falta castear.
+    sha = (await getModelInfo({ name: modelId })).sha256Checksum;
   } catch { /* no bloqueante */ }
   return {
     modelId,
-    delegado: (info as { isDelegated?: boolean }).isDelegated !== false,
+    // `LoadedModelInfo` es una unión discriminada por `isDelegated` (siempre
+    // `true` o `false`, nunca `undefined`) — el `!== false` de más arriba ya
+    // no depende de una coerción insegura, queda como refuerzo explícito del
+    // mismo principio fail-closed.
+    delegado: info.isDelegated !== false,
     modeloSha256: sha,
   };
 }
 
 export async function cargarASR(modelSrc: ModeloASR): Promise<string> {
   if (cacheASR) return cacheASR;
-  cacheASR = await loadModel({ modelSrc, modelType: 'whisper' });
+  cacheASR = await loadModel({ modelSrc, modelType: 'whisper' } as LoadModelOptions);
   return cacheASR;
 }
 
 export async function transcribirLocal(audioPath: string, modelSrc: ModeloASR): Promise<string> {
   const modelId = await cargarASR(modelSrc);
-  const r = await transcribe({ modelId, audio: audioPath }) as { text?: string };
-  return r.text ?? '';
+  // El campo es `audioChunk` (string ruta o Buffer), no `audio` — y sin
+  // `metadata:true` el overload resuelve directo a `Promise<string>`, sin
+  // envoltorio `{ text }` que castear.
+  return await transcribe({ modelId, audioChunk: audioPath });
 }
 
 /** Completion con presupuesto. Devuelve tool calls SIN ejecutarlas:

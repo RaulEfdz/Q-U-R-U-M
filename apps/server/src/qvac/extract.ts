@@ -31,6 +31,17 @@ const zLoteExtraido = z.object({
   edadAnios: z.number().int().min(0).max(60).optional().describe('Antigüedad aproximada en años'),
   edadMin: z.number().int().min(0).optional().describe('Si el usuario dio un rango'),
   edadMax: z.number().int().max(60).optional(),
+  /**
+   * Cita LITERAL de `texto` que justifica este lote — mapea directo a
+   * `Observacion.evidencia` en contracts.ts (campo requerido agregado por el
+   * lead: Anexo D / TRAZABILIDAD.md lo declaran requerido aunque el doc
+   * maestro §II.3 no lo modelaba). `.max(500)` se relaja acá a `.max(2000)`
+   * (el tope real de 500 se aplica truncando ANTES de este parse — ver
+   * `truncarEvidencia` — para no descartar un lote entero por una cita de
+   * 501 caracteres cuando 500 igual alcanzan para verificarla).
+   */
+  evidencia: z.string().min(1).max(2000)
+    .describe('Fragmento copiado literalmente del texto del colaborador que justifica este lote'),
 });
 
 const zExtraccion = z.object({
@@ -95,7 +106,10 @@ const TOOL_EXTRAER: Tool = {
           `marca (string, opcional, ej: ${MARCAS_DUMMY.join(', ')}), ` +
           'modelo (string, opcional), ' +
           'edadAnios (entero 0-60, opcional, antigüedad aproximada), ' +
-          'edadMin y edadMax (enteros 0-60, opcionales, si el usuario dio un rango en vez de un número).',
+          'edadMin y edadMax (enteros 0-60, opcionales, si el usuario dio un rango en vez de un número), ' +
+          'evidencia (string, OBLIGATORIO: fragmento copiado LITERALMENTE del mensaje del colaborador ' +
+          'que justifica este lote específico — no un resumen, no una paráfrasis. ' +
+          'Si no podés copiar un fragmento literal que lo justifique, NO generes ese lote).',
       },
     },
     required: ['cliente', 'lotes'],
@@ -110,17 +124,78 @@ Reglas estrictas:
 - No adivines marcas ni modelos.
 - Un lote por cada tipo de equipo. Y un lote SEPARADO por cada grupo de edad
   distinta dentro del mismo tipo.
+- Cada lote necesita "evidencia": un fragmento copiado LITERALMENTE del
+  mensaje del colaborador, no un resumen. Si no podés copiar un fragmento
+  literal que lo justifique, NO generes ese lote.
 - No respondas con texto. Solo llama a la herramienta.`;
+
+/** Trunca `evidencia` a 500 chars ANTES de validar — el tope real que exige
+ *  `Observacion.evidencia` (contracts.ts). Igual que la corrección #13 con
+ *  `edadAnios`: una cita de 501 caracteres no debe tirar el lote entero por
+ *  un solo campo largo, se acorta y se sigue validando. */
+function truncarEvidencia(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null || !('evidencia' in raw)) return raw;
+  const r = raw as Record<string, unknown>;
+  if (typeof r['evidencia'] === 'string' && r['evidencia'].length > 500) {
+    return { ...r, evidencia: r['evidencia'].slice(0, 500) };
+  }
+  return raw;
+}
+
+// Mismo patrón de normalización que trust/normalize.ts (consistencia con el
+// resto del proyecto, no un normalizador nuevo).
+const normalizarParaEvidencia = (s: string): string =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * Verificador determinista de evidencia — sin modelo. Misma garantía
+ * anti-alucinación que el pipeline de mobile (Anexo D, "verificador de
+ * evidencia"), no un detalle específico del móvil: acá no hay portero+
+ * extractor cruzándose, así que esta es la única barrera antes de persistir
+ * una cita que el modelo pudo haber inventado.
+ *
+ * Regla exacta (idéntica a mobile/CLAUDE.md): normalizar ambos lados
+ * (minúsculas, sin acentos, espacios colapsados). Válida si la cita aparece
+ * como subcadena; si no, exigir que TODAS las palabras estén presentes
+ * (comparación por palabra completa, no `string.includes` — ese fue el bug
+ * de mobile #11, "dos" matcheando dentro de "todos") y que al menos una
+ * secuencia de 3 palabras consecutivas coincida. Citas de 1-2 palabras se
+ * consideran válidas con solo el chequeo de palabras (una secuencia de 3 es
+ * imposible por definición).
+ */
+function evidenciaValida(evidencia: string, texto: string): boolean {
+  const n = normalizarParaEvidencia(texto);
+  const e = normalizarParaEvidencia(evidencia);
+  if (!e) return false;
+  if (n.includes(e)) return true;
+
+  const palabrasTexto = n.split(' ').filter(Boolean);
+  const palabrasCita = e.split(' ').filter(Boolean);
+  if (!palabrasCita.length) return false;
+  if (!palabrasCita.every((p) => palabrasTexto.includes(p))) return false;
+  if (palabrasCita.length < 3) return true;
+
+  for (let i = 0; i <= palabrasCita.length - 3; i++) {
+    const secuencia = palabrasCita.slice(i, i + 3).join(' ');
+    if (n.includes(secuencia)) return true;
+  }
+  return false;
+}
 
 /**
  * Parsea un lote crudo del modelo con `zLoteExtraido`. Si falla (p. ej. una
- * edad fuera de 0-60 que el modelo ignoró pese al prompt), el LOTE se
- * descarta y el resto de la observación sigue — corrección #13: se degrada
- * el lote, no toda la observación ni todo el batch.
+ * edad fuera de 0-60 que el modelo ignoró pese al prompt, o falta
+ * `evidencia`), el LOTE se descarta y el resto de la observación sigue —
+ * corrección #13: se degrada el lote, no toda la observación ni todo el
+ * batch. Además de la forma, se exige que la evidencia sea real
+ * (`evidenciaValida`) — una cita bien formada pero fabricada se descarta
+ * igual que una mal formada.
  */
-function parsearLote(raw: unknown): z.infer<typeof zLoteExtraido> | null {
-  const parsed = zLoteExtraido.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+function parsearLote(raw: unknown, texto: string): z.infer<typeof zLoteExtraido> | null {
+  const parsed = zLoteExtraido.safeParse(truncarEvidencia(raw));
+  if (!parsed.success) return null;
+  if (!evidenciaValida(parsed.data.evidencia, texto)) return null;
+  return parsed.data;
 }
 
 /** Texto libre → BORRADOR (H-03). No persiste nada. */
@@ -159,8 +234,8 @@ export async function extraerBorrador(opts: {
   const out: Observacion[] = [];
 
   for (const crudo of parsed.data.lotes) {
-    const l = parsearLote(crudo);
-    if (!l) continue;                                          // lote inválido → se degrada, no se pierde el resto
+    const l = parsearLote(crudo, opts.texto);
+    if (!l) continue;                                          // lote inválido o evidencia no verificable → se degrada
 
     const modalidad = normalizarModalidad(l.modalidad);
     if (!modalidad) continue;                                  // fuera del vocabulario → descarte
@@ -168,7 +243,13 @@ export async function extraerBorrador(opts: {
     const edad = l.edadMin !== undefined && l.edadMax !== undefined
       ? ([l.edadMin, l.edadMax] as [number, number]) : l.edadAnios;
 
-    out.push(zObservacion.parse({
+    // Tipado explícito como `Observacion` ANTES de `zObservacion.parse()`:
+    // `parse()` acepta `unknown`, así que sin esto el compilador no valida la
+    // forma del literal — el próximo cambio de contrato (como `evidencia`
+    // recién agregado) compilaría igual y solo explotaría en runtime. Con
+    // este tipo, un campo requerido faltante es un error de TypeScript acá
+    // mismo, no una sorpresa en producción.
+    const candidato: Observacion = {
       id: nuevoId(), sesionId,
       observadorId: opts.observadorId, dispositivoId: opts.dispositivoId,
       visitadoEn, capturadaEn, fuente: opts.fuente, naturaleza, origen: 'local',
@@ -185,6 +266,7 @@ export async function extraerBorrador(opts: {
         ...(l.cantidad !== undefined ? { cantidad: l.cantidad } : {}),
         ...(edad !== undefined ? { edadAnios: edad } : {}),
       },
+      evidencia: l.evidencia,
       hedging,
       ...(parsed.data.notas ? { notas: parsed.data.notas } : {}),
       seguimiento: [],
@@ -194,7 +276,8 @@ export async function extraerBorrador(opts: {
         ...(opts.modeloSha256 ? { modeloSha256: opts.modeloSha256 } : {}),
         delegado: opts.delegado,
       },
-    }));
+    };
+    out.push(zObservacion.parse(candidato));
   }
 
   if (!out.length) throw new ValidationError('Ningún equipo reconocible en la observación');

@@ -72,6 +72,21 @@ export const zObservacion = z.object({
     cantidad: z.number().int().min(1).max(500).optional(),
     edadAnios: zRangoEdad.optional(),
   }),
+  /**
+   * Cita LITERAL de `textoOriginal` que justifica este lote. Requerida.
+   *
+   * Es la pieza central del diseño anti-alucinación (Anexo D §1.4): un
+   * verificador determinista (`pipeline/verificar.ts`) comprueba que esta
+   * cita aparece de verdad en la nota antes de que el lote llegue al
+   * borrador. Se persiste, no se descarta tras verificar: sin ella, un
+   * auditor puede ver la nota entera (`textoOriginal`) pero no QUÉ
+   * fragmento justificó ESTE lote — que es justo lo que `TRAZABILIDAD.md`
+   * promete responder.
+   *
+   * El doc maestro §II.3 no la modelaba; el Anexo D y `TRAZABILIDAD.md`
+   * la declaran requerida. Se resuelve a favor de estos últimos.
+   */
+  evidencia: z.string().min(1).max(500),
   hedging: z.boolean(),
   notas: z.string().max(2000).optional(),  // H-08 · superficie de inyección
   seguimiento: z.array(z.object({          // H-09
