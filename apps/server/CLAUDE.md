@@ -67,6 +67,24 @@ Bloqueantes de demo:
 
 Menores: `eq()` usa `includes` (filtrar `pais:"US"` matchea "Australia"); el CSV exporta `i+1` como `Observation ID` en vez de `o.id`, rompiendo la trazabilidad con la auditoría; dos definiciones de frescura (180 vs 365 días); `/api/transcribir` deja `data/tmp/*.webm` sin borrar; `verificarCadena()` sin `catch` y `audit.ts` sin `mkdir('data')` → 500 al abrir Auditoría antes del primer registro.
 
+## Skills, hooks y técnicas a usar en esta app
+
+**Skills:**
+- `security-audit` — corrida completa una vez que `policy/*` y `ui/app.js` tengan código. Los bugs A1/A2/B6/B9/B10 de `../../docs/AUDITORIA.md` son su dominio: OWASP, XSS, allowlist, spotlighting.
+- `code-review` — en cada punto de aprobación entre fases de `ORQUESTACION.md`, antes de dejar avanzar al equipo a la fase siguiente.
+- `run` — para levantar el server real (`node --experimental-strip-types src/server/index.ts`) y probar que algo funciona, no solo que compila.
+- `fewer-permission-prompts` — cuando arranquen los teammates de `ORQUESTACION.md`, todos sus permission prompts caen en tu sesión lead; corrida temprana para preautorizar lo repetitivo.
+- `simplify` — cleanup de reuse/eficiencia, después de `code-review`, no antes.
+
+**Hooks a configurar (vía skill `update-config`):**
+1. `PreToolUse` en `Edit`/`Write` sobre `core/contracts.ts` — bloquea toques sin tu aprobación explícita. Hoy la regla de "congelado" solo está en texto, no se hace cumplir.
+2. `TaskCompleted` — corre `npm run typecheck` antes de que un teammate marque su tarea como terminada. Atrapa temprano el bug C8 (`hyperswarm` sin tipos bajo `strict`).
+3. `TeammateIdle` — verifica que no haya corrido `npm install` sin `--ignore-scripts` en la sesión.
+
+Opcional: `PreToolUse` sobre `Bash` bloqueando `curl`/`fetch` a dominios de inferencia en nube — refuerzo determinista de "cero nube", porque `verify-no-cloud.sh` hoy está roto (bug A2).
+
+**Técnica:** `apps/server` usa Agent Teams (ver `ORQUESTACION.md`) — no `Workflow`/`ultracode`, no aplica acá.
+
 ## Antes de tocar código
 
 1. `core/contracts.ts` es el contrato — no romper sin actualizar el doc maestro.

@@ -141,6 +141,24 @@ No hay corrida sobre las 300 notas ciegas. Las cifras 93%/95% son **hipótesis**
 
 1. Contratos Zod (copiados, congelar) → 2. Pool + assert `isDelegated !== false` → 3. Hola mundo: portero en teléfono real; si falla, parar → 4. `precheck` + `portero` + tests → 5. `extractor` + `verificar` + tests → 6. `procesarNota()` + test de los 5 resultados → 7. Motor de quórum (RD-0..RD-7, 1 test por regla) → 8. Store → 9. `audit/trace.ts` (extensión nuestra, ver `TRAZABILIDAD.md`) → 10. UI Capturar + Cliente 360 → 11. Audio con `expo-audio`.
 
+## Skills, hooks y técnicas a usar en esta app
+
+**Skills:**
+- `adb-test` — smoke test en el teléfono físico. Es exactamente el paso 3 del orden de construcción abajo ("hola mundo en el teléfono real, si falla parar").
+- `code-review` — en cada punto de aprobación entre fases de `ORQUESTACION.md`.
+- `security-audit` — una vez que `pipeline/*` tenga código, para verificar de nuevo la aserción `isDelegated` y que ninguna ruta de audio/texto salga del dispositivo.
+- `fewer-permission-prompts` — igual que en server, apenas arranquen los teammates.
+- `simplify` — después de `code-review`, no antes.
+
+**Hooks a configurar (vía skill `update-config`):**
+1. `PreToolUse` en `Edit`/`Write` sobre `core/contracts.ts` — mismo archivo congelado que en server, se copia sin tocar (ver §Qué se reutiliza).
+2. `TaskCompleted` — corre `npm run typecheck` (o el chequeo de Expo equivalente) antes de marcar tarea terminada.
+3. `TeammateIdle` — verifica `--ignore-scripts` en cualquier instalación de dependencia nueva.
+
+Opcional: hook que bloquee cualquier import de `expo-av` (removido en SDK 54, corrección #4) o de `SpeechRecognition`/Web Speech API — refuerzo determinista de dos restricciones que ya rompieron una vez en la fuente.
+
+**Técnica:** Agent Teams (ver `ORQUESTACION.md`), no `Workflow`/`ultracode`.
+
 ## Prioridad
 
 La fuente lo plantea **condicional, no cerrado**: si el objetivo es ganar el hackathon, escritorio primero y teléfono como tercer peer después del freeze (Android cuesta 13-19 h de 48). Si el objetivo es que esto viva en el bolsillo de un ingeniero de campo, Android es el camino correcto. Esa decisión todavía no la tomó el equipo.
