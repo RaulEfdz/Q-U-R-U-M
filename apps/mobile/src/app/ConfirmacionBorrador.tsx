@@ -166,6 +166,7 @@ export function ConfirmacionBorrador({
             <Text style={estilos.pregunta}>{salida.pregunta}</Text>
             <TextInput
               style={estilos.inputPregunta}
+              accessibilityLabel="Tu respuesta a la pregunta, opcional"
               value={respuesta}
               onChangeText={(t) => { setTocado(true); setRespuesta(t); }}
               placeholder="Podés dejarlo así y guardar igual"

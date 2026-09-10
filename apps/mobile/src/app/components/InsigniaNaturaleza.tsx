@@ -15,10 +15,17 @@ const INFO: Record<Naturaleza, { glifo: string; color: string; etiqueta: string 
 
 export function InsigniaNaturaleza({ naturaleza }: { naturaleza: Naturaleza }) {
   const info = INFO[naturaleza];
+  // Un solo nodo para TalkBack, con nombre hablado limpio — si no, lee el
+  // glifo suelto antes de la etiqueta.
   return (
-    <View style={[estilos.chip, { borderColor: info.color }]}>
-      <Text style={[estilos.glifo, { color: info.color }]}>{info.glifo}</Text>
-      <Text style={[estilos.texto, { color: info.color }]}>{naturaleza}</Text>
+    <View
+      style={[estilos.chip, { borderColor: info.color }]}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`Naturaleza del testimonio: ${naturaleza}`}
+    >
+      <Text style={[estilos.glifo, { color: info.color }]} importantForAccessibility="no">{info.glifo}</Text>
+      <Text style={[estilos.texto, { color: info.color }]} importantForAccessibility="no">{naturaleza}</Text>
     </View>
   );
 }

@@ -40,10 +40,17 @@ export function glifoEstado(estado: EstadoCampo): string {
 
 export function InsigniaQuorum({ estado }: { estado: EstadoCampo }) {
   const info = INFO[estado];
+  // Un solo nodo para TalkBack, con nombre hablado limpio — si no, lee el
+  // glifo como ruido ("círculo negro, Quórum").
   return (
-    <View style={[estilos.chip, { borderColor: info.color }]}>
-      <Text style={[estilos.glifo, { color: info.color }]}>{info.glifo}</Text>
-      <Text style={[estilos.texto, { color: info.tinta }]}>{estado}</Text>
+    <View
+      style={[estilos.chip, { borderColor: info.color }]}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`Estado de quórum: ${estado}`}
+    >
+      <Text style={[estilos.glifo, { color: info.color }]} importantForAccessibility="no">{info.glifo}</Text>
+      <Text style={[estilos.texto, { color: info.tinta }]} importantForAccessibility="no">{estado}</Text>
     </View>
   );
 }

@@ -35,6 +35,7 @@ export function LoteEditable({
 
       <Text style={estilos.etiqueta}>Modalidad</Text>
       <SelectorChips
+        etiquetaGrupo="Modalidad"
         opciones={MODALIDADES}
         valor={obs.lote.modalidad}
         onCambiar={(modalidad) => onCambiar({ ...obs, lote: { ...obs.lote, modalidad } })}
@@ -45,6 +46,7 @@ export function LoteEditable({
           <Text style={estilos.etiqueta}>Cantidad</Text>
           <TextInput
             style={estilos.input}
+            accessibilityLabel="Cantidad de unidades"
             keyboardType="number-pad"
             value={obs.lote.cantidad !== undefined ? String(obs.lote.cantidad) : ''}
             placeholder="1"
@@ -68,6 +70,7 @@ export function LoteEditable({
           ) : (
             <TextInput
               style={estilos.input}
+              accessibilityLabel="Edad en años"
               keyboardType="number-pad"
               value={obs.lote.edadAnios !== undefined ? String(obs.lote.edadAnios) : ''}
               placeholder="—"
@@ -84,12 +87,14 @@ export function LoteEditable({
 
       <Text style={estilos.etiqueta}>Marca</Text>
       <SelectorChips
+        etiquetaGrupo="Marca"
         opciones={MARCAS_DUMMY}
         valor={obs.lote.marca as (typeof MARCAS_DUMMY)[number] | undefined}
         onCambiar={(marca) => onCambiar({ ...obs, lote: { ...obs.lote, marca } })}
       />
       <TextInput
         style={estilos.input}
+        accessibilityLabel="Marca, si no está en la lista de arriba"
         value={obs.lote.marca ?? ''}
         placeholder="Marca (si no está en la lista)"
         placeholderTextColor={color.textoTenue}
@@ -99,6 +104,7 @@ export function LoteEditable({
       <Text style={estilos.etiqueta}>Modelo (opcional)</Text>
       <TextInput
         style={estilos.input}
+        accessibilityLabel="Modelo del equipo, opcional"
         value={obs.lote.modelo ?? ''}
         placeholder="—"
         placeholderTextColor={color.textoTenue}
@@ -107,6 +113,7 @@ export function LoteEditable({
 
       <Text style={estilos.etiqueta}>Naturaleza del testimonio</Text>
       <SelectorChips
+        etiquetaGrupo="Naturaleza del testimonio"
         opciones={NATURALEZAS}
         valor={obs.naturaleza}
         onCambiar={(naturaleza) => onCambiar({ ...obs, naturaleza })}

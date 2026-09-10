@@ -193,6 +193,7 @@ export default function CapturarScreen() {
         <Text style={estilos.etiquetaPrimera}>¿Qué viste?</Text>
         <TextInput
           style={estilos.textarea}
+          accessibilityLabel="¿Qué viste? Escribí lo que observaste en la visita"
           multiline
           value={nota}
           onChangeText={setNota}
@@ -208,17 +209,29 @@ export default function CapturarScreen() {
             onPress={() => setDiasAtras((d) => d + 1)}
             disabled={procesando}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Un día antes"
           >
             <Text style={estilos.textoBotonFecha} numberOfLines={1}>◀ antes</Text>
           </Pressable>
-          <View style={estilos.chipFecha}>
-            <Text style={estilos.textoChipFecha} numberOfLines={1}>{etiquetaFecha(diasAtras)}</Text>
+          <View
+            style={estilos.chipFecha}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel={`Fecha de visita: ${etiquetaFecha(diasAtras)}`}
+          >
+            <Text style={estilos.textoChipFecha} numberOfLines={1} importantForAccessibility="no">
+              {etiquetaFecha(diasAtras)}
+            </Text>
           </View>
           <Pressable
             style={[estilos.botonFecha, diasAtras === 0 && estilos.botonDeshabilitado]}
             onPress={() => setDiasAtras((d) => Math.max(0, d - 1))}
             disabled={procesando || diasAtras === 0}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Un día después"
+            accessibilityState={{ disabled: procesando || diasAtras === 0 }}
           >
             <Text style={estilos.textoBotonFecha} numberOfLines={1}>después ▶</Text>
           </Pressable>

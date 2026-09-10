@@ -2,16 +2,28 @@ import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { color, espacio, radio, tap } from '../theme.ts';
 
 /** Fila horizontal de chips seleccionables — un dedo, sin picker nativo
- *  (los pickers nativos de Android son lentos de tocar con guantes). */
+ *  (los pickers nativos de Android son lentos de tocar con guantes).
+ *
+ *  Para TalkBack: la fila es un `radiogroup` (una sola opción activa) y cada
+ *  chip un `radio` con estado `checked` — sin eso el lector no puede decir
+ *  cuál está elegido, porque la única diferencia visible es el color. */
 export function SelectorChips<T extends string>({
-  opciones, valor, onCambiar,
+  opciones, valor, onCambiar, etiquetaGrupo,
 }: {
   opciones: readonly T[];
   valor: T | undefined;
   onCambiar: (v: T) => void;
+  /** Qué elige este grupo — lo anuncia TalkBack ("Modalidad", "Marca"…). */
+  etiquetaGrupo?: string;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.fila}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={estilos.fila}
+      accessibilityRole="radiogroup"
+      {...(etiquetaGrupo ? { accessibilityLabel: etiquetaGrupo } : {})}
+    >
       {opciones.map((op) => {
         const activo = op === valor;
         return (
@@ -20,6 +32,9 @@ export function SelectorChips<T extends string>({
             onPress={() => onCambiar(op)}
             style={[estilos.chip, activo && estilos.chipActivo]}
             hitSlop={6}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: activo }}
+            accessibilityLabel={op}
           >
             <Text style={[estilos.texto, activo && estilos.textoActivo]} numberOfLines={1}>{op}</Text>
           </Pressable>
