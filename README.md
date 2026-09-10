@@ -14,9 +14,9 @@ Requisito duro: inferencia on-device o delegada P2P con QVAC. **Nube prohibida e
 
 | Componente | Versión | Fecha |
 |---|---|---|
-| Monorepo | **v0.2.0** | 2026-09-10 |
-| `apps/server` | v0.2.0 | 2026-09-10 |
-| `apps/mobile` | v0.2.0 | 2026-09-10 |
+| Monorepo | **v0.2.1** | 2026-09-10 |
+| `apps/server` | v0.2.1 | 2026-09-10 |
+| `apps/mobile` | v0.2.1 | 2026-09-10 |
 
 Estado: **documentación y diseño**. Todavía no hay código en ninguna de las dos apps.
 
@@ -38,11 +38,18 @@ docs/
 └── AUDITORIA.md                   # hallazgos de la revisión del 2026-09-10
 ```
 
-Cada carpeta tiene su `CLAUDE.md` con las reglas de trabajo. `apps/mobile` suma `ARCHITECTURE.md` (diseño y diagrama) y `TRAZABILIDAD.md` (auditoría por nota).
+Cada carpeta tiene `CLAUDE.md` (reglas), `ARCHITECTURE.md` (diseño y diagrama), `TRAZABILIDAD.md` (auditoría) y `ORQUESTACION.md` (reparto de tareas entre agentes Haiku/Sonnet).
 
 ---
 
 ## Historial de cambios
+
+### v0.2.1 — 2026-09-10
+
+**Añadido**
+- `apps/server/ARCHITECTURE.md` — diagrama de flujo, tabla de dónde ocurre la inferencia, modelo de confianza, decisiones cerradas y estructura de carpetas (paridad con `apps/mobile/ARCHITECTURE.md`, que ya existía).
+- `apps/server/TRAZABILIDAD.md` — extiende el Anexo C del doc maestro con los HIGH VALUE 9-11 (sync, delegación, PEP) que no tenían fila, más diseño de `AuditRecord` hash-encadenado y qué responde ante un auditor.
+- `apps/server/ORQUESTACION.md` y `apps/mobile/ORQUESTACION.md` — reparto del trabajo de desarrollo entre agentes **Haiku** (tareas mecánicas) y **Sonnet** (motor, políticas, seguridad), por fases con dependencias explícitas y gate previo.
 
 ### v0.2.0 — 2026-09-10
 
