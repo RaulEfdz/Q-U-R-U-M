@@ -1,6 +1,23 @@
-# QUÓRUM server — Orquestación de agentes (Haiku + Sonnet)
+# QUÓRUM server — Orquestación con Agent Teams (Haiku + Sonnet)
 
-> Solo dos modelos: **Haiku** (mecánico, sin ambigüedad) y **Sonnet** (lógica, seguridad, políticas). Nunca Opus. Usar el tool `Agent`, no `Workflow`.
+> Solo dos modelos: **Haiku** (mecánico, sin ambigüedad) y **Sonnet** (lógica, seguridad, políticas). Nunca Opus.
+
+Usar [Agent Teams](https://code.claude.com/docs/en/agent-teams): los teammates comparten task list y se mensajean directo, sin pasar por vos para cada resultado.
+
+## Activar
+
+```json
+// .claude/settings.json del repo
+{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
+```
+
+## Reglas de equipo
+
+- 3-5 teammates por fase, no más.
+- Modelo explícito en el prompt de spawn ("en Haiku" / "en Sonnet" por cada teammate) — si no se nombra, hereda el del lead.
+- Un archivo, un dueño: las fases de abajo ya particionan por archivo para evitar overwrites.
+- El contrato de la tarea va completo en el prompt de spawn — el teammate no hereda esta conversación.
+- No dejar que el lead implemente en lugar de esperar al equipo; decile explícito que espere si eso pasa.
 
 Base: estructura de `CLAUDE.md` §Estructura prevista + tabla de correcciones obligatorias (16 bugs). Cada agente recibe el contrato de su archivo y, si aplica, la corrección puntual — no el doc maestro completo.
 
@@ -63,16 +80,23 @@ Un agente Haiku por archivo de test, lanzado apenas su módulo correspondiente e
 
 ## Cómo invocar
 
-```
-Agent({
-  description: "Escribir trust/normalize.ts",
-  subagent_type: "general-purpose",
-  model: "haiku",
-  prompt: "Escribí apps/server/src/trust/normalize.ts con estas tablas exactas: [pegar tablas de sinónimos/hedges del doc]. No agregues sinónimos que no estén en la lista."
-})
+Mensaje en lenguaje natural al lead, por fase:
+
+```text
+Spawn 2 teammates en Haiku, "ids" y "errors", para escribir
+core/ids.ts y core/errors.ts de apps/server/CLAUDE.md §Estructura, uno
+cada uno. Pasales el contrato completo de cada archivo desde el doc maestro.
 ```
 
-No lanzar una fase antes de que la anterior esté aprobada por vos. `reconcile.ts`, `policy/engine.ts` y `server/index.ts` no se paralelizan internamente bajo ninguna circunstancia.
+```text
+Spawn un teammate en Sonnet llamado "motor" con la Fase 2 de
+apps/server/ORQUESTACION.md: trust/reconcile.ts, con las 7 reglas
+RD-0..RD-7 pegadas línea por línea. No dividir esto entre teammates.
+```
+
+**No lanzar una fase antes de que la anterior esté aprobada por vos.** `reconcile.ts`, `policy/engine.ts` y `server/index.ts` no se paralelizan entre teammates bajo ninguna circunstancia — van solos, un teammate, sin compañía en esa fase.
+
+**Roles reutilizables:** si un rol se repite (ej. "escritor de tests Haiku" en la Fase 11), definilo como [subagent](https://code.claude.com/docs/en/sub-agents) en `.claude/agents/` con `model: haiku` fijo, y nombralo al spawnear en vez de repetir el contrato.
 
 ## Qué NO delegar a ningún agente
 

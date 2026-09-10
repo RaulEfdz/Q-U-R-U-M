@@ -1,6 +1,25 @@
-# QUÓRUM mobile — Orquestación de agentes (Haiku + Sonnet)
+# QUÓRUM mobile — Orquestación con Agent Teams (Haiku + Sonnet)
 
-> Solo dos modelos: **Haiku** (tareas mecánicas, acotadas, sin ambigüedad) y **Sonnet** (lógica de negocio, motor, seguridad). Nunca Opus acá — el presupuesto es de hackathon. Usar el tool `Agent`, no `Workflow` (no hay opt-in de orquestación multi-agente para este proyecto).
+> Solo dos modelos: **Haiku** (tareas mecánicas, acotadas, sin ambigüedad) y **Sonnet** (lógica de negocio, motor, seguridad). Nunca Opus acá — el presupuesto es de hackathon.
+
+Usar [Agent Teams](https://code.claude.com/docs/en/agent-teams), no subagentes sueltos: los teammates comparten una task list, se coordinan solos y se mensajean directo entre ellos — que es justo el patrón de este documento (fases con dependencias, cada una con dueño de archivos).
+
+## Activar (una sola vez, antes de spawnear nada)
+
+```json
+// .claude/settings.json del repo
+{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
+```
+
+Es experimental. Sin esta variable, Claude no arma equipo y cae a subagentes normales.
+
+## Reglas de equipo
+
+- **3-5 teammates a la vez**, nunca más. Con 15 tareas independientes, 3 alcanza — la guía oficial lo confirma.
+- El modelo se fija **en el prompt de spawn**, nombrando "Haiku" o "Sonnet" explícito por cada teammate — si no se nombra, hereda el modelo del lead (no lo dejes implícito).
+- **Cada teammate es dueño de un set de archivos distinto.** Dos teammates tocando el mismo archivo = overwrite. Las fases de abajo ya están particionadas por archivo para esto.
+- Los teammates no heredan el historial de esta conversación — el prompt de spawn tiene que traer el contrato completo de la tarea (que sí está en `CLAUDE.md`/`ARCHITECTURE.md`, pegalo).
+- Esperá a que el equipo termine antes de seguir vos: si el lead empieza a implementar en vez de esperar, decile explícitamente que espere a los teammates.
 
 Base: el orden de construcción de `ARCHITECTURE.md` §6, con las correcciones de `CLAUDE.md`. Cada agente recibe **solo** el contrato de su tarea + el archivo de correcciones — nunca "leé todo el doc y hacé lo que puedas".
 
@@ -66,16 +85,28 @@ El motor (`reconcile.ts`) ya viene copiado de la Fase 1 sin tocar. Acá solo:
 
 ## Cómo invocar (patrón, no ejecutar todavía)
 
-```
-Agent({
-  description: "Copiar contracts.ts a mobile",
-  subagent_type: "general-purpose",
-  model: "haiku",
-  prompt: "Copiá apps/server/src/core/contracts.ts a apps/mobile/src/core/contracts.ts sin cambiar una línea..."
-})
+Un mensaje en lenguaje natural al lead, por fase — no se arma un archivo de config por equipo, Claude lo genera solo en `~/.claude/teams/`:
+
+```text
+Spawn 8 teammates en Haiku para la Fase 1 de apps/mobile/ORQUESTACION.md:
+cada uno copia un archivo distinto de apps/server/src/ a apps/mobile/src/
+(misma ruta) sin cambiar una línea, salvo ajustar la profundidad del import
+relativo si corresponde. Nombralos por el archivo que copian. Que reporten
+diff cuando terminen.
 ```
 
-Para las fases con dependencia, no lanzar la siguiente hasta que la anterior esté aprobada por vos — ningún agente aprueba su propio trabajo antes de seguir a la próxima fase.
+Para una fase de un solo dueño (ej. Fase 2, el pool):
+
+```text
+Spawn un teammate en Sonnet llamado "pool" con este contrato completo:
+[pegar la sección "Fase 2 — Pool de modelos" + la tabla de correcciones
+obligatorias de CLAUDE.md que apliquen]. Que no siga a la Fase 3 sin que
+yo apruebe el archivo.
+```
+
+**No lanzar la fase siguiente hasta aprobar la anterior vos mismo** — ningún teammate aprueba su propio trabajo antes de que el equipo siga. Para fases mixtas (ej. Fase 4, Haiku + Sonnet en paralelo), un solo mensaje de spawn puede nombrar el modelo de cada teammate por separado.
+
+**Roles reutilizables (opcional):** si vas a repetir un rol seguido (ej. "escritor de tests Haiku" en las Fases 7 y 9), definilo una vez como [subagent](https://code.claude.com/docs/en/sub-agents) en `.claude/agents/` con su `model` fijo, y en el spawn decile al lead que use ese tipo — evita repetir el mismo contrato en cada prompt.
 
 ## Qué NO delegar a ningún agente, ni Haiku ni Sonnet
 
