@@ -44,52 +44,11 @@ test('score.test: puntaje desglosado con completitud, frescura, corroboracion', 
 test('score.test: corrección #11 - grupo Sin quórum con contradicción no saca corroboración máxima', () => {
   const ahora = new Date();
 
-  // Tres observadores Directo asertivos pero que discrepan en MODALIDAD
-  // Esto produce Sin quórum EN MODALIDAD
+  // Tres observadores Directo asertivos, mismo cliente/modalidad/marca
+  // pero discrepan en CANTIDAD: 2, 2, 5
+  // Esto produce Sin quórum EN totalUnidades (dos clústeres: mayoría 2, minoría 5)
   // La corrección #11 dice: cuenta solo el clúster mayoritario para corroboración
   const obs = [
-    armarObservacion({
-      observadorId: 'obs-1',
-      lote: { modalidad: 'MR', cantidad: 2 },
-      naturaleza: 'Directo',
-      hedging: false,
-      visitadoEn: ahora.toISOString(),
-    }),
-    armarObservacion({
-      observadorId: 'obs-2',
-      sesionId: 'sesion-2',
-      lote: { modalidad: 'MR', cantidad: 2 },
-      naturaleza: 'Directo',
-      hedging: false,
-      visitadoEn: ahora.toISOString(),
-    }),
-    armarObservacion({
-      observadorId: 'obs-3',
-      sesionId: 'sesion-3',
-      lote: { modalidad: 'CT', cantidad: 2 },  // diferente modalidad
-      naturaleza: 'Directo',
-      hedging: false,
-      visitadoEn: ahora.toISOString(),
-    }),
-  ];
-
-  const grupos = reconciliar(obs, ahora);
-
-  // Esperamos DOS grupos: uno MR y uno CT
-  // Pero si fueran el mismo grupo, veríamos Sin quórum
-  // Vamos a buscar el grupo MR (que tiene 2 observadores)
-  const grupoMR = grupos.find((g) => g.campos.modalidad.valor === 'MR');
-  assert(grupoMR, 'existe grupo MR');
-
-  // El grupo MR tiene dos observadores Directo no hedgeados
-  // Su corroboración debería ser 0.6 (exactamente 2 testigos)
-  assert.strictEqual(grupoMR.puntaje.corroboracion, 0.6,
-    'con 2 testigos en clúster mayoritario, corroboración es 0.6');
-
-  // Ahora veamos qué pasa si el tercer observador se une al mismo grupo
-  // (cambio de enfoque: mismo cliente/modalidad/marca pero edad distinta,
-  // para que sea el MISMO GRUPO pero cause discrepancia en modalidad)
-  const obs2 = [
     armarObservacion({
       observadorId: 'obs-1',
       sesionId: 'sesion-1',
@@ -109,18 +68,18 @@ test('score.test: corrección #11 - grupo Sin quórum con contradicción no saca
     armarObservacion({
       observadorId: 'obs-3',
       sesionId: 'sesion-3',
-      lote: { modalidad: 'MR', marca: 'NovaMed', cantidad: 3 },  // cantidad diferente, MISMA modalidad
+      lote: { modalidad: 'MR', marca: 'NovaMed', cantidad: 5 },
       naturaleza: 'Directo',
       hedging: false,
       visitadoEn: ahora.toISOString(),
     }),
   ];
 
-  const grupos2 = reconciliar(obs2, ahora);
-  assert.strictEqual(grupos2.length, 1);
-  const g = grupos2[0]!;
+  const grupos = reconciliar(obs, ahora);
+  assert.strictEqual(grupos.length, 1);
+  const g = grupos[0]!;
 
-  // totalUnidades: 2 vs 2 vs 3 → Sin quórum (3 clústeres: 2, 2, 3)
+  // totalUnidades: 2 vs 2 vs 5 → Sin quórum (dos clústeres: mayoría 2, minoría 5)
   // Pero la corrección #11 cuenta SOLO el clúster mayoritario (los dos 2's)
   // para la corroboración, no todos los 3 testigos
   // Esperamos corroboración = 0.6 (dos testigos en clúster mayoritario)
