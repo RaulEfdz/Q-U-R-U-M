@@ -11,6 +11,46 @@ Usar [Agent Teams](https://code.claude.com/docs/en/agent-teams): los teammates c
 { "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
 ```
 
+## Arquitectura del equipo por fase (ejemplo: Fase 4, policy)
+
+```mermaid
+flowchart TD
+    Vos[Vos] -->|"Spawn teammate 'policy' en Sonnet, Fase 4"| Lead
+    Lead -->|spawn + contrato + correccion #1| Policy["Teammate 'policy' (Sonnet)"]
+    Policy --> Engine[policy/engine.ts]
+    Policy --> Pep[policy/pep.ts]
+    Policy -->|idle notify + diff| Lead
+    Lead -->|reporta| Vos
+    Vos -->|aprueba manualmente| Lead
+    Lead -.no avanza a Fase 5 sin esto.-> Siguiente[Fase 5: tools/export]
+
+    style Policy fill:#00000000
+```
+
+`policy/engine.ts` y `policy/pep.ts` los escribe el **mismo teammate**, nunca dos en paralelo — comparten el orden de evaluación de efectos, que es justo donde está la corrección #1 (export bloqueado siempre). Dividirlo entre dos teammates arriesga que cada uno resuelva la mitad y la integración quede peor que el bug original.
+
+## Ciclo de vida de un teammate dentro de una fase
+
+```mermaid
+sequenceDiagram
+    participant Vos
+    participant Lead
+    participant TM as Teammate
+
+    Vos->>Lead: pedido de spawn (modelo + fase + archivos)
+    Lead->>TM: spawn con contrato completo (no hereda esta conversación)
+    activate TM
+    TM->>TM: implementa + corre tests si existen
+    alt encuentra ambigüedad de contrato
+        TM->>Lead: pregunta específica
+        Lead->>Vos: reenvía si no puede resolverla solo
+    end
+    TM->>Lead: idle notify + resultado final
+    deactivate TM
+    Lead->>Vos: reporta para aprobación
+    Note over Vos,Lead: ningún teammate aprueba su propia fase
+```
+
 ## Reglas de equipo
 
 - 3-5 teammates por fase, no más.

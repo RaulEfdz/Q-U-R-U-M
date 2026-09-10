@@ -13,6 +13,60 @@ Usar [Agent Teams](https://code.claude.com/docs/en/agent-teams), no subagentes s
 
 Es experimental. Sin esta variable, Claude no arma equipo y cae a subagentes normales.
 
+## Cómo se coordina el equipo (vs. subagentes sueltos)
+
+```mermaid
+flowchart LR
+    subgraph Subagente["Subagente (Agent tool)"]
+        L1[Lead] -->|spawnea| S1[Subagente]
+        S1 -->|reporta resultado| L1
+    end
+    subgraph Team["Agent Team"]
+        L2[Lead] -->|spawnea con nombre + modelo| T1[Teammate A · Haiku]
+        L2 -->|spawnea| T2[Teammate B · Sonnet]
+        L2 -->|spawnea| T3[Teammate C · Sonnet]
+        T1 <-->|SendMessage| T2
+        T2 <-->|SendMessage| T3
+        T1 -.claim/complete.-> TL[(Task list compartida)]
+        T2 -.claim/complete.-> TL
+        T3 -.claim/complete.-> TL
+        T1 -->|idle notify + respuesta final| L2
+        T2 -->|idle notify| L2
+        T3 -->|idle notify| L2
+    end
+```
+
+Diferencia que importa acá: en un equipo, el teammate de la Fase 4 (`verificar.ts`) puede avisarle directo al de `precheck.ts` si encuentra una inconsistencia de contrato — no tiene que volver al lead primero.
+
+## Flujo de una fase con dependencia (ej. Fase 2 → Fase 3)
+
+```mermaid
+sequenceDiagram
+    participant Vos
+    participant Lead
+    participant Pool as Teammate "pool" (Sonnet)
+    participant HW as Teammate "hola-mundo" (Sonnet)
+
+    Vos->>Lead: Spawn teammate "pool" con contrato de Fase 2
+    Lead->>Pool: spawn + contrato completo
+    Pool->>Pool: implementa qvac/pool.ts
+    Pool->>Lead: idle notify + diff final
+    Lead->>Vos: reporta, pide aprobación
+    Vos->>Lead: aprobado
+    Vos->>Lead: Spawn teammate "hola-mundo" (Fase 3, depende de pool.ts)
+    Lead->>HW: spawn + contrato + referencia a pool.ts aprobado
+    HW->>HW: carga portero en teléfono real
+    alt falla la carga
+        HW->>Lead: idle notify: FALLÓ, no seguir
+        Lead->>Vos: reporta el fallo, no avanza solo
+    else carga OK
+        HW->>Lead: idle notify: booleano obtenido
+        Lead->>Vos: reporta éxito
+    end
+```
+
+La aprobación explícita entre fases (paso "Vos→Lead: aprobado") es manual — Agent Teams no la automatiza, y por diseño de este proyecto ningún teammate aprueba su propia fase.
+
 ## Reglas de equipo
 
 - **3-5 teammates a la vez**, nunca más. Con 15 tareas independientes, 3 alcanza — la guía oficial lo confirma.
