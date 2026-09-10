@@ -36,7 +36,7 @@ list.filter(x => /qwen|whisper/i.test(x.name));
 
 Las constantes son **objetos** (con `src`, `sha256Checksum`, `expectedSize`), no strings. Importalas del SDK; no escribas `'WHISPER_TINY'` como literal de texto.
 
-En `~/.qvac/models` hoy solo está el extractor. Faltan descargar el portero y whisper antes de poder correr nada.
+Los tres ya están descargados en `~/.qvac/models` (2026-09-10).
 
 **Oportunidad:** el modelo del portero es multimodal. La captura por foto que el doc maestro corta en H-14 usa **el mismo modelo** que ya cargás para el portero — sale sin RAM adicional.
 

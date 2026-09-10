@@ -73,4 +73,4 @@ Menores: `eq()` usa `includes` (filtrar `pais:"US"` matchea "Australia"); el CSV
 2. `.npmrc` tiene `ignore-scripts=true` — no lo saques. Si un addon nativo necesita rebuild, hacelo selectivo (`npm rebuild <pkg> --ignore-scripts=false`), nunca global, nunca en máquina con tokens de CI/prod.
 3. `verify-no-cloud.sh` es el control que corre antes de cualquier demo. Son **5 controles automatizados, no 7**: el 5 nunca hace `exit 1` y el 7 es un `echo` manual. Arreglar eso o corregir el número en el README y el video.
 4. **Prohibido `@qvac/ai-sdk-provider` y el Vercel AI SDK** (política de la organización). Usar `@qvac/sdk` puro.
-5. Faltan `WHISPER_TINY` y el resto de modelos en `~/.qvac/models` — hoy el server no puede transcribir. El README tampoco tiene paso de descarga del GGUF, y el checklist exige arrancar en máquina virgen siguiendo solo el README.
+5. `WHISPER_TINY` ya está en `~/.qvac/models` (2026-09-10). El README todavía no tiene paso de descarga del GGUF documentado, y el checklist exige arrancar en máquina virgen siguiendo solo el README — falta escribir ese paso, aunque el modelo ya esté en caché local.

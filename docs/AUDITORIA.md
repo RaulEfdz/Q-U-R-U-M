@@ -16,7 +16,7 @@ Referencias `doc:N` = `QUORUM_documento_unico.md` línea N. `and:N` = `QUORUM_pi
 | A4 | **Las tools se declaran con Zod crudo, no JSON Schema.** `parameters: zExtraccion` / `zFiltro` / `zExportar`, sin conversión en ningún lado (zod 3.25 no trae `z.toJSONSchema`). Si el SDK espera JSON Schema, el tool calling no arranca — y es la base de captura y consulta. | doc:1174, 1467, 1700 |
 | A5 | **El ataque del video es inalcanzable.** `/api/consultar` solo pasa `tools:[TOOL_FILTRAR]`, y la rama del ataque hace `zExportar.parse()` **antes** del PEP → `ZodError` → 500, sin evento SSE `policy-denied` ni banner. El escenario ③ del seed depende de ese camino. | doc:1998, 2010, 2586 |
 | A6 | **El diagrama D5 del ataque no tiene camino.** El testimonio envenenado entra al Store y muere ahí: no existe la flecha `ST → CE`. La secuencia que va al video no se puede seguir. | doc:3067 |
-| A7 | **Faltan 2 de los 3 modelos en disco.** En `~/.qvac/models` están Qwen3-1.7B (extractor ✅), Qwen3-4B, Llama-3.2-1B, gte-large. **No están** `WHISPER_TINY` (78 MB) ni `Qwen3.5-0.8B` (533 MB). Hoy no corre ni la voz del server ni el pipeline mobile. | verificado en vivo |
+| ~~A7~~ | ~~Faltaban 2 de los 3 modelos en disco.~~ **Resuelto 2026-09-10**: descargados `WHISPER_TINY` (78 MB) y `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M` (533 MB). Los 6 modelos del pipeline completo están en `~/.qvac/models` (3.9 GB total). | verificado en vivo |
 
 ---
 
