@@ -1,5 +1,9 @@
 # QUÓRUM mobile — Trazabilidad y auditoría
 
+> **v0.2.0 · 2026-09-10** — corregido tras la auditoría (`../../docs/AUDITORIA.md`). Marcado como extensión propia, corregido el contrato del extractor y la ruta de persistencia en Expo.
+
+**Extensión nuestra.** Ni el doc maestro ni el Anexo D contemplan este módulo. Se construye en el paso 9 del orden de `ARCHITECTURE.md`.
+
 Dos cosas distintas, no mezclar:
 1. **Trazabilidad de requisitos** — qué pide el brief de Philips y dónde vive en el código (extiende el Anexo C del doc maestro, que es server-only, a la parte mobile).
 2. **Auditoría de ejecución** — registro encadenado de cada paso del pipeline por nota procesada, para poder reconstruir "qué modelo dijo qué, cuándo, y por qué la nota terminó donde terminó".
@@ -11,14 +15,14 @@ Fuente: `../../docs/QUORUM_documento_unico.md` Anexo C (líneas 3568+) + `../../
 | Requisito / meta | Dónde se cumple en `apps/mobile` |
 |---|---|
 | Captura por voz, on-device | `src/audio/grabacion.ts` (`expo-av`) → `pipeline/precheck.ts` recibe texto ya transcrito por whisper vía QVAC |
-| Extracción con IA tolerando datos incompletos | `pipeline/extractor.ts` — todos los campos opcionales salvo `modalidad` y `evidencia` |
+| Extracción con IA tolerando datos incompletos | `pipeline/extractor.ts` — `cliente`, `modalidad` y `evidencia` son requeridos; el resto opcional. `lotes` **no** lleva `.min(1)`: con él, dos resultados de la tabla se vuelven inalcanzables |
 | Detección de alucinación de fila completa | `pipeline/verificar.ts` — determinista, no depende de un segundo modelo |
 | Detección de omisión (nota tiene equipo, extractor no sacó nada) | `pipeline/portero.ts` cruzado en `cruzar()` → `POSIBLE_OMISION_EXTRACTOR` |
 | Nada se persiste sin confirmación humana | `cruzar()` produce `SalidaPipeline`, nunca escribe al store directo — pantalla `Capturar.tsx` es el único punto que llama `store/expo-store.ts::agregar()` |
 | Nadie borra, solo se marca | `descartados` en `SalidaPipeline` viaja a UI y a auditoría, nunca se descarta en memoria |
 | Máximo 1 pregunta por nota | Tipo `pregunta: string \| null` en `SalidaPipeline` — el tipo mismo impone el límite |
 | Motor de quórum (RD-0..RD-7) | Reutilizado sin cambios de `apps/server/src/trust/reconcile.ts` |
-| Cero inferencia en nube | Todo `completion()`/`transcribe()` vía `@qvac/sdk`, assert `isDelegated === false` en `qvac/pool.ts::obtener()` |
+| Cero inferencia en nube | Todo `completion()`/`transcribe()` vía `@qvac/sdk`, assert `isDelegated !== false` en `qvac/pool.ts::obtener()` — la comparación truthy de la fuente es fail-open si el SDK no devuelve el campo |
 
 ## 2. Auditoría de ejecución — registro por nota
 
@@ -55,7 +59,8 @@ export interface RegistroPipeline {
 - `notaHash`, nunca el texto original — el registro de auditoría no debe volverse una segunda copia de datos sensibles del cliente.
 - Se escribe **siempre**, incluso si el usuario ignora la pregunta (`respuestaUsuario: 'ignoro'`) — sin excepción, o la auditoría tiene huecos justo donde más importa.
 - `hashPrev`/`hash` siguen el mismo esquema del server: cualquier alteración retroactiva del log rompe la cadena y es detectable.
-- Persistencia: `data/audit-pipeline.jsonl` append-only vía `expo-file-system`, igual patrón que `store/expo-store.ts`.
+- Persistencia: `FileSystem.documentDirectory + 'audit-pipeline.jsonl'`, append-only. En Expo no existen rutas relativas tipo servidor. Append real, no reescritura del archivo entero: un corte a mitad de escritura no puede perder el log previo.
+- Una línea corrupta se **filtra**, no vacía el archivo en memoria.
 
 ### Qué responde este registro ante un auditor (jurado, o debug real)
 

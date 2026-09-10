@@ -1,5 +1,7 @@
 # QUÓRUM
 
+> **v0.2.0 · 2026-09-10** — corregido tras la auditoría. Historial: `README.md`. Hallazgos: `docs/AUDITORIA.md`.
+
 Monorepo. Reto: Customer Installed Base Intelligence (Philips) · Decentralized AI Hackathon · ISD Summit Panamá.
 Doc fuente completo: `docs/QUORUM_documento_unico.md` (leer ahí antes de tocar reglas de negocio — este archivo es resumen operativo).
 
@@ -23,7 +25,7 @@ Ambas apps son código todavía por escribir (solo `.gitkeep` + CLAUDE.md por ah
 ## Restricciones duras (no negociables)
 
 - **Cero inferencia en la nube.** Nada de OpenAI/Anthropic/Gemini/Groq/Together/HF Inference. Requisito del reto, verificado por ISD antes de pasar a Philips.
-- **Nada de Vercel** (deploy/preview/CI-CD) — política de organización, no solo del hackathon.
+- **Nada de Vercel** (deploy/preview/CI-CD) — política de organización, no solo del hackathon. Incluye **`@qvac/ai-sdk-provider` y el Vercel AI SDK**: son paquetes oficiales de QVAC pero arrastran Vercel. Usar `@qvac/sdk` puro.
 - **`Web Speech API` del navegador prohibida** — envía audio a servidor del proveedor, es la trampa más fácil de pisar.
 - Dependencias npm: revisar antes de instalar (Socket.dev/Snyk/GitHub Advisory), ojo con `postinstall`/`preinstall`/`binding.gyp`, preferir versiones ancladas. Contexto: incidentes de cadena de suministro 2026 (Shai-Hulud, axios, node-ipc).
 - **Nada se persiste sin confirmación humana** — todo extraído por modelo es borrador hasta que el usuario confirma.
