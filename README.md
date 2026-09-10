@@ -14,13 +14,13 @@ Requisito duro: inferencia on-device o delegada P2P con QVAC. **Nube prohibida e
 
 | Componente | Versión | Fecha |
 |---|---|---|
-| Monorepo | **v0.4.0** | 2026-09-10 |
-| `apps/server` | v0.4.0 | 2026-09-10 |
-| `apps/mobile` | v0.4.0 | 2026-09-10 |
+| Monorepo | **v0.4.1** | 2026-09-10 |
+| `apps/server` | v0.4.1 | 2026-09-10 |
+| `apps/mobile` | v0.4.1 | 2026-09-10 |
 
 Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las nueve rutas de la API y las cuatro pantallas de escritorio en 127.0.0.1; `apps/mobile` arranca en un Pixel 7 con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`.
 
-**Lo que todavía no funciona:** el extractor entiende la nota pero no emite el tool call — Qwen3 arranca en modo *thinking* y gasta el presupuesto de tokens razonando en prosa. Está diagnosticado y en curso; ver `CONTINUAR.md`.
+**Lo que todavía no está probado:** el dictado por voz funciona de punta a punta y transcribe en menos de 8 segundos, pero solo se verificó grabando silencio. Falta que una persona dicte una nota real. Y el build de release, que es lo que hace falta para la demo sin WiFi, nunca llegó a compilar. Ver `CONTINUAR.md`.
 
 Esquema de versionado: `MAJOR.MINOR.PATCH`. Mientras no exista código, `MINOR` sube con cada revisión de diseño que cambia decisiones; `PATCH` con correcciones puntuales de documentación. La versión de cada app vive en la cabecera de su `CLAUDE.md`.
 
@@ -233,6 +233,26 @@ Para chequear que los diez archivos del núcleo compartido siguen idénticos ent
 ---
 
 ## Historial de cambios
+
+### v0.4.1 — 2026-09-10
+
+Cierre de la sesión: el bloqueante del proyecto resuelto, dictado por voz en las dos superficies, y los tests de seguridad que faltaban.
+
+**El extractor extrae.** Qwen3 arrancaba en modo *thinking* y gastaba el presupuesto de tokens razonando en prosa sin llegar a emitir el tool call — la única vía por la que devuelve estructura. `reasoning_budget: 0`, más subir `predict` de 80 a 512 en el extractor de mobile (80 es el valor del portero, que responde un sí/no). Verificado: dos lotes correctos en 7-14 s.
+
+**Dictado por voz (Fase 11)** en móvil con `expo-audio` + whisper on-device, y reescrito en escritorio con WebAudio a WAV PCM 16 kHz — `MediaRecorder` produce webm/opus y whisper devolvía `" you"` con eso. Nunca Web Speech API.
+
+**Whisper alucinaba en inglés** sobre audio sin voz: quince repeticiones de una frase inventada en el campo que la persona confirma como propio. Ahora lleva `prompt` inicial en castellano con el vocabulario del dominio, y un filtro determinista de repetición que descarta la salida y avisa.
+
+**El momento del ataque ya se puede reproducir.** `TOOL_EXPORTAR` estaba definida y no se le ofrecía al modelo, así que la inyección del peer no tenía forma de intentar el export y el banner de denegación era código muerto.
+
+**31 → 50 tests.** `test/policy.test.ts` e `injection.test.ts`, que cubren la defensa en capas y el spotlighting. Destaparon que `SecurityContext.principal` no se consultaba en ninguna regla: lo único que separaba el export legítimo del inyectado era un string.
+
+**La cadena de auditoría se bifurcaba sola** con dos escritores sobre el mismo `data/`, y reportaba integridad rota sin que nadie alterara nada.
+
+**Diccionario de errores en la UI**: cada falla dice qué pasó y qué hacer, con el comando exacto. Distingue estado esperado de falla real.
+
+**Iconografía propia** de 15 iconos SVG compartida entre las dos superficies, sin emojis ni librerías, y neutros tintados hacia el hue de marca en vez del crema por defecto.
 
 ### v0.4.0 — 2026-09-10
 
