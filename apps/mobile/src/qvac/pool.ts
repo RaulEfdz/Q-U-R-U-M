@@ -84,6 +84,54 @@ async function liberarBajoPresion(
  *   presupuesto disponible). Si se omite, no aplica eviction por presión
  *   — asume que el llamador ya sabe que hay margen (ej. tests).
  */
+/**
+ * ★ Configuración de whisper. Lo importante es `language: 'es'`.
+ *
+ * Sin esto whisper AUTODETECTA el idioma, y con audio corto o flojo elige mal:
+ * medido en el Pixel, sobre una grabación en silencio devolvió una frase en
+ * INGLÉS repetida quince veces. Un `initial_prompt` en castellano ayuda pero
+ * es solo una pista — el idioma se fija acá, al cargar el modelo, y
+ * `detect_language: false` apaga la detección para que no lo pise.
+ *
+ * El resto son defensas contra el mismo modo de falla del modelo:
+ *   `suppress_blank` / `suppress_nst`  no emitir sobre silencio ni sobre
+ *                                     segmentos sin habla
+ *   `temperature: 0`                   determinismo, igual que en el resto
+ *                                     del pipeline
+ *   `no_speech_thold`                  umbral por encima del cual un segmento
+ *                                     se considera sin voz
+ *
+ * `initial_prompt` se queda igual: además del idioma, mete el vocabulario del
+ * dominio (siglas de modalidad y las marcas del vocabulario ficticio), que es
+ * lo que un modelo tiny no conoce.
+ */
+const CONFIG_ASR = {
+  /*
+   * ★ `translate: false` — ESTE era el problema real.
+   *
+   * whisper tiene dos tareas: `transcribe` (texto en el idioma hablado) y
+   * `translate` (traduce SIEMPRE al inglés). Sin declararlo, tomaba el default
+   * y traducía: se le hablaba en español y devolvía inglés. No era detección
+   * de idioma fallando — era el modelo haciendo bien un trabajo que nadie le
+   * pidió.
+   *
+   * Con `language: 'es'` sin `translate: false`, whisper entiende que la
+   * ENTRADA es español y traduce la salida al inglés igual. Los dos parámetros
+   * hacen falta: uno dice en qué idioma se habla, el otro que no lo traduzca.
+   */
+  translate: false,
+  language: 'es',
+  detect_language: false,
+  suppress_blank: true,
+  suppress_nst: true,
+  temperature: 0,
+  no_speech_thold: 0.6,
+  initial_prompt:
+    'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
+    'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
+    'Marcas: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.',
+} as const;
+
 export async function obtener(rol: Rol, ramTotalBytes?: number): Promise<string> {
   const existente = cargados.get(rol);
   if (existente) { existente.ultimoUso = Date.now(); return existente.modelId; }
@@ -104,7 +152,7 @@ export async function obtener(rol: Rol, ramTotalBytes?: number): Promise<string>
     const modelId = await (async () => {
       switch (rol) {
         case 'asr':
-          return loadModel({ modelSrc: MODELOS.asr });
+          return loadModel({ modelSrc: MODELOS.asr, modelConfig: CONFIG_ASR });
         case 'portero':
           return loadModel({ modelSrc: MODELOS.portero, modelConfig: CONFIG.portero! });
         case 'extractor':

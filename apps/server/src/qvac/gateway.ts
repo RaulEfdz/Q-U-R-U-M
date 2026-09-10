@@ -150,9 +150,56 @@ export async function verificarRuta(modelId: string): Promise<RutaInferencia> {
   };
 }
 
+/**
+ * ★ Configuración de whisper. Lo importante es `language: 'es'`.
+ *
+ * Sin esto whisper AUTODETECTA el idioma, y con audio corto o flojo elige mal:
+ * medido en el teléfono, sobre una grabación en silencio devolvió una frase en
+ * INGLÉS repetida quince veces. El `initial_prompt` en castellano ayuda pero es
+ * solo una pista — el idioma se fija acá, al cargar el modelo, y
+ * `detect_language: false` apaga la detección para que no lo pise.
+ *
+ * El resto son defensas contra el mismo modo de falla: `suppress_blank` y
+ * `suppress_nst` evitan emitir sobre silencio y sobre segmentos sin habla,
+ * `temperature: 0` mantiene el determinismo del resto del pipeline, y
+ * `no_speech_thold` es el umbral por encima del cual un segmento se considera
+ * sin voz.
+ *
+ * Idéntica a `CONFIG_ASR` en `apps/mobile/src/qvac/pool.ts`, a propósito: el
+ * mismo modelo falla igual en las dos plataformas.
+ */
+const CONFIG_ASR = {
+  /*
+   * ★ `translate: false` — ESTE era el problema real.
+   *
+   * whisper tiene dos tareas: `transcribe` (texto en el idioma hablado) y
+   * `translate` (traduce SIEMPRE al inglés). Sin declararlo, tomaba el default
+   * y traducía: se le hablaba en español y devolvía inglés. No era detección
+   * de idioma fallando — era el modelo haciendo bien un trabajo que nadie le
+   * pidió.
+   *
+   * Con `language: 'es'` sin `translate: false`, whisper entiende que la
+   * ENTRADA es español y traduce la salida al inglés igual. Los dos parámetros
+   * hacen falta: uno dice en qué idioma se habla, el otro que no lo traduzca.
+   */
+  translate: false,
+  language: 'es',
+  detect_language: false,
+  suppress_blank: true,
+  suppress_nst: true,
+  temperature: 0,
+  no_speech_thold: 0.6,
+  initial_prompt:
+    'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
+    'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
+    'Marcas: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.',
+} as const;
+
 export async function cargarASR(modelSrc: ModeloASR): Promise<string> {
   if (cacheASR) return cacheASR;
-  cacheASR = await loadModel({ modelSrc, modelType: 'whisper' } as LoadModelOptions);
+  cacheASR = await loadModel({
+    modelSrc, modelType: 'whisper', modelConfig: CONFIG_ASR,
+  } as LoadModelOptions);
   return cacheASR;
 }
 

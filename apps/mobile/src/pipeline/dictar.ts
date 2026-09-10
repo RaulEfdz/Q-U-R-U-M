@@ -114,6 +114,34 @@ function pareceAlucinacion(texto: string): boolean {
   return masRepetida >= 4 && masRepetida / frases.length >= 0.6;
 }
 
+
+/**
+ * Alucinaciones conocidas de whisper sobre audio sin voz. Es un fenómeno
+ * documentado del modelo: sobre silencio o ruido devuelve una de un puñado de
+ * frases cortas, casi siempre en inglés y casi siempre las mismas. Medido en
+ * el Pixel: primero «You remind me of the one who is on the other side.»
+ * quince veces, y con el idioma ya forzado, «Thank you.».
+ *
+ * El filtro de repetición no las atrapa porque son UNA frase corta, así que
+ * hace falta esta lista. No es una heurística de idioma: son literales
+ * conocidos del modo de falla del modelo, y ninguno es algo que alguien diría
+ * dictando una nota de equipos médicos.
+ */
+const ALUCINACIONES_CONOCIDAS = [
+  'thank you', 'thanks for watching', 'thank you for watching',
+  'you', 'bye', 'bye bye', 'okay', 'ok', 'oh', 'hmm', 'mm', 'uh',
+  'subtitles by the amara.org community', 'subtitulos por la comunidad de amara.org',
+  'gracias', 'gracias por ver', 'muchas gracias', 'adios',
+];
+
+function esFraseBasura(texto: string): boolean {
+  const limpio = texto.toLowerCase().replace(/[.,!?¿¡"'\s]+/g, ' ').trim();
+  if (!limpio) return true;
+  // Solo se descarta si la salida COMPLETA es una de esas frases. Una nota
+  // real que empiece con «Gracias, entonces vi dos MR...» no se toca.
+  return ALUCINACIONES_CONOCIDAS.includes(limpio);
+}
+
 /** Lo que el modelo devolvió, más de dónde salió. */
 export interface Transcripcion {
   texto: string;
@@ -156,7 +184,7 @@ export async function transcribirLocal(
         // autodetecta, y con audio flojo eligió inglés.
         const crudo = String(
           await transcribe({ modelId, audioChunk: ruta, prompt: PROMPT_ASR }) ?? '').trim();
-        const alucinada = pareceAlucinacion(crudo);
+        const alucinada = pareceAlucinacion(crudo) || esFraseBasura(crudo);
         return {
           texto: alucinada ? '' : crudo,
           tardoMs: Date.now() - arranque,
