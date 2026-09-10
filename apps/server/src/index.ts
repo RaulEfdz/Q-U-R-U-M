@@ -336,6 +336,57 @@ interface ResultadoToolCall {
  * PEP igual, con `riskLevel: 'high'`, para que quede el registro
  * `policy:deny` en la cadena de auditoría (deny-by-default auditado).
  */
+/**
+ * Compone la frase de respuesta de `/api/consultar` a partir de los
+ * resultados REALES del filtro.
+ *
+ * Por qué en código y no pidiéndosela al modelo: la pantalla le promete al
+ * usuario que «el modelo local traduce la pregunta a un filtro; no cuenta ni
+ * estima: el filtro lo ejecuta el código». Si la frase la escribiera el
+ * modelo, estaría contando — y un 1.7B contando equipos médicos inventa
+ * cifras. Es el principio rector del proyecto aplicado a una línea de texto:
+ * el LLM entiende la pregunta, el código produce el número.
+ *
+ * Además resuelve un defecto real: `texto` viene VACÍO cuando el modelo emite
+ * un tool call (comportamiento normal del tool calling), así que la pantalla
+ * mostraba resultados sin ninguna frase que los explicara.
+ */
+function resumirResultados(grupos: GrupoEquipo[], filtro: unknown): string {
+  if (!grupos.length) {
+    return 'Ningún grupo de equipo coincide con ese filtro. Puede que el dato todavía no esté capturado: `Sin datos` es una respuesta válida acá.';
+  }
+
+  const unidades = grupos.reduce((suma, g) => suma + (Number(g.campos.totalUnidades.valor) || 0), 0);
+  const clientes = new Set(grupos.map((g) => g.cliente.nombre)).size;
+  const conQuorum = grupos.filter((g) => g.estadoGeneral === 'Quórum').length;
+  const sinQuorum = grupos.filter((g) => g.estadoGeneral === 'Sin quórum').length;
+
+  const partes = [
+    `${grupos.length} ${grupos.length === 1 ? 'grupo de equipo' : 'grupos de equipo'}`,
+    `en ${clientes} ${clientes === 1 ? 'cliente' : 'clientes'}`,
+  ];
+  if (unidades > 0) partes.push(`· ${unidades} ${unidades === 1 ? 'unidad' : 'unidades'}`);
+
+  // La confianza va en la MISMA frase que la cifra, no como un adorno aparte:
+  // un total sin su nivel de corroboración es exactamente lo que este producto
+  // existe para no dar.
+  const confianza: string[] = [];
+  if (conQuorum) confianza.push(`${conQuorum} con quórum`);
+  if (sinQuorum) confianza.push(`${sinQuorum} en disputa`);
+  const cola = confianza.length ? ` — ${confianza.join(', ')}.` : '.';
+
+  // `filtro` llega como `unknown` desde el despachador: se normaliza acá en
+  // vez de castear en el llamador.
+  const filtroObj: Record<string, unknown> =
+    typeof filtro === 'object' && filtro !== null ? filtro as Record<string, unknown> : {};
+  const claves = Object.entries(filtroObj)
+    .filter(([, v]) => v !== undefined && v !== null && v !== false && v !== '')
+    .map(([k, v]) => `${k}: ${String(v)}`);
+  const filtroTexto = claves.length ? ` Filtro aplicado — ${claves.join(', ')}.` : '';
+
+  return `${partes.join(' ')}${cola}${filtroTexto}`;
+}
+
 async function despacharToolCall(
   llamada: { name: string; arguments: unknown },
   c: SecurityContext,
@@ -619,7 +670,17 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
       if (!r.atendida) continue;
       if (r.bloqueado) { json(res, 200, { respuesta: texto, bloqueado: r.bloqueado }); return; }
       if (r.resultados) {
-        json(res, 200, { filtro: r.filtro, resultados: r.resultados, respuesta: texto });
+        // `texto` viene vacío cuando el modelo emitió un tool call — es el
+        // comportamiento normal del tool calling, no un fallo. La respuesta se
+        // COMPONE con código sobre los resultados reales del filtro, que es
+        // además lo que la pantalla promete al usuario: «el modelo local
+        // traduce la pregunta a un filtro. No cuenta ni estima: el filtro lo
+        // ejecuta el código». Pedirle la frase al modelo seria dejarlo contar.
+        json(res, 200, {
+          filtro: r.filtro,
+          resultados: r.resultados,
+          respuesta: resumirResultados(r.resultados, r.filtro),
+        });
         return;
       }
     }

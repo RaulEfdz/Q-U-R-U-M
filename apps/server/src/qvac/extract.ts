@@ -198,6 +198,85 @@ function parsearLote(raw: unknown, texto: string): z.infer<typeof zLoteExtraido>
   return parsed.data;
 }
 
+/**
+ * Países que aparecen en el dominio del proyecto. No es una lista de todos los
+ * países del mundo: alcanza con distinguir un país de una CIUDAD, que es el
+ * error concreto que comete el modelo.
+ */
+const PAISES_CONOCIDOS = new Set([
+  'panama', 'panamá', 'colombia', 'chile', 'portugal', 'brazil', 'brasil',
+  'united states', 'estados unidos', 'usa', 'eeuu', 'mexico', 'méxico',
+  'argentina', 'peru', 'perú', 'ecuador', 'uruguay', 'paraguay', 'bolivia',
+  'costa rica', 'guatemala', 'honduras', 'nicaragua', 'el salvador',
+  'republica dominicana', 'república dominicana', 'venezuela', 'espana', 'españa',
+]);
+
+const norm = (s: string): string =>
+  s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+/**
+ * Corrige dos errores que el extractor comete de forma sistemática con el
+ * cliente, y que se ven en la pantalla principal:
+ *
+ *   1. **El país pegado al nombre.** Devuelve
+ *      `"Clinica DemoCare Norte de Bogota, Colombia"` como NOMBRE. Eso rompe
+ *      `claveGrupo` — dos observaciones del mismo cliente escritas distinto
+ *      caen en grupos separados y nunca llegan a quórum.
+ *   2. **La ciudad en el campo `pais`.** Devuelve `pais: "Santiago"` sin
+ *      ciudad. Contamina el `porPais` de Panorama y la columna `Country` del
+ *      CSV de 19 columnas, que es lo que el cliente final importa.
+ *
+ * Se arregla en CÓDIGO y no pidiéndoselo mejor al modelo: es determinista,
+ * verificable y no cuesta tokens. El principio del proyecto aplicado —
+ * el LLM entiende, el código decide.
+ *
+ * Conservador a propósito: solo mueve un valor cuando está razonablemente
+ * seguro. Ante la duda deja lo que dijo el modelo, porque un dato mal movido
+ * es peor que uno mal puesto: el segundo se ve y se corrige en la pantalla de
+ * confirmación.
+ */
+function normalizarCliente(d: { cliente: string; ciudad?: string; pais?: string }): {
+  nombre: string; ciudad?: string; pais?: string;
+} {
+  let nombre = d.cliente.trim();
+  let ciudad = d.ciudad?.trim() || undefined;
+  let pais = d.pais?.trim() || undefined;
+
+  // 1 · Partes de ubicación pegadas al nombre, después de una coma.
+  if (nombre.includes(',')) {
+    const [primera, ...resto] = nombre.split(',').map((x) => x.trim()).filter(Boolean);
+    const colas = resto.filter(Boolean);
+    if (primera && colas.length) {
+      nombre = primera;
+      for (const cola of colas) {
+        if (PAISES_CONOCIDOS.has(norm(cola))) {
+          if (!pais) pais = cola;
+        } else if (!ciudad) {
+          ciudad = cola;
+        }
+      }
+    }
+  }
+
+  // 2 · Una ciudad puesta en `pais`, con `ciudad` vacía.
+  if (pais && !ciudad && !PAISES_CONOCIDOS.has(norm(pais))) {
+    ciudad = pais;
+    pais = undefined;
+  }
+
+  // 3 · Al revés: un país declarado como ciudad, con `pais` vacío.
+  if (ciudad && !pais && PAISES_CONOCIDOS.has(norm(ciudad))) {
+    pais = ciudad;
+    ciudad = undefined;
+  }
+
+  return {
+    nombre,
+    ...(ciudad ? { ciudad } : {}),
+    ...(pais ? { pais } : {}),
+  };
+}
+
 /** Texto libre → BORRADOR (H-03). No persiste nada. */
 export async function extraerBorrador(opts: {
   modelId: string; texto: string;
@@ -249,14 +328,15 @@ export async function extraerBorrador(opts: {
     // recién agregado) compilaría igual y solo explotaría en runtime. Con
     // este tipo, un campo requerido faltante es un error de TypeScript acá
     // mismo, no una sorpresa en producción.
+    const ubic = normalizarCliente(parsed.data);
     const candidato: Observacion = {
       id: nuevoId(), sesionId,
       observadorId: opts.observadorId, dispositivoId: opts.dispositivoId,
       visitadoEn, capturadaEn, fuente: opts.fuente, naturaleza, origen: 'local',
       cliente: {
-        nombre: parsed.data.cliente,
-        ...(parsed.data.ciudad ? { ciudad: parsed.data.ciudad } : {}),
-        ...(parsed.data.pais ? { pais: parsed.data.pais } : {}),
+        nombre: ubic.nombre,
+        ...(ubic.ciudad ? { ciudad: ubic.ciudad } : {}),
+        ...(ubic.pais ? { pais: ubic.pais } : {}),
         ...(parsed.data.sitio ? { sitio: parsed.data.sitio } : {}),
       },
       lote: {
