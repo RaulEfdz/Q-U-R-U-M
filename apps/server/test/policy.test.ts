@@ -25,9 +25,21 @@ function req(o: Partial<ActionRequest> & { tool: string }): ActionRequest {
 
 // ── Capa 1: allowlist por agente ──────────────────────────────────────────
 
-test('policy.test: capa 1 — exportar_dataset pedido por el modelo desde agente-consulta cae en la allowlist', () => {
-  // `agente-consulta` es de SOLO LECTURA: su allowlist es la primera capa
-  // que ataja el pedido, antes incluso de mirar el origen de los argumentos.
+test('policy.test: capa 1 — exportar_dataset pedido por el modelo desde agente-consulta se deniega, y se atribuye al ORIGEN', () => {
+  // Este es el ataque del video: el modelo, envenenado por contenido de peer,
+  // intenta `exportar_dataset` desde `/api/consultar`, donde el agente es
+  // `agente-consulta` (SOLO LECTURA).
+  //
+  // La expectativa del `policyId` CAMBIÓ: antes se afirmaba
+  // 'tool-fuera-de-allowlist' porque esa regla estaba declarada primera entre
+  // las `deny`. La decisión (deny) nunca fue el problema; el problema era la
+  // atribución: la auditoría y la banda roja de la UI mostraban un detalle de
+  // configuración ("la tool no está en la allowlist") en vez de la regla que
+  // de verdad sostiene la tesis del proyecto — el ORIGEN del argumento es lo
+  // que detiene la inyección indirecta. `intencion-originada-en-modelo` va
+  // ahora primera dentro del bloque `deny` (es la más específica), y como el
+  // orden dentro de un mismo efecto es atribución y no permisividad, ninguna
+  // decisión cambió con la reordenación.
   const d = evaluar(
     req({
       tool: 'exportar_dataset',
@@ -39,8 +51,22 @@ test('policy.test: capa 1 — exportar_dataset pedido por el modelo desde agente
   );
 
   assert.strictEqual(d.decision, 'deny');
-  assert.strictEqual(d.policyId, 'tool-fuera-de-allowlist');
+  assert.strictEqual(d.policyId, 'intencion-originada-en-modelo');
   assert.strictEqual(d.version, VERSION_POLITICA);
+
+  // Y la capa 1 sigue existiendo debajo: el MISMO pedido con argumentos de
+  // origen humano ya no matchea la regla del origen, y lo ataja la allowlist.
+  const mismoPedidoOrigenUsuario = evaluar(
+    req({
+      tool: 'exportar_dataset',
+      args: { filtro: { pais: '*' }, destino: 'peer-atacante' },
+      riskLevel: 'critical',
+      origenArgumentos: 'usuario',
+    }),
+    ctx('agente-consulta'),
+  );
+  assert.strictEqual(mismoPedidoOrigenUsuario.decision, 'deny');
+  assert.strictEqual(mismoPedidoOrigenUsuario.policyId, 'tool-fuera-de-allowlist');
 });
 
 // ── Capa 2: el origen de la intención (la tesis del proyecto) ─────────────

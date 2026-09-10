@@ -42,6 +42,35 @@ function esExportHumanoLocal(a: ActionRequest, c: SecurityContext): boolean {
 }
 
 const REGLAS: Regla[] = [
+  // ★ El orden DENTRO de un mismo efecto es ATRIBUCIÓN, no permisividad.
+  //
+  // `evaluar()` recorre los efectos `deny → require-approval → allow`, así que
+  // ninguna reordenación acá puede convertir un deny en un allow: mover reglas
+  // dentro del bloque `deny` solo cambia CUÁL de las que aplican queda
+  // registrada como la razón. Y esa razón no es cosmética: es lo que se
+  // escribe en la auditoría (`policy:deny`) y lo que la UI muestra en la banda
+  // roja.
+  //
+  // Antes, `tool-fuera-de-allowlist` iba primera y se quedaba con la
+  // atribución del caso que más importa: el modelo intentando llamar
+  // `exportar_dataset` desde `/api/consultar`, donde el agente es
+  // `agente-consulta` y esa tool no está en su allowlist. Bloqueaba igual,
+  // pero el registro decía "la herramienta no está en la allowlist" — un
+  // detalle de configuración — y la regla que de verdad detiene la inyección
+  // indirecta, `intencion-originada-en-modelo`, no aparecía nunca. La tesis
+  // del proyecto (el ORIGEN del argumento es lo que corta el ataque, no que la
+  // allowlist esté bien puesta) quedaba invisible en la evidencia.
+  //
+  // Por eso la regla más específica va primero: `intencion-originada-en-modelo`
+  // solo aplica con `origenArgumentos === 'modelo'` y riesgo `high`/`critical`,
+  // y en TODOS esos casos el resultado ya era `deny` (por esta misma regla o
+  // por otra del mismo bloque). Ninguna decisión cambia; cambia a quién se le
+  // atribuye. Las dos que quedan detrás son más genéricas y siguen cubriendo
+  // todo lo que la primera no alcanza.
+  { id: 'intencion-originada-en-modelo', efecto: 'deny',
+    razon: 'Una acción de riesgo alto no puede originarse en la salida del modelo',
+    aplica: (a) => a.origenArgumentos === 'modelo' && ['high', 'critical'].includes(a.riskLevel) },
+
   { id: 'tool-fuera-de-allowlist', efecto: 'deny',
     razon: 'La herramienta no está en la allowlist del agente',
     aplica: (a, c) => !(TOOLS_POR_AGENTE[c.agenteId] ?? []).includes(a.tool) },
@@ -52,10 +81,6 @@ const REGLAS: Regla[] = [
       const d = a.args['destino'];
       return typeof d === 'string' && d !== 'local' && !EGRESS_PERMITIDO.includes(d);
     } },
-
-  { id: 'intencion-originada-en-modelo', efecto: 'deny',
-    razon: 'Una acción de riesgo alto no puede originarse en la salida del modelo',
-    aplica: (a) => a.origenArgumentos === 'modelo' && ['high', 'critical'].includes(a.riskLevel) },
 
   { id: 'critico-requiere-aprobacion', efecto: 'require-approval',
     razon: 'Acción crítica: requiere aprobación humana fuera de banda',

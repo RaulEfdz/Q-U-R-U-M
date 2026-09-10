@@ -62,7 +62,10 @@ function tabla(registros) {
   }
   return h('table', { clase: 'auditoria-tabla' },
     h('thead', null, h('tr', null,
-      ['Hora', 'Acción', 'Inferencia', 'Detalle', 'Hash'].map((t) => h('th', { texto: t })))),
+      // `scope="col"`: sin esto un lector de pantalla lee las celdas sin
+      // poder nombrar su columna, y «Detalle» y «Hash» sueltos no dicen nada.
+      ['Hora', 'Acción', 'Inferencia', 'Detalle', 'Hash']
+        .map((t) => h('th', { scope: 'col', texto: t })))),
     h('tbody', null, registros.map((r) => h('tr', null,
       h('td', { clase: 'num', texto: hora(r.at) }),
       h('td', null, h('code', { texto: String(r.accion ?? '?') })),
@@ -70,6 +73,111 @@ function tabla(registros) {
       h('td', null, detalle(r.detalle)),
       h('td', { clase: 'small' },
         h('code', { texto: `${String(r.hash ?? '').slice(0, 12)}…` }))))));
+}
+
+/**
+ * Tarjeta de un indicador de integridad. Los TRES que devuelve
+ * `/api/auditoria` se pintan con esta misma función, y por lo tanto con la
+ * misma jerarquía visual: glifo + etiqueta + color, nunca color solo.
+ *
+ * `estado` es `'ok'`, `'roto'` o `'desconocido'` — el tercero existe porque
+ * los campos de la respuesta pueden faltar, y «no me lo informaron» no es lo
+ * mismo que «está sano»: afirmar salud sin dato sería justo la clase de
+ * mentira que esta pantalla existe para hacer imposible.
+ */
+function tarjetaIntegridad({ estado, titulo, detalle, extra, boton }) {
+  const GLIFO = { ok: '●', roto: '▲', desconocido: '·' };
+  const CLASE = { ok: 'ok', roto: 'sinquorum', desconocido: 'nulo' };
+  return h('div', { clase: `integridad ${CLASE[estado]}` },
+    h('span', { clase: 'glifo grande', 'aria-hidden': 'true', texto: GLIFO[estado] }),
+    h('div', null,
+      h('b', { texto: titulo }),
+      h('p', { clase: 'small', texto: detalle }),
+      extra ?? null),
+    boton ?? null);
+}
+
+/** Lista de números de línea, acotada: con 400 líneas corruptas la pantalla
+ *  dejaría de poder leerse, que es lo contrario de lo que se demuestra acá. */
+const TOPE_LINEAS = 40;
+
+function listaLineas(lineas) {
+  const nums = lineas.filter((n) => Number.isFinite(n));
+  if (!nums.length) return null;
+  const visibles = nums.slice(0, TOPE_LINEAS);
+  const resto = nums.length - visibles.length;
+  return h('p', { clase: 'small num', texto:
+    `Líneas: ${visibles.join(', ')}${resto > 0 ? ` … y ${resto} más` : ''}` });
+}
+
+/**
+ * Indicador 2 — el ARCHIVO de testimonios, verificado línea por línea contra
+ * `zObservacion` (`verificarArchivo()` en el store).
+ */
+function tarjetaObservaciones(o) {
+  if (!o || typeof o !== 'object') {
+    return tarjetaIntegridad({
+      estado: 'desconocido',
+      titulo: 'Store de testimonios sin verificar',
+      detalle: 'La respuesta no trajo el resultado de la verificación del archivo.',
+    });
+  }
+  const total = Number.isFinite(o.total) ? o.total : 0;
+  const corruptas = Array.isArray(o.corruptas) ? o.corruptas : [];
+  const sano = o.ok === true && corruptas.length === 0;
+  return tarjetaIntegridad({
+    estado: sano ? 'ok' : 'roto',
+    titulo: sano
+      ? 'Store de testimonios ÍNTEGRO'
+      : `Store de testimonios con ${corruptas.length} ${corruptas.length === 1 ? 'línea corrupta' : 'líneas corruptas'}`,
+    detalle: sano
+      ? `Las ${total} ${total === 1 ? 'línea' : 'líneas'} de data/observations.jsonl cumplen el contrato de datos.`
+      : `De ${total} ${total === 1 ? 'línea' : 'líneas'} en data/observations.jsonl, ` +
+        `${corruptas.length} no cumplen el contrato: esos testimonios no entran en la base instalada.`,
+    extra: sano ? null : listaLineas(corruptas),
+  });
+}
+
+/**
+ * Indicador 3 — las líneas que el ARRANQUE descartó al leer el archivo.
+ *
+ * Es la contracara de la corrección #9: en vez de vaciar la base instalada
+ * por una línea mala, el store filtra la línea y sigue. Filtrar en silencio
+ * sería pérdida invisible de datos, así que el número se muestra acá.
+ */
+function tarjetaDescartadas(dato) {
+  /*
+   * Lectura TOLERANTE de la forma: el campo llegó primero como un array de
+   * números y ahora viene envuelto (`{ lineas, medidoEn, origen }`). Se
+   * aceptan las dos y cualquier otro envoltorio que traiga un array adentro,
+   * porque el contrato de esta respuesta todavía se está moviendo del lado
+   * del servidor y esta pantalla no puede quedar diciendo «sin informar»
+   * cada vez que ese campo cambia de envase.
+   */
+  const lineas = Array.isArray(dato)
+    ? dato
+    : (dato && typeof dato === 'object'
+        ? Object.values(dato).find((v) => Array.isArray(v))
+        : undefined);
+  if (!lineas) {
+    return tarjetaIntegridad({
+      estado: 'desconocido',
+      titulo: 'Lectura del store sin informar',
+      detalle: 'La respuesta no trajo las líneas descartadas al leer el archivo.',
+    });
+  }
+  const n = lineas.length;
+  return tarjetaIntegridad({
+    estado: n === 0 ? 'ok' : 'roto',
+    titulo: n === 0
+      ? 'Ninguna línea descartada al leer'
+      : `${n} ${n === 1 ? 'línea descartada' : 'líneas descartadas'} al leer el store`,
+    detalle: n === 0
+      ? 'El último arranque leyó el archivo completo: ninguna línea quedó afuera.'
+      : 'El arranque filtró estas líneas para no vaciar la base instalada por un ' +
+        'archivo dañado, y siguió con el resto. Los testimonios de esas líneas NO están cargados.',
+    extra: n === 0 ? null : listaLineas(lineas),
+  });
 }
 
 export async function pintarAuditoria(seccion) {
@@ -91,16 +199,28 @@ export async function pintarAuditoria(seccion) {
   boton.onclick = () => pintarAuditoria(seccion);
 
   pintar(seccion,
-    h('div', { clase: `integridad ${integridad.ok ? 'ok' : 'sinquorum'}` },
-      h('span', { clase: 'glifo grande', 'aria-hidden': 'true', texto: integridad.ok ? '●' : '▲' }),
-      h('div', null,
-        h('b', { texto: integridad.ok
-          ? 'Cadena de auditoría VERIFICADA'
-          : 'Cadena de auditoría ROTA' }),
-        h('p', { clase: 'small', texto: integridad.ok
-          ? 'Cada registro encadena con el hash del anterior. Editá data/audit.jsonl a mano y volvé a verificar.'
-          : `Se rompe en el registro ${integridad.roto ?? 'desconocido'}. Alguien alteró el archivo.` })),
-      boton),
+    /*
+     * TRES indicadores, no uno.
+     *
+     * `/api/auditoria` devuelve tres cosas y esta pantalla pintaba solo la
+     * cadena de hashes. Las otras dos son la integridad del store de
+     * TESTIMONIOS — el dato del producto — y quedaban invisibles justo en la
+     * única pantalla que existe para mostrar integridad. Van los tres con la
+     * misma jerarquía: si el store está sano se ve sano, y si no, se ve
+     * cuántas líneas y cuáles.
+     */
+    tarjetaIntegridad({
+      estado: integridad.ok ? 'ok' : 'roto',
+      titulo: integridad.ok
+        ? 'Cadena de auditoría VERIFICADA'
+        : 'Cadena de auditoría ROTA',
+      detalle: integridad.ok
+        ? 'Cada registro encadena con el hash del anterior. Editá data/audit.jsonl a mano y volvé a verificar.'
+        : `Se rompe en el registro ${integridad.roto ?? 'desconocido'}. Alguien alteró el archivo.`,
+      boton,
+    }),
+    tarjetaObservaciones(d.observaciones),
+    tarjetaDescartadas(d.lineasDescartadas),
     h('p', { clase: 'leyenda small', texto: 'Últimos 50 registros, del más reciente al más antiguo. La columna «Inferencia» prueba dónde corrió cada modelo: en este equipo o delegado a un dispositivo autorizado de la red. Nunca en la nube.' }),
     tabla(registros));
 }

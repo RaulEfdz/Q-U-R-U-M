@@ -4,6 +4,32 @@ import type {
 
 const PESOS = { completitud: 45, frescura: 25, corroboracion: 30 };
 
+/**
+ * ★ Un campo cuenta como dato presente solo si el sistema sabe cuál es su valor.
+ *
+ * `Sin datos` es obvio: no hay nada. `Sin quórum` NO era obvio y ahí estaba el
+ * bug: el campo tiene valores, pero tiene DOS, y el motor no sabe cuál es el
+ * bueno (RD-2 — discrepancia nunca promedia). Contarlo como completo
+ * significaba que un grupo en disputa puntuaba como un grupo resuelto, y en el
+ * dataset real eso llegó a lo absurdo: `Hospital DemoCare Pacific | MR |
+ * NovaMed` (edad en disputa, un clúster dice 7 años y otro 12) sacaba el
+ * puntaje MÁS ALTO de los 16 grupos, por encima de grupos con quórum pleno.
+ * La pantalla que existe para señalar disputa premiaba la disputa.
+ *
+ * El fix ataca la causa y no el total: el puntaje es "calidad del dato", y un
+ * campo en dos versiones no es un dato de alta calidad, es una pregunta
+ * abierta. Por eso se corrige `completitud` (el factor que afirmaba "este dato
+ * está presente") en vez de ponerle un techo al total — un techo taparía el
+ * síntoma y seguiría contando el campo en disputa como presente en el
+ * desglose que ve el humano.
+ *
+ * No se toca `PESOS` ni la firma de `puntuar()`: el campo en disputa
+ * simplemente deja de aportar su peso, igual que si no se hubiera observado.
+ */
+function esDatoConocido(c: { estado: string }): boolean {
+  return c.estado !== 'Sin datos' && c.estado !== 'Sin quórum';
+}
+
 /** Los tres factores que pide el brief:
  *  "completitud, antigüedad y confirmaciones independientes". */
 export function puntuar(
@@ -15,13 +41,19 @@ export function puntuar(
   ahora: Date,
 ): DesglosePuntaje {
 
-  // 1 · Completitud ponderada: modalidad y cantidad valen doble, modelo medio
+  // 1 · Completitud ponderada: modalidad y cantidad valen doble, modelo medio.
+  //     Un campo en `Sin quórum` NO cuenta como presente (ver `esDatoConocido`).
+  //     La edad entra por sus cohortes, pero la disputa vive en el campo
+  //     `edad` (corrección #12: la edad resuelve como campo además de generar
+  //     cohortes), así que hay que consultar el campo: las cohortes se generan
+  //     igual cuando los testimonios discrepan, y mirar solo `cohortes.length`
+  //     dejaba pasar como completa justamente la disputa del grupo Pacific|MR.
   const items: Array<[boolean, number]> = [
-    [campos.modalidad.estado !== 'Sin datos', 2],
-    [campos.totalUnidades.estado !== 'Sin datos', 2],
-    [campos.marca.estado !== 'Sin datos', 1],
-    [cohortes.length > 0, 1],
-    [campos.modelo.estado !== 'Sin datos', 0.5],
+    [esDatoConocido(campos.modalidad), 2],
+    [esDatoConocido(campos.totalUnidades), 2],
+    [esDatoConocido(campos.marca), 1],
+    [cohortes.length > 0 && esDatoConocido(campos.edad), 1],
+    [esDatoConocido(campos.modelo), 0.5],
   ];
   const pesoTotal = items.reduce((s, [, p]) => s + p, 0);
   const completitud = items.reduce((s, [ok, p]) => s + (ok ? p : 0), 0) / pesoTotal;
