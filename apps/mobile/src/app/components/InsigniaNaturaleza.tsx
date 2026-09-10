@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Naturaleza } from '../../core/contracts.ts';
 import { color } from '../theme.ts';
@@ -13,7 +14,7 @@ const INFO: Record<Naturaleza, { glifo: string; color: string; etiqueta: string 
   Desconocido: { glifo: '?', color: color.desconocido, etiqueta: 'Desconocido' },
 };
 
-export function InsigniaNaturaleza({ naturaleza }: { naturaleza: Naturaleza }) {
+export const InsigniaNaturaleza = memo(function InsigniaNaturaleza({ naturaleza }: { naturaleza: Naturaleza }) {
   const info = INFO[naturaleza];
   // Un solo nodo para TalkBack, con nombre hablado limpio — si no, lee el
   // glifo suelto antes de la etiqueta.
@@ -28,7 +29,7 @@ export function InsigniaNaturaleza({ naturaleza }: { naturaleza: Naturaleza }) {
       <Text style={[estilos.texto, { color: info.color }]} importantForAccessibility="no">{naturaleza}</Text>
     </View>
   );
-}
+});
 
 const estilos = StyleSheet.create({
   chip: {

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { CampoResuelto, EstadoCampo } from '../../core/contracts.ts';
 import { color, espacio, radio, tipografia } from '../theme.ts';
@@ -39,7 +40,7 @@ function textoFrescura(campo: CampoResuelto<unknown>): string | null {
  * del proyecto — el sistema no promedia ni elige, muestra ambas y quién
  * dijo cada una. Esconderla la convertiría en un detalle.
  */
-export function FilaCampo({
+export const FilaCampo = memo(function FilaCampo({
   nombre, campo, testigos, sangrada = false,
 }: {
   nombre: string;
@@ -98,11 +99,11 @@ export function FilaCampo({
       )}
     </View>
   );
-}
+});
 
 /** Igual que `FilaCampo` pero para una cohorte (H-02): el valor lo compone
  *  la pantalla (`2 uds · 7–8 años`), no sale de un `CampoResuelto`. */
-export function FilaCohorte({
+export const FilaCohorte = memo(function FilaCohorte({
   valor, estado, cantidadObservadores, anioInstalacion,
 }: {
   valor: string;
@@ -125,7 +126,7 @@ export function FilaCohorte({
       </View>
     </View>
   );
-}
+});
 
 const estilos = StyleSheet.create({
   fila: {

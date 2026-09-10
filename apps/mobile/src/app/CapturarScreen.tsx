@@ -40,6 +40,19 @@ function resumenA11y(pasos: EventoPipeline[]): string {
   return `${ult.etiqueta}…`;
 }
 
+/** Segundos transcurridos de la etapa activa. Tiene su propio `setInterval`
+ *  para que el tick no re-renderice toda la pantalla — solo este `<Text>`.
+ *  Se remonta al cambiar de etapa (la fila lleva `key={p.etapa}`). */
+function ContadorEtapa({ desde }: { desde: number | null }) {
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 300);
+    return () => clearInterval(id);
+  }, []);
+  const ms = desde ? ahora - desde : 0;
+  return <Text style={estilos.pasoMs}>{ms >= 900 ? `${Math.round(ms / 1000)} s` : ''}</Text>;
+}
+
 export default function CapturarScreen() {
   const [nota, setNota] = useState('');
   const [diasAtras, setDiasAtras] = useState(0);
@@ -49,17 +62,11 @@ export default function CapturarScreen() {
   // Progreso del pipeline: una fila por etapa (precheck → portero → extractor
   // → verificador). Se actualiza en su lugar cuando la etapa pasa de
   // 'corriendo' a 'ok'. Ver `EventoPipeline` en pipeline/cruzar.ts.
+  // El contador de segundos de la etapa activa lo mueve `<ContadorEtapa>`
+  // con su propio `setInterval` — así el tick de 300 ms no re-renderiza toda
+  // la pantalla ~300 veces por captura, solo ese `<Text>`.
   const [pasos, setPasos] = useState<EventoPipeline[]>([]);
   const pasoCorriendoDesde = useRef<number | null>(null);
-  // Fuerza re-render mientras hay una etapa corriendo, para que el contador
-  // de segundos de la fila activa avance solo.
-  const [, marcarTick] = useState(0);
-
-  useEffect(() => {
-    if (vista.paso !== 'procesando') return;
-    const id = setInterval(() => marcarTick(Date.now()), 300);
-    return () => clearInterval(id);
-  }, [vista.paso]);
 
   // `App.tsx` precarga portero + extractor al abrir. Acá solo sondeamos si
   // ya terminaron, para avisar que la primera nota va a tardar más si no.
@@ -297,10 +304,6 @@ export default function CapturarScreen() {
 
             {pasos.map((p) => {
               const activo = p.estado === 'corriendo';
-              const transcurrido =
-                activo && pasoCorriendoDesde.current
-                  ? Date.now() - pasoCorriendoDesde.current
-                  : 0;
               return (
                 <View key={p.etapa} style={estilos.paso}>
                   <View style={estilos.pasoIcono}>
@@ -320,13 +323,13 @@ export default function CapturarScreen() {
                   <View style={estilos.pasoCuerpo}>
                     <View style={estilos.pasoFila}>
                       <Text style={estilos.pasoEtiqueta}>{p.etiqueta}</Text>
-                      <Text style={estilos.pasoMs}>
-                        {p.estado === 'ok' && p.ms !== undefined
-                          ? formatoDuracion(p.ms)
-                          : activo && transcurrido >= 900
-                            ? `${Math.round(transcurrido / 1000)} s`
-                            : ''}
-                      </Text>
+                      {p.estado === 'ok' && p.ms !== undefined ? (
+                        <Text style={estilos.pasoMs}>{formatoDuracion(p.ms)}</Text>
+                      ) : activo ? (
+                        <ContadorEtapa desde={pasoCorriendoDesde.current} />
+                      ) : (
+                        <Text style={estilos.pasoMs} />
+                      )}
                     </View>
                     {p.detalle ? (
                       <Text style={estilos.pasoDetalle}>{p.detalle}</Text>

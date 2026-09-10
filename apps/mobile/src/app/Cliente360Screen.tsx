@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Pressable, RefreshControl, ScrollView,
-  StyleSheet, Text, View,
+  SectionList, StyleSheet, Text, View,
 } from 'react-native';
 import type { GrupoEquipo, Observacion } from '../core/contracts.ts';
 import { reconciliar } from '../trust/reconcile.ts';
@@ -20,9 +20,15 @@ interface Datos {
   corruptas: number;
 }
 
+interface Seccion {
+  nombre: string;
+  ubicacion: string;
+  data: GrupoEquipo[];
+}
+
 /** Los grupos vienen ordenados por `clave` (que empieza por el nombre del
  *  cliente normalizado), así que agrupar por cliente conserva ese orden. */
-function porCliente(grupos: GrupoEquipo[]): Array<{ nombre: string; ubicacion: string; grupos: GrupoEquipo[] }> {
+function porCliente(grupos: GrupoEquipo[]): Seccion[] {
   const mapa = new Map<string, GrupoEquipo[]>();
   for (const g of grupos) {
     const arr = mapa.get(g.cliente.nombre);
@@ -31,7 +37,7 @@ function porCliente(grupos: GrupoEquipo[]): Array<{ nombre: string; ubicacion: s
   return [...mapa.entries()].map(([nombre, gs]) => ({
     nombre,
     ubicacion: [gs[0]!.cliente.ciudad, gs[0]!.cliente.pais].filter(Boolean).join(', '),
-    grupos: gs,
+    data: gs,
   }));
 }
 
@@ -59,6 +65,10 @@ function textoCohorte(c: GrupoEquipo['cohortes'][number]): string {
  * No consulta ninguna API: lee el store local y corre el mismo motor de
  * quórum que el server (`trust/reconcile.ts`, uno de los 10 archivos
  * compartidos). Cero red, cero nube.
+ *
+ * `SectionList` (no `ScrollView`): una "base instalada" real son cientos de
+ * clientes, y montarlos todos a la vez sin reciclar es lo que la hace pesada
+ * al scrollear. Una sección por cliente, `TarjetaGrupo` como fila.
  */
 export default function Cliente360Screen({ recargarToken = 0 }: { recargarToken?: number }) {
   const [datos, setDatos] = useState<Datos | null>(null);
@@ -69,12 +79,19 @@ export default function Cliente360Screen({ recargarToken = 0 }: { recargarToken?
     try {
       setError(null);
       const [observaciones, identidad] = await Promise.all([cargar(), obtenerIdentidad()]);
-      setDatos({
-        grupos: reconciliar(observaciones),
-        observaciones,
-        observadorIdLocal: identidad.observadorId,
-        corruptas: diagnosticoUltimaCarga().corruptas,
-      });
+      // `cargar()` devuelve el MISMO array (por referencia) mientras nada
+      // cambió en el store; `agregar()` crea uno nuevo. Si es el mismo, ya
+      // está reconciliado — no hace falta volver a correr el motor de quórum
+      // (que es trabajo real en el hilo JS) en cada toque a la pestaña.
+      setDatos((prev) =>
+        prev && prev.observaciones === observaciones
+          ? prev
+          : {
+              grupos: reconciliar(observaciones),
+              observaciones,
+              observadorIdLocal: identidad.observadorId,
+              corruptas: diagnosticoUltimaCarga().corruptas,
+            });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -92,7 +109,41 @@ export default function Cliente360Screen({ recargarToken = 0 }: { recargarToken?
     setRefrescando(false);
   }, [leer]);
 
-  const clientes = useMemo(() => (datos ? porCliente(datos.grupos) : []), [datos]);
+  const secciones = useMemo<Seccion[]>(
+    () => (datos ? porCliente(datos.grupos) : []),
+    [datos],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: GrupoEquipo }) => {
+      if (!datos) return null;
+      return (
+        <TarjetaGrupo
+          grupo={item}
+          observaciones={datos.observaciones}
+          observadorIdLocal={datos.observadorIdLocal}
+        />
+      );
+    },
+    [datos],
+  );
+
+  const primerCliente = secciones[0]?.nombre;
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: Seccion }) => (
+      <View style={[estilos.cliente, section.nombre !== primerCliente && estilos.clienteSeparado]}>
+        <Text style={tipografia.subtitulo} numberOfLines={3}>{section.nombre}</Text>
+        {section.ubicacion !== '' && (
+          <Text style={estilos.ubicacion} numberOfLines={2}>{section.ubicacion}</Text>
+        )}
+      </View>
+    ),
+    [primerCliente],
+  );
+
+  const control = (
+    <RefreshControl refreshing={refrescando} onRefresh={() => void refrescar()} />
+  );
 
   if (error) {
     return (
@@ -122,10 +173,7 @@ export default function Cliente360Screen({ recargarToken = 0 }: { recargarToken?
 
   if (!datos.grupos.length) {
     return (
-      <ScrollView
-        contentContainerStyle={estilos.centro}
-        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={() => void refrescar()} />}
-      >
+      <ScrollView contentContainerStyle={estilos.centro} refreshControl={control}>
         <Text style={estilos.glifoVacio}>·</Text>
         <Text style={tipografia.subtitulo}>Todavía no hay nada que reconciliar</Text>
         <Text style={estilos.textoTenue}>
@@ -137,47 +185,35 @@ export default function Cliente360Screen({ recargarToken = 0 }: { recargarToken?
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={estilos.scroll}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={() => void refrescar()} />}
-    >
-      {/* Sin título "Clientes": lo dice la pestaña activa. Esta línea sí
-          se queda — es la tesis de ESTA pantalla, no la marca de la app. */}
-      <Text style={estilos.tesis}>
-        La confianza es por campo, no por registro.
-      </Text>
-
-      {datos.corruptas > 0 && (
-        <Text style={estilos.avisoCorruptas}>
-          {datos.corruptas} línea(s) del archivo local no se pudieron leer y quedaron
-          registradas en observaciones.corruptas.jsonl — no se perdieron en silencio.
-        </Text>
-      )}
-
-      {clientes.map((cliente) => (
-        <View key={cliente.nombre} style={estilos.cliente}>
-          <Text style={tipografia.subtitulo} numberOfLines={3}>{cliente.nombre}</Text>
-          {cliente.ubicacion !== '' && (
-            <Text style={estilos.ubicacion} numberOfLines={2}>{cliente.ubicacion}</Text>
+    <SectionList
+      sections={secciones}
+      keyExtractor={(g) => g.clave}
+      renderItem={renderItem}
+      renderSectionHeader={renderSectionHeader}
+      stickySectionHeadersEnabled={false}
+      contentContainerStyle={estilos.lista}
+      refreshControl={control}
+      ListHeaderComponent={
+        <View>
+          {/* Sin título "Clientes": lo dice la pestaña activa. Esta línea sí
+              se queda — es la tesis de ESTA pantalla, no la marca de la app. */}
+          <Text style={estilos.tesis}>
+            La confianza es por campo, no por registro.
+          </Text>
+          {datos.corruptas > 0 && (
+            <Text style={estilos.avisoCorruptas}>
+              {datos.corruptas} línea(s) del archivo local no se pudieron leer y quedaron
+              registradas en observaciones.corruptas.jsonl — no se perdieron en silencio.
+            </Text>
           )}
-
-          {cliente.grupos.map((g) => (
-            <TarjetaGrupo
-              key={g.clave}
-              grupo={g}
-              observaciones={datos.observaciones}
-              observadorIdLocal={datos.observadorIdLocal}
-            />
-          ))}
         </View>
-      ))}
-
-      <Leyenda />
-    </ScrollView>
+      }
+      ListFooterComponent={<Leyenda />}
+    />
   );
 }
 
-function TarjetaGrupo({
+const TarjetaGrupo = memo(function TarjetaGrupo({
   grupo, observaciones, observadorIdLocal,
 }: {
   grupo: GrupoEquipo;
@@ -263,12 +299,12 @@ function TarjetaGrupo({
       </View>
     </View>
   );
-}
+});
 
 /** Eje 1 hecho visible: quién testificó y de qué naturaleza fue su
  *  testimonio. Sin esto la pantalla solo muestra el eje 2 y los dos ejes
  *  del proyecto quedan a medias. */
-function FichaTestigo({ testigo }: { testigo: Testigo }) {
+const FichaTestigo = memo(function FichaTestigo({ testigo }: { testigo: Testigo }) {
   return (
     <View style={estilos.fichaTestigo}>
       <Text style={[estilos.etiquetaTestigo, testigo.esVos && estilos.etiquetaVos]}>
@@ -278,7 +314,7 @@ function FichaTestigo({ testigo }: { testigo: Testigo }) {
       {testigo.hedging && <Text style={estilos.hedging}>dijo "creo que"</Text>}
     </View>
   );
-}
+});
 
 function Leyenda() {
   return (
@@ -301,7 +337,7 @@ function Leyenda() {
 }
 
 const estilos = StyleSheet.create({
-  scroll: { padding: espacio.lg, gap: espacio.sm, paddingBottom: espacio.xxl },
+  lista: { padding: espacio.lg, paddingBottom: espacio.xxl },
   centro: {
     flexGrow: 1, alignItems: 'center', justifyContent: 'center',
     padding: espacio.xl, gap: espacio.md,
@@ -320,7 +356,8 @@ const estilos = StyleSheet.create({
     padding: espacio.sm, borderRadius: radio.sm, marginBottom: espacio.sm,
   },
 
-  cliente: { gap: espacio.xs, marginBottom: espacio.lg },
+  cliente: { gap: espacio.xs },
+  clienteSeparado: { marginTop: espacio.lg },
   ubicacion: { ...tipografia.pequeno, color: color.textoTenue, marginBottom: espacio.xs },
 
   tarjeta: {

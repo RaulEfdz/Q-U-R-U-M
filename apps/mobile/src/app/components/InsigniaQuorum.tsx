@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { EstadoCampo } from '../../core/contracts.ts';
 import { color } from '../theme.ts';
@@ -38,7 +39,7 @@ export function glifoEstado(estado: EstadoCampo): string {
   return INFO[estado].glifo;
 }
 
-export function InsigniaQuorum({ estado }: { estado: EstadoCampo }) {
+export const InsigniaQuorum = memo(function InsigniaQuorum({ estado }: { estado: EstadoCampo }) {
   const info = INFO[estado];
   // Un solo nodo para TalkBack, con nombre hablado limpio — si no, lee el
   // glifo como ruido ("círculo negro, Quórum").
@@ -53,7 +54,7 @@ export function InsigniaQuorum({ estado }: { estado: EstadoCampo }) {
       <Text style={[estilos.texto, { color: info.tinta }]} importantForAccessibility="no">{estado}</Text>
     </View>
   );
-}
+});
 
 const estilos = StyleSheet.create({
   chip: {
