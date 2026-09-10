@@ -10,6 +10,8 @@ Fuente: `../../docs/QUORUM_pipeline_android.md` (Anexo D del doc maestro). Dise�
 
 Expo ≥54, React Native, TypeScript estricto. Android 12+, arm64. **Solo dispositivo físico** — los emuladores no corren llama.cpp. Node ≥22.17 para dev.
 
+**Solo teléfono, solo vertical.** `orientation: "portrait"` y `ios.supportsTablet: false` son deliberados: la captura se hace de pie, con una mano, entre consultas — apaisado y tablet no son el escenario. No hay layouts por size class y construirlos está fuera de alcance. La UI sí tolera la fuente del sistema en grande (los controles crecen, no recortan); probar con `adb shell settings put system font_scale 1.5` y restaurar a `1.0`.
+
 **GPU:** el doc pide Adreno 800+ (Vulkan) u OpenCL, pero verificado 2026-09-10: el **Immortalis-G715 del Pixel 8 Pro (familia Mali)** corre Vulkan bien — 11-17 tok/s. Requiere `device: 'gpu'` + `gpu_layers: 99` explícitos en el `modelConfig` (ver `qvac/pool.ts`); sin eso cae a CPU (0.5-1.4 tok/s, ~4 min/nota). Los Pixel/Tensor **no tienen OpenCL** (sin driver del fabricante) — sale por Vulkan. Confirmá siempre con `diagModelo` (`dev=gpu`).
 
 ## Paso 0 — antes de escribir código

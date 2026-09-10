@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { MARCAS_DUMMY, MODALIDADES, NATURALEZAS, type Observacion } from '../../core/contracts.ts';
 import { color, espacio, radio, tipografia } from '../theme.ts';
 import { InsigniaNaturaleza } from './InsigniaNaturaleza.tsx';
@@ -20,6 +20,12 @@ export function LoteEditable({
 }) {
   const edadEsRango = Array.isArray(obs.lote.edadAnios);
 
+  // "Cantidad" y "Edad" van lado a lado, pero en un teléfono angosto —o con
+  // la fuente del sistema grande— las dos etiquetas no entran en media
+  // pantalla y se parten. Debajo de ~360 dp se apilan a lo ancho.
+  const { width } = useWindowDimensions();
+  const apilarCampos = width < 360;
+
   return (
     <View style={estilos.tarjeta}>
       <View style={estilos.encabezado}>
@@ -34,7 +40,7 @@ export function LoteEditable({
         onCambiar={(modalidad) => onCambiar({ ...obs, lote: { ...obs.lote, modalidad } })}
       />
 
-      <View style={estilos.filaCampos}>
+      <View style={[estilos.filaCampos, apilarCampos && estilos.filaCamposApilada]}>
         <View style={estilos.campoCorto}>
           <Text style={estilos.etiqueta}>Cantidad</Text>
           <TextInput
@@ -122,10 +128,18 @@ const estilos = StyleSheet.create({
   encabezado: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   etiqueta: { ...tipografia.etiqueta, color: color.textoTenue, marginTop: espacio.sm },
   filaCampos: { flexDirection: 'row', gap: espacio.md },
-  campoCorto: { flex: 1 },
+  filaCamposApilada: { flexDirection: 'column' },
+  // `minWidth: 0` deja que el campo se achique por debajo de su contenido en
+  // la fila (si no, dos inputs lado a lado desbordan); apilado, `alignItems`
+  // por defecto (`stretch`) lo lleva a ancho completo.
+  campoCorto: { flex: 1, minWidth: 0 },
+  // `minHeight` garantiza el objetivo táctil a escala de fuente 1.0;
+  // `paddingVertical` deja que la caja crezca sin que el texto toque el borde
+  // cuando la fuente del sistema está en grande.
   input: {
     minHeight: 48, borderWidth: 1.5, borderColor: color.borde, borderRadius: radio.md,
-    paddingHorizontal: espacio.md, fontSize: 16, color: color.texto, backgroundColor: color.superficie,
+    paddingHorizontal: espacio.md, paddingVertical: espacio.sm,
+    fontSize: 16, color: color.texto, backgroundColor: color.superficie,
     marginTop: 4,
   },
   textoRango: { fontSize: 15, color: color.textoTenue, marginTop: 4 },

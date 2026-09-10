@@ -116,7 +116,12 @@ function Pestania({
       accessibilityState={{ selected: activa }}
     >
       <Text style={[estilos.glifoPestana, activa && estilos.textoPestanaActiva]}>{glifo}</Text>
-      <Text style={[estilos.textoPestana, activa && estilos.textoPestanaActiva]}>{etiqueta}</Text>
+      <Text
+        style={[estilos.textoPestana, activa && estilos.textoPestanaActiva]}
+        numberOfLines={1}
+      >
+        {etiqueta}
+      </Text>
     </Pressable>
   );
 }
@@ -131,6 +136,9 @@ const estilos = StyleSheet.create({
     flexDirection: 'row', borderTopWidth: 1, borderTopColor: color.borde,
     backgroundColor: color.superficie,
   },
+  // `minHeight` = objetivo táctil a escala de fuente 1.0; con la fuente del
+  // sistema grande la barra crece (el contenido, `flex: 1`, cede) en vez de
+  // recortar el glifo o la etiqueta.
   pestana: {
     flex: 1, minHeight: tap.normal, alignItems: 'center', justifyContent: 'center',
     paddingVertical: espacio.sm, gap: 2, borderTopWidth: 3, borderTopColor: 'transparent',

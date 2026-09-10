@@ -191,7 +191,7 @@ export function ConfirmacionBorrador({
             disabled={guardando}
             accessibilityRole="button"
           >
-            <Text style={estilos.textoBotonSecundario}>Editar nota</Text>
+            <Text style={estilos.textoBotonSecundario} numberOfLines={2}>Editar nota</Text>
           </Pressable>
           <Pressable
             style={[estilos.botonPrimario, guardando && estilos.botonDeshabilitado]}
@@ -200,7 +200,7 @@ export function ConfirmacionBorrador({
             accessibilityRole="button"
             accessibilityState={{ disabled: guardando, busy: guardando }}
           >
-            <Text style={estilos.textoBotonPrimario}>
+            <Text style={estilos.textoBotonPrimario} numberOfLines={2}>
               {guardando ? 'Guardando…' : 'Confirmar y guardar'}
             </Text>
           </Pressable>

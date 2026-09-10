@@ -209,10 +209,10 @@ export default function CapturarScreen() {
             disabled={procesando}
             hitSlop={8}
           >
-            <Text style={estilos.textoBotonFecha}>◀ antes</Text>
+            <Text style={estilos.textoBotonFecha} numberOfLines={1}>◀ antes</Text>
           </Pressable>
           <View style={estilos.chipFecha}>
-            <Text style={estilos.textoChipFecha}>{etiquetaFecha(diasAtras)}</Text>
+            <Text style={estilos.textoChipFecha} numberOfLines={1}>{etiquetaFecha(diasAtras)}</Text>
           </View>
           <Pressable
             style={[estilos.botonFecha, diasAtras === 0 && estilos.botonDeshabilitado]}
@@ -220,7 +220,7 @@ export default function CapturarScreen() {
             disabled={procesando || diasAtras === 0}
             hitSlop={8}
           >
-            <Text style={estilos.textoBotonFecha}>después ▶</Text>
+            <Text style={estilos.textoBotonFecha} numberOfLines={1}>después ▶</Text>
           </Pressable>
         </View>
 
@@ -239,7 +239,7 @@ export default function CapturarScreen() {
             // construcción de CLAUDE.md). Queda preparado y deshabilitado
             // acá — NUNCA Web Speech API, ver restricciones duras.
           >
-            <Text style={estilos.textoBotonDictar}>🎙 Dictar (pronto)</Text>
+            <Text style={estilos.textoBotonDictar} numberOfLines={2}>🎙 Dictar (pronto)</Text>
           </Pressable>
           <Pressable
             style={[
@@ -351,14 +351,20 @@ const estilos = StyleSheet.create({
     padding: espacio.md, fontSize: 16, color: color.texto, backgroundColor: color.superficie,
     textAlignVertical: 'top',
   },
-  filaFecha: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm },
+  // `alignItems: 'flex-start'`: si la fuente del sistema grande hace que un
+  // botón sea más alto que otro, no se estiran para igualarse.
+  filaFecha: { flexDirection: 'row', alignItems: 'flex-start', gap: espacio.sm },
+  // `minHeight` = objetivo táctil a escala 1.0; `paddingVertical` deja crecer
+  // el control con la fuente del sistema sin apretar el texto.
   botonFecha: {
-    minHeight: tap.normal, paddingHorizontal: espacio.md, borderRadius: radio.md,
+    minHeight: tap.normal, paddingHorizontal: espacio.md, paddingVertical: espacio.xs,
+    borderRadius: radio.md,
     borderWidth: 1.5, borderColor: color.borde, alignItems: 'center', justifyContent: 'center',
   },
   textoBotonFecha: { fontSize: 14, fontWeight: '600', color: color.texto },
   chipFecha: {
-    flex: 1, minHeight: tap.normal, alignItems: 'center', justifyContent: 'center',
+    flex: 1, minHeight: tap.normal, paddingVertical: espacio.xs,
+    alignItems: 'center', justifyContent: 'center',
     backgroundColor: color.superficieHundida, borderRadius: radio.md,
   },
   textoChipFecha: { fontSize: 16, fontWeight: '700', color: color.texto },
@@ -403,9 +409,11 @@ const estilos = StyleSheet.create({
   pasoCuerpo: { flex: 1, gap: 1 },
   pasoFila: { flexDirection: 'row', justifyContent: 'space-between', gap: espacio.sm },
   pasoEtiqueta: { flex: 1, fontSize: 14, fontWeight: '600', color: color.texto },
+  // `flexShrink: 0`: la duración no se aplasta cuando la etiqueta es larga o
+  // la fuente del sistema está en grande.
   pasoMs: {
     fontSize: 13, fontWeight: '600', color: color.textoTenue,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ['tabular-nums'], flexShrink: 0,
   },
   pasoDetalle: { fontSize: 12, color: color.textoTenue, lineHeight: 16 },
   panelPie: {

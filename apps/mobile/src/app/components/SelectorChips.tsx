@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { color, radio, tap } from '../theme.ts';
+import { color, espacio, radio, tap } from '../theme.ts';
 
 /** Fila horizontal de chips seleccionables — un dedo, sin picker nativo
  *  (los pickers nativos de Android son lentos de tocar con guantes). */
@@ -21,7 +21,7 @@ export function SelectorChips<T extends string>({
             style={[estilos.chip, activo && estilos.chipActivo]}
             hitSlop={6}
           >
-            <Text style={[estilos.texto, activo && estilos.textoActivo]}>{op}</Text>
+            <Text style={[estilos.texto, activo && estilos.textoActivo]} numberOfLines={1}>{op}</Text>
           </Pressable>
         );
       })}
@@ -31,9 +31,12 @@ export function SelectorChips<T extends string>({
 
 const estilos = StyleSheet.create({
   fila: { flexGrow: 0 },
+  // `minHeight` = objetivo táctil a escala de fuente 1.0; `paddingVertical`
+  // deja crecer el chip con la fuente del sistema sin apretar el texto.
   chip: {
     minHeight: tap.normal, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 16, borderRadius: radio.md, borderWidth: 1.5,
+    paddingHorizontal: 16, paddingVertical: espacio.sm,
+    borderRadius: radio.md, borderWidth: 1.5,
     borderColor: color.borde, backgroundColor: color.superficie, marginRight: 8,
   },
   chipActivo: { backgroundColor: color.primario, borderColor: color.primario },
