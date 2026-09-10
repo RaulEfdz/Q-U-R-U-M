@@ -145,6 +145,7 @@ function modeloDelSdk(nombre: string): Record<string, unknown> {
 
 const MODELO   = modeloDelSdk(process.env['QUORUM_MODELO'] ?? 'QWEN3_1_7B_INST_Q4');
 const ASR      = modeloDelSdk(process.env['QUORUM_ASR'] ?? 'WHISPER_TINY');
+const MODELO_IA = String(MODELO['modelId'] ?? process.env['QUORUM_MODELO'] ?? 'modelo local');
 const OBSERV   = process.env['QUORUM_OBSERVADOR'] ?? 'Field User 01';
 const DISPOSIT = process.env['QUORUM_DISPOSITIVO'] ?? 'dispositivo-a';
 const PEER     = process.env['QUORUM_PEER_PUBKEY'];
@@ -864,7 +865,7 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
   if (ruta === '/api/base-instalada') {
     if (metodo !== 'GET') { res.writeHead(405).end(); return; }
     const obs = await cargar();
-    json(res, 200, proyeccion(obs, reconciliar(obs)));
+    json(res, 200, { ...proyeccion(obs, reconciliar(obs)), meta: { modeloIA: MODELO_IA } });
     return;
   }
 
@@ -928,7 +929,12 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
 
     json(res, 200, {
       borrador: b,
-      inferencia: { delegado: rutaInf.delegado, politica: decision },
+      inferencia: {
+        delegado: rutaInf.delegado,
+        modelo: rutaInf.modelId,
+        modeloSha256: rutaInf.modeloSha256,
+        politica: decision,
+      },
     });
     return;
   }

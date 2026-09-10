@@ -256,11 +256,12 @@ async function interpretar() {
     const inf = r.inferencia ?? {};
     // Chip de ruta de inferencia: pequeño y permanente. Nunca dice "nube",
     // porque nunca la hay: local u otro dispositivo autorizado por P2P.
+    const modelo = inf.modelo ? ` · modelo ${inf.modelo}` : '';
     pintar($('#ruta'),
       h('i', { clase: 'glifo', 'aria-hidden': 'true', texto: inf.delegado ? '⇄' : '⌂' }),
       h('span', { texto: inf.delegado
-        ? 'Inferencia delegada a un dispositivo autorizado de la red'
-        : `Inferencia local en este equipo${inf.politica?.razon ? ` · ${inf.politica.razon}` : ''}` }));
+        ? `Inferencia delegada a un dispositivo autorizado de la red${modelo}`
+        : `Inferencia local en este equipo${modelo}${inf.politica?.razon ? ` · ${inf.politica.razon}` : ''}` }));
     $('#ruta').hidden = false;
     pintarRevision(r.borrador ?? {});
     estado('', null);

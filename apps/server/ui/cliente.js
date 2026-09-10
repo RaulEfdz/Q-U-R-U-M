@@ -123,7 +123,7 @@ function tituloEquipo(g) {
 const dec2 = (n) => (typeof n === 'number' ? n.toFixed(2) : '—');
 
 /** Un grupo de equipo = un cliente + una modalidad reconciliada. */
-export function pintarGrupo(g) {
+export function pintarGrupo(g, meta = {}) {
   const c = g.campos ?? {};
   const p = g.puntaje ?? {};
 
@@ -136,7 +136,8 @@ export function pintarGrupo(g) {
       // cliente — mantenerlos distintos era drift entre las dos superficies.
       h('h3', { clase: 'equipo-titulo con-icono' },
         iconoModalidad(g.campos?.modalidad?.valor, { clase: 'icono-modalidad' }),
-        tituloEquipo(g)),
+        tituloEquipo(g),
+        meta.modeloIA ? h('span', { clase: 'modelo-card', title: 'Modelo local usado para interpretar las observaciones' }, `IA · ${meta.modeloIA}`) : null),
       h('div', { clase: 'puntaje-caja' },
         h('span', {
           clase: 'puntaje num',
@@ -217,7 +218,7 @@ export function pintarCliente(seccion, datos) {
           ubicacion ? h('p', { clase: 'ubicacion', texto: ubicacion }) : null,
           h('p', { clase: 'small', texto: suyos.length === 1
             ? '1 grupo de equipo' : `${suyos.length} grupos de equipo` })),
-        suyos.map(pintarGrupo));
+        suyos.map((g) => pintarGrupo(g, d.meta ?? {})));
     }));
 }
 
