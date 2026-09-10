@@ -363,8 +363,9 @@ const estilos = StyleSheet.create({
   // La primera etiqueta no lleva margen de arriba: ya la separa la barra.
   etiquetaPrimera: { ...tipografia.subtitulo, marginBottom: espacio.xs },
   textarea: {
+    ...tipografia.cuerpo,
     minHeight: 140, borderWidth: 1.5, borderColor: color.borde, borderRadius: radio.lg,
-    padding: espacio.md, fontSize: 16, color: color.texto, backgroundColor: color.superficie,
+    padding: espacio.md, color: color.texto, backgroundColor: color.superficie,
     textAlignVertical: 'top',
   },
   // `alignItems: 'flex-start'`: si la fuente del sistema grande hace que un
@@ -377,34 +378,34 @@ const estilos = StyleSheet.create({
     borderRadius: radio.md,
     borderWidth: 1.5, borderColor: color.borde, alignItems: 'center', justifyContent: 'center',
   },
-  textoBotonFecha: { fontSize: 14, fontWeight: '600', color: color.texto },
+  textoBotonFecha: { ...tipografia.etiqueta, color: color.texto },
   chipFecha: {
     flex: 1, minHeight: tap.normal, paddingVertical: espacio.xs,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: color.superficieHundida, borderRadius: radio.md,
   },
-  textoChipFecha: { fontSize: 16, fontWeight: '700', color: color.texto },
-  error: { color: color.peligro, marginTop: espacio.md, fontSize: 14 },
+  textoChipFecha: { ...tipografia.cuerpo, fontWeight: '700', color: color.texto },
+  error: { ...tipografia.secundario, color: color.peligro, marginTop: espacio.md },
   filaBotones: { flexDirection: 'row', gap: espacio.md, marginTop: espacio.lg },
   botonDictar: {
     flex: 1, minHeight: tap.grande, borderRadius: radio.lg, borderWidth: 1.5,
     borderColor: color.borde, backgroundColor: color.superficieHundida,
     alignItems: 'center', justifyContent: 'center', opacity: 0.55,
   },
-  textoBotonDictar: { fontSize: 15, fontWeight: '600', color: color.textoTenue },
+  textoBotonDictar: { ...tipografia.accion, color: color.textoTenue },
   botonInterpretar: { flex: 2 },
   botonPrimario: {
     minHeight: tap.grande, borderRadius: radio.lg, backgroundColor: color.primario,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: espacio.xl,
   },
   botonDeshabilitado: { opacity: 0.5 },
-  textoBotonPrimario: { fontSize: 17, fontWeight: '700', color: color.primarioTexto },
+  textoBotonPrimario: { ...tipografia.accion, color: color.primarioTexto },
 
   avisoModelos: {
     flexDirection: 'row', alignItems: 'center', gap: espacio.sm,
     marginTop: espacio.md, paddingHorizontal: espacio.xs,
   },
-  avisoModelosTexto: { flex: 1, fontSize: 12, color: color.textoTenue, lineHeight: 16 },
+  avisoModelosTexto: { ...tipografia.pequeno, flex: 1, color: color.textoTenue, lineHeight: 16 },
 
   // Fuera de la vista pero en el árbol de accesibilidad: TalkBack lo lee, el
   // ojo no. `position: absolute` + offset — `display:'none'` o tamaño 0 lo
@@ -420,22 +421,24 @@ const estilos = StyleSheet.create({
   panelTitulo: { ...tipografia.etiqueta, color: color.textoTenue },
   paso: { flexDirection: 'row', gap: espacio.sm, alignItems: 'flex-start' },
   pasoIcono: { width: 20, alignItems: 'center', marginTop: 1 },
+  // Glifo ✓ / ✕ del panel — tamaño de ícono, no de la escala de texto.
   pasoMarca: { fontSize: 15, fontWeight: '700', color: color.exito },
   pasoMarcaError: { color: color.peligro },
   pasoCuerpo: { flex: 1, gap: 1 },
   pasoFila: { flexDirection: 'row', justifyContent: 'space-between', gap: espacio.sm },
-  pasoEtiqueta: { flex: 1, fontSize: 14, fontWeight: '600', color: color.texto },
+  pasoEtiqueta: { ...tipografia.etiqueta, flex: 1, color: color.texto },
   // `flexShrink: 0`: la duración no se aplasta cuando la etiqueta es larga o
   // la fuente del sistema está en grande.
   pasoMs: {
-    fontSize: 13, fontWeight: '600', color: color.textoTenue,
+    ...tipografia.etiqueta, color: color.textoTenue,
     fontVariant: ['tabular-nums'], flexShrink: 0,
   },
-  pasoDetalle: { fontSize: 12, color: color.textoTenue, lineHeight: 16 },
+  pasoDetalle: { ...tipografia.pequeno, color: color.textoTenue, lineHeight: 16 },
   panelPie: {
-    fontSize: 12, color: color.textoTenue, lineHeight: 16, marginTop: espacio.xs,
+    ...tipografia.pequeno, color: color.textoTenue, lineHeight: 16, marginTop: espacio.xs,
   },
 
+  // Glifo grande del estado "confirmado" — decorativo, tamaño propio.
   glifoExito: { fontSize: 56, color: color.exito },
   mensajeExito: { ...tipografia.cuerpo, textAlign: 'center', color: color.texto },
 });

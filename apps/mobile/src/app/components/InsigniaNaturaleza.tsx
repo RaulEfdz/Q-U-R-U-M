@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Naturaleza } from '../../core/contracts.ts';
-import { color } from '../theme.ts';
+import { color, tipografia } from '../theme.ts';
 
 /**
  * Eje 1 (naturaleza del testimonio). Siempre glifo + etiqueta, nunca solo
@@ -37,5 +37,5 @@ const estilos = StyleSheet.create({
     borderWidth: 1.5, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10, gap: 5,
   },
   glifo: { fontSize: 13, fontWeight: '700' },
-  texto: { fontSize: 13, fontWeight: '700' },
+  texto: { ...tipografia.etiqueta, fontWeight: '700' },
 });

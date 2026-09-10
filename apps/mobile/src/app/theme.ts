@@ -74,11 +74,27 @@ export const espacio = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as cons
 
 export const radio = { sm: 6, md: 10, lg: 14 } as const;
 
+/**
+ * Escala de roles. Cada tamaño tiene un trabajo; los componentes se enganchan
+ * a un rol, no eligen un `fontSize` suelto (así no derivan entre pantallas).
+ * Los `fontSize` numéricos escalan solos con la fuente del sistema.
+ */
 export const tipografia = {
+  /** Título de pantalla. */
   titulo: { fontSize: 22, fontWeight: '700' as const },
+  /** Cifra escaneable (el puntaje del grupo). Va con `fontVariant: ['tabular-nums']`. */
+  dato: { fontSize: 20, fontWeight: '700' as const },
+  /** Título de sección o de tarjeta. */
   subtitulo: { fontSize: 17, fontWeight: '600' as const },
+  /** Texto de botón — primario y secundario, para que no diverjan. */
+  accion: { fontSize: 17, fontWeight: '700' as const },
+  /** Cuerpo, párrafos, campos de texto. */
   cuerpo: { fontSize: 16, fontWeight: '400' as const },
+  /** Detalle legible un escalón bajo `cuerpo`: citas, avisos, errores. */
+  secundario: { fontSize: 14, fontWeight: '400' as const },
+  /** Etiqueta de campo, chip-etiqueta, metadato. */
   etiqueta: { fontSize: 13, fontWeight: '600' as const },
+  /** Letra chica: pistas, notas al pie, texto tenue. */
   pequeno: { fontSize: 12, fontWeight: '400' as const },
 };
 

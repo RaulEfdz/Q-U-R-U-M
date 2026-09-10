@@ -144,6 +144,7 @@ const estilos = StyleSheet.create({
     paddingVertical: espacio.sm, gap: 2, borderTopWidth: 3, borderTopColor: 'transparent',
   },
   pestanaActiva: { borderTopColor: color.primario },
+  // Glifo de la pestaña — tamaño de ícono, no de la escala de texto.
   glifoPestana: { fontSize: 18, color: color.textoTenue },
   textoPestana: { ...tipografia.etiqueta, color: color.textoTenue },
   textoPestanaActiva: { color: color.primario },

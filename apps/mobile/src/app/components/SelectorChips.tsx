@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { color, espacio, radio, tap } from '../theme.ts';
+import { color, espacio, radio, tap, tipografia } from '../theme.ts';
 
 /** Fila horizontal de chips seleccionables — un dedo, sin picker nativo
  *  (los pickers nativos de Android son lentos de tocar con guantes).
@@ -55,6 +55,8 @@ const estilos = StyleSheet.create({
     borderColor: color.borde, backgroundColor: color.superficie, marginRight: 8,
   },
   chipActivo: { backgroundColor: color.primario, borderColor: color.primario },
-  texto: { fontSize: 15, fontWeight: '600', color: color.texto },
+  // Tamaño de `cuerpo` (no de etiqueta): es un control que se toca con
+  // guantes, tiene que leerse tan bien como el texto principal.
+  texto: { ...tipografia.cuerpo, fontWeight: '600', color: color.texto },
   textoActivo: { color: color.primarioTexto },
 });

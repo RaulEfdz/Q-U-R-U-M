@@ -345,12 +345,12 @@ const estilos = StyleSheet.create({
   tesis: { ...tipografia.cuerpo, color: color.textoTenue, marginBottom: espacio.md },
   textoTenue: { ...tipografia.pequeno, color: color.textoTenue, textAlign: 'center' },
   glifoVacio: { fontSize: 56, color: color.sinDatos },
-  error: { color: color.peligro, fontSize: 14, textAlign: 'center' },
+  error: { ...tipografia.secundario, color: color.peligro, textAlign: 'center' },
   botonReintentar: {
     minHeight: tap.normal, paddingHorizontal: espacio.xl, borderRadius: radio.lg,
     backgroundColor: color.primario, alignItems: 'center', justifyContent: 'center',
   },
-  textoBotonReintentar: { fontSize: 16, fontWeight: '700', color: color.primarioTexto },
+  textoBotonReintentar: { ...tipografia.accion, color: color.primarioTexto },
   avisoCorruptas: {
     ...tipografia.pequeno, color: color.texto, backgroundColor: color.advertenciaFondo,
     padding: espacio.sm, borderRadius: radio.sm, marginBottom: espacio.sm,
@@ -371,7 +371,7 @@ const estilos = StyleSheet.create({
   },
   tituloGrupo: { ...tipografia.subtitulo, color: color.texto, flexShrink: 1 },
   puntaje: {
-    fontSize: 20, fontWeight: '700', color: color.texto, fontVariant: ['tabular-nums'],
+    ...tipografia.dato, color: color.texto, fontVariant: ['tabular-nums'],
     flexShrink: 0,
   },
   filaEstadoGeneral: {

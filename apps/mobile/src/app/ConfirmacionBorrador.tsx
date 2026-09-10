@@ -227,25 +227,26 @@ const estilos = StyleSheet.create({
   etiquetaPregunta: { ...tipografia.etiqueta, color: color.reportado },
   pregunta: { ...tipografia.cuerpo, fontWeight: '600', color: color.texto },
   inputPregunta: {
+    ...tipografia.cuerpo,
     minHeight: 48, borderWidth: 1.5, borderColor: color.borde, borderRadius: radio.md,
-    paddingHorizontal: espacio.md, paddingVertical: espacio.sm, fontSize: 16,
+    paddingHorizontal: espacio.md, paddingVertical: espacio.sm,
     color: color.texto, backgroundColor: color.superficie,
   },
-  error: { color: color.peligro, marginTop: espacio.md, fontSize: 14 },
+  error: { ...tipografia.secundario, color: color.peligro, marginTop: espacio.md },
   pie: {
     padding: espacio.lg, borderTopWidth: 1, borderTopColor: color.borde, backgroundColor: color.superficie,
   },
-  notaPie: { fontSize: 12, color: color.textoTenue, textAlign: 'center', marginBottom: espacio.sm },
+  notaPie: { ...tipografia.pequeno, color: color.textoTenue, textAlign: 'center', marginBottom: espacio.sm },
   filaBotones: { flexDirection: 'row', gap: espacio.md },
   botonSecundario: {
     flex: 1, minHeight: tap.grande, borderRadius: radio.lg, borderWidth: 1.5, borderColor: color.borde,
     alignItems: 'center', justifyContent: 'center',
   },
-  textoBotonSecundario: { fontSize: 16, fontWeight: '700', color: color.texto },
+  textoBotonSecundario: { ...tipografia.accion, color: color.texto },
   botonPrimario: {
     flex: 2, minHeight: tap.grande, borderRadius: radio.lg, backgroundColor: color.primario,
     alignItems: 'center', justifyContent: 'center',
   },
   botonDeshabilitado: { opacity: 0.6 },
-  textoBotonPrimario: { fontSize: 17, fontWeight: '700', color: color.primarioTexto },
+  textoBotonPrimario: { ...tipografia.accion, color: color.primarioTexto },
 });

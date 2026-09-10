@@ -144,16 +144,17 @@ const estilos = StyleSheet.create({
   // `paddingVertical` deja que la caja crezca sin que el texto toque el borde
   // cuando la fuente del sistema está en grande.
   input: {
+    ...tipografia.cuerpo,
     minHeight: 48, borderWidth: 1.5, borderColor: color.borde, borderRadius: radio.md,
     paddingHorizontal: espacio.md, paddingVertical: espacio.sm,
-    fontSize: 16, color: color.texto, backgroundColor: color.superficie,
+    color: color.texto, backgroundColor: color.superficie,
     marginTop: 4,
   },
-  textoRango: { fontSize: 15, color: color.textoTenue, marginTop: 4 },
+  textoRango: { ...tipografia.secundario, color: color.textoTenue, marginTop: 4 },
   etiquetaEvidencia: { ...tipografia.etiqueta, color: color.textoTenue, marginTop: espacio.md },
   cajaEvidencia: {
     backgroundColor: color.superficieHundida, borderRadius: radio.md,
     padding: espacio.md, marginTop: 4,
   },
-  evidencia: { fontSize: 14, fontStyle: 'italic', color: color.textoTenue },
+  evidencia: { ...tipografia.secundario, fontStyle: 'italic', color: color.textoTenue },
 });

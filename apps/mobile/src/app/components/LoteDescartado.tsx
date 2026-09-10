@@ -41,8 +41,8 @@ const estilos = StyleSheet.create({
   encabezado: { flexDirection: 'row', justifyContent: 'space-between' },
   marca: { ...tipografia.etiqueta, color: color.peligro },
   resumen: { ...tipografia.cuerpo, fontWeight: '600', color: color.texto },
-  explicacion: { fontSize: 14, color: color.texto, lineHeight: 19 },
-  razon: { fontSize: 12, color: color.textoTenue, marginTop: 4 },
+  explicacion: { ...tipografia.secundario, color: color.texto, lineHeight: 19 },
+  razon: { ...tipografia.pequeno, color: color.textoTenue, marginTop: 4 },
   cajaEvidencia: { backgroundColor: color.superficie, borderRadius: radio.md, padding: espacio.md, marginTop: 4 },
-  evidencia: { fontSize: 14, fontStyle: 'italic', color: color.textoTenue },
+  evidencia: { ...tipografia.secundario, fontStyle: 'italic', color: color.textoTenue },
 });
