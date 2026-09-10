@@ -16,7 +16,14 @@ import type { Resultado } from '../pipeline/cruzar.ts';
 
 export type RespuestaUsuario = 'confirmo' | 'corrigio' | 'descarto' | 'ignoro';
 
+/**
+ * Registro de la DECISIÓN del pipeline para una nota. `respuestaUsuario`
+ * queda SIEMPRE `null` acá — nunca se completa mutando este registro (el
+ * log es de solo-anexo). Qué hizo el usuario después es un evento
+ * SEPARADO: `RegistroRespuestaUsuario`, más abajo.
+ */
 export interface RegistroPipeline {
+  tipo: 'decision';
   id: string;
   at: string;
   observadorId: string;
@@ -36,12 +43,43 @@ export interface RegistroPipeline {
   resultado: Resultado;
   msExtractor: number;
   preguntaMostrada: string | null;
-  respuestaUsuario: RespuestaUsuario | null;
   hashPrev: string;
   hash: string;
 }
 
+/**
+ * Evento SEPARADO — NO un `RegistroPipeline` mutado. Referencia al
+ * registro original por `refId` (el `id` del `RegistroPipeline`), NUNCA
+ * por `notaHash`: dos notas con el mismo TEXTO (dos visitas distintas, el
+ * mismo colaborador repitiendo la misma frase) producen el mismo
+ * `notaHash`, y correlacionar por ahí pega la respuesta al evento
+ * equivocado — silencioso, e irreversible en un log inmutable. `refId` no
+ * tiene esa ambigüedad: quien llama esta función ya tiene el registro
+ * concreto en la mano (`cruzar.ts` lo acaba de generar, o la pantalla de
+ * confirmación lo está mostrando).
+ *
+ * No duplica los campos de decisión del original (resultado, lotes,
+ * tiempos, etc.) — si un bug futuro los hiciera divergir, un auditor
+ * vería dos registros de la misma nota con datos distintos y no habría
+ * forma de saber cuál vale. Este evento lleva SOLO la respuesta.
+ */
+export interface RegistroRespuestaUsuario {
+  tipo: 'respuesta-usuario';
+  id: string;
+  at: string;
+  /** `id` del `RegistroPipeline` al que responde. */
+  refId: string;
+  /** Heredado del original, solo para agrupar/enlazar con `provenance.hash` — nunca la clave de correlación. */
+  notaHash: string;
+  respuestaUsuario: RespuestaUsuario;
+  hashPrev: string;
+  hash: string;
+}
+
+export type EventoAuditoria = RegistroPipeline | RegistroRespuestaUsuario;
+
 const zRegistroPipeline = z.object({
+  tipo: z.literal('decision'),
   id: z.string().min(10),
   at: z.string().datetime(),
   observadorId: z.string().min(1),
@@ -61,10 +99,24 @@ const zRegistroPipeline = z.object({
   ]),
   msExtractor: z.number(),
   preguntaMostrada: z.string().nullable(),
-  respuestaUsuario: z.enum(['confirmo', 'corrigio', 'descarto', 'ignoro']).nullable(),
   hashPrev: z.string(),
   hash: z.string(),
 });
+
+const zRegistroRespuestaUsuario = z.object({
+  tipo: z.literal('respuesta-usuario'),
+  id: z.string().min(10),
+  at: z.string().datetime(),
+  refId: z.string().min(10),
+  notaHash: z.string().min(1),
+  respuestaUsuario: z.enum(['confirmo', 'corrigio', 'descarto', 'ignoro']),
+  hashPrev: z.string(),
+  hash: z.string(),
+});
+
+const zEventoAuditoria = z.discriminatedUnion('tipo', [
+  zRegistroPipeline, zRegistroRespuestaUsuario,
+]);
 
 /** Marcador de génesis: mismo largo que un hash sha256 hex, para que la
  *  cadena tenga una forma uniforme desde el primer registro. */
