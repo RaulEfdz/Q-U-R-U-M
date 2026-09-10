@@ -97,8 +97,14 @@ export default function Cliente360Screen({ recargarToken = 0 }: { recargarToken?
   if (error) {
     return (
       <View style={estilos.centro}>
-        <Text style={estilos.error}>No se pudo leer la base local: {error}</Text>
-        <Pressable style={estilos.botonReintentar} onPress={() => void leer()}>
+        <Text style={estilos.error} accessibilityLiveRegion="polite">
+          No se pudo leer la base local: {error}
+        </Text>
+        <Pressable
+          style={estilos.botonReintentar}
+          onPress={() => void leer()}
+          accessibilityRole="button"
+        >
           <Text style={estilos.textoBotonReintentar}>Reintentar</Text>
         </Pressable>
       </View>
@@ -150,9 +156,9 @@ export default function Cliente360Screen({ recargarToken = 0 }: { recargarToken?
 
       {clientes.map((cliente) => (
         <View key={cliente.nombre} style={estilos.cliente}>
-          <Text style={tipografia.subtitulo}>{cliente.nombre}</Text>
+          <Text style={tipografia.subtitulo} numberOfLines={3}>{cliente.nombre}</Text>
           {cliente.ubicacion !== '' && (
-            <Text style={estilos.ubicacion}>{cliente.ubicacion}</Text>
+            <Text style={estilos.ubicacion} numberOfLines={2}>{cliente.ubicacion}</Text>
           )}
 
           {cliente.grupos.map((g) => (
@@ -193,8 +199,8 @@ function TarjetaGrupo({
   return (
     <View style={[estilos.tarjeta, { borderTopColor: colorEstado(grupo.estadoGeneral) }]}>
       <View style={estilos.tarjetaCabecera}>
-        <Text style={estilos.tituloGrupo}>{tituloGrupo(grupo)}</Text>
-        <Text style={estilos.puntaje}>{p.total}/100</Text>
+        <Text style={estilos.tituloGrupo} numberOfLines={2}>{tituloGrupo(grupo)}</Text>
+        <Text style={estilos.puntaje} numberOfLines={1}>{p.total}/100</Text>
       </View>
 
       <View style={estilos.filaEstadoGeneral}>
@@ -329,6 +335,7 @@ const estilos = StyleSheet.create({
   tituloGrupo: { ...tipografia.subtitulo, color: color.texto, flexShrink: 1 },
   puntaje: {
     fontSize: 20, fontWeight: '700', color: color.texto, fontVariant: ['tabular-nums'],
+    flexShrink: 0,
   },
   filaEstadoGeneral: {
     flexDirection: 'row', alignItems: 'center', gap: espacio.sm,

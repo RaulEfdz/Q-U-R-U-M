@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable,
+  ActivityIndicator, BackHandler, KeyboardAvoidingView, Platform, Pressable,
   ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import type { EstadoRevision } from '../core/contracts.ts';
@@ -27,6 +27,17 @@ function etiquetaFecha(diasAtras: number): string {
 /** ms → "840 ms" / "12.3 s". Para las etapas ya terminadas. */
 function formatoDuracion(ms: number): string {
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+}
+
+/** Una línea para que TalkBack anuncie EN QUÉ va el pipeline. Cambia solo
+ *  cuando una etapa arranca o termina — nunca con el contador de segundos,
+ *  que si no sería un anuncio por segundo. */
+function resumenA11y(pasos: EventoPipeline[]): string {
+  const ult = pasos[pasos.length - 1];
+  if (!ult) return 'Interpretando la nota';
+  if (ult.estado === 'error') return `Se cortó en: ${ult.etiqueta}`;
+  if (ult.estado === 'ok') return `${ult.etiqueta}: ${ult.detalle ?? 'listo'}`;
+  return `${ult.etiqueta}…`;
 }
 
 export default function CapturarScreen() {
@@ -66,6 +77,27 @@ export default function CapturarScreen() {
     return () => clearInterval(id);
   }, [modelosListos]);
 
+  // El botón/gesto Atrás del sistema no debe cerrar la app —ni perder lo
+  // que el modelo extrajo— si estás en una sub-pantalla de la captura:
+  //   - procesando: bloquea (la inferencia ya está corriendo).
+  //   - confirmado: vuelve a una nota nueva.
+  //   - revisión: NO lo toca acá — `ConfirmacionBorrador` registra su propio
+  //     handler y, como se monta después, `BackHandler` (LIFO) lo evalúa
+  //     primero; ahí está la pregunta de "¿descartar cambios?".
+  //   - capturar: deja pasar el evento (App.tsx o el sistema deciden).
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (vista.paso === 'procesando') return true;
+      if (vista.paso === 'confirmado') { nuevaNota(); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  }, [vista.paso]);
+
+  // Guarda contra doble tap: entre el toque y el re-render que deshabilita el
+  // botón hay una ventana de un frame.
+  const interpretando = useRef(false);
+
   function alProgreso(e: EventoPipeline) {
     if (e.estado === 'corriendo') pasoCorriendoDesde.current = Date.now();
     setPasos((prev) => {
@@ -79,7 +111,8 @@ export default function CapturarScreen() {
 
   async function interpretar() {
     const texto = nota.trim();
-    if (!texto) return;
+    if (!texto || interpretando.current) return;
+    interpretando.current = true;
     setError(null);
     setPasos([]);
     pasoCorriendoDesde.current = null;
@@ -103,6 +136,8 @@ export default function CapturarScreen() {
       setPasos((prev) => prev.map((p) =>
         p.estado === 'corriendo' ? { ...p, estado: 'error', detalle: `se cortó acá: ${msg}` } : p));
       setVista({ paso: 'capturar' });
+    } finally {
+      interpretando.current = false;
     }
   }
 
@@ -189,7 +224,11 @@ export default function CapturarScreen() {
           </Pressable>
         </View>
 
-        {error && <Text style={estilos.error}>No se pudo interpretar la nota: {error}</Text>}
+        {error && (
+          <Text style={estilos.error} accessibilityLiveRegion="polite">
+            No se pudo interpretar la nota: {error}
+          </Text>
+        )}
 
         <View style={estilos.filaBotones}>
           <Pressable
@@ -209,6 +248,9 @@ export default function CapturarScreen() {
             ]}
             onPress={interpretar}
             disabled={!nota.trim() || procesando}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !nota.trim() || procesando, busy: procesando }}
+            accessibilityLabel={procesando ? 'Interpretando la nota, esperá' : 'Interpretar'}
           >
             {procesando ? (
               <ActivityIndicator color={color.primarioTexto} />
@@ -219,13 +261,19 @@ export default function CapturarScreen() {
         </View>
 
         {!modelosListos && !procesando && (
-          <View style={estilos.avisoModelos}>
+          <View style={estilos.avisoModelos} accessibilityLiveRegion="polite">
             <ActivityIndicator size="small" color={color.textoTenue} />
             <Text style={estilos.avisoModelosTexto}>
               Preparando los modelos en el teléfono. Si interpretás una nota
               ahora, la primera va a tardar unos segundos más.
             </Text>
           </View>
+        )}
+
+        {procesando && (
+          <Text accessibilityLiveRegion="polite" style={estilos.soloLector}>
+            {resumenA11y(pasos)}
+          </Text>
         )}
 
         {mostrarPanel && (
@@ -335,6 +383,11 @@ const estilos = StyleSheet.create({
     marginTop: espacio.md, paddingHorizontal: espacio.xs,
   },
   avisoModelosTexto: { flex: 1, fontSize: 12, color: color.textoTenue, lineHeight: 16 },
+
+  // Fuera de la vista pero en el árbol de accesibilidad: TalkBack lo lee, el
+  // ojo no. `position: absolute` + offset — `display:'none'` o tamaño 0 lo
+  // podarían del árbol.
+  soloLector: { position: 'absolute', left: -9999, width: 1, height: 1 },
 
   // ── Panel de progreso del pipeline ────────────────────────────────────
   panel: {

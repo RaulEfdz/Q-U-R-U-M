@@ -61,8 +61,12 @@ export function FilaCampo({
       esConflicto && estilos.filaConflicto,
     ]}>
       <View style={estilos.cabecera}>
-        <Text style={[estilos.nombre, sangrada && estilos.nombreSangrado]}>{nombre}</Text>
-        <Text style={estilos.valor}>{esConflicto ? 'en disputa' : valor}</Text>
+        <Text style={[estilos.nombre, sangrada && estilos.nombreSangrado]} numberOfLines={1}>
+          {nombre}
+        </Text>
+        <Text style={estilos.valor} numberOfLines={2}>
+          {esConflicto ? 'en disputa' : valor}
+        </Text>
       </View>
 
       <View style={estilos.meta}>
@@ -109,8 +113,8 @@ export function FilaCohorte({
   return (
     <View style={[estilos.fila, estilos.filaSangrada, { borderLeftColor: colorEstado(estado) }]}>
       <View style={estilos.cabecera}>
-        <Text style={[estilos.nombre, estilos.nombreSangrado]}>— cohorte</Text>
-        <Text style={estilos.valor}>{valor}</Text>
+        <Text style={[estilos.nombre, estilos.nombreSangrado]} numberOfLines={1}>— cohorte</Text>
+        <Text style={estilos.valor} numberOfLines={2}>{valor}</Text>
       </View>
       <View style={estilos.meta}>
         <InsigniaQuorum estado={estado} />
@@ -133,7 +137,9 @@ const estilos = StyleSheet.create({
   filaSangrada: { backgroundColor: color.superficieHundida },
   filaConflicto: { backgroundColor: color.sinQuorumFondo },
   cabecera: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: espacio.sm },
-  nombre: { ...tipografia.etiqueta, color: color.texto },
+  // El nombre del campo no se achica: si algo tiene que truncar es el valor
+  // (que además se puede editar en la pantalla de confirmación).
+  nombre: { ...tipografia.etiqueta, color: color.texto, flexShrink: 0 },
   nombreSangrado: { color: color.textoTenue },
   // `fontVariant` tabular: las columnas de cifras se alinean entre filas.
   valor: {

@@ -1,5 +1,8 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable,
+  ScrollView, StyleSheet, Text, TextInput, View,
+} from 'react-native';
 import type { Observacion, EstadoRevision, Borrador } from '../core/contracts.ts';
 import { nuevoId } from '../core/ids.ts';
 import { agregar, confirmarParaGuardar } from '../store/expo-store.ts';
@@ -43,15 +46,48 @@ export function ConfirmacionBorrador({
   const [respuesta, setRespuesta] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // ¿Tocó el borrador? Si volvió sin tocar nada, no hay nada que descartar.
+  const [tocado, setTocado] = useState(false);
+  const guardandoRef = useRef(false);
 
   const vacio = salida.resultado === 'ACUERDO_VACIO';
   const resumen = construirResumen(observaciones, nota);
 
   function actualizar(indice: number, siguiente: Observacion) {
+    setTocado(true);
     setObservaciones((arr) => arr.map((o, i) => (i === indice ? siguiente : o)));
   }
 
+  // "Editar nota" y el botón Atrás del sistema pasan por acá: si editaste algo,
+  // pregunta antes de tirar el borrador (la nota queda para interpretarla de
+  // nuevo, pero las correcciones a mano se pierden). Un `Alert` nativo es el
+  // patrón correcto acá — es una decisión destructiva que debe interrumpir.
+  function intentarVolver() {
+    if (guardando) return;
+    if (!tocado) { onVolver(); return; }
+    Alert.alert(
+      'Descartar los cambios',
+      'Editaste el borrador. Si volvés ahora se pierden las correcciones que hiciste — la nota queda igual para interpretarla de nuevo.',
+      [
+        { text: 'Seguir editando', style: 'cancel' },
+        { text: 'Descartar', style: 'destructive', onPress: onVolver },
+      ],
+    );
+  }
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (guardando) return true; // guardando: no interrumpir
+      intentarVolver();
+      return true;
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guardando, tocado]);
+
   async function confirmar() {
+    if (guardandoRef.current) return;
+    guardandoRef.current = true;
     setGuardando(true);
     setError(null);
     try {
@@ -93,13 +129,17 @@ export function ConfirmacionBorrador({
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      guardandoRef.current = false;
       setGuardando(false);
     }
   }
 
   return (
-    <View style={estilos.contenedor}>
-      <ScrollView contentContainerStyle={estilos.scroll}>
+    <KeyboardAvoidingView
+      style={estilos.contenedor}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
         <Text style={tipografia.titulo}>Revisá antes de guardar</Text>
         <Text style={estilos.resumen}>{resumen}</Text>
 
@@ -127,7 +167,7 @@ export function ConfirmacionBorrador({
             <TextInput
               style={estilos.inputPregunta}
               value={respuesta}
-              onChangeText={setRespuesta}
+              onChangeText={(t) => { setTocado(true); setRespuesta(t); }}
               placeholder="Podés dejarlo así y guardar igual"
               placeholderTextColor={color.textoTenue}
               multiline
@@ -135,19 +175,30 @@ export function ConfirmacionBorrador({
           </View>
         )}
 
-        {error && <Text style={estilos.error}>No se pudo guardar: {error}</Text>}
+        {error && (
+          <Text style={estilos.error} accessibilityLiveRegion="polite">
+            No se pudo guardar: {error}
+          </Text>
+        )}
       </ScrollView>
 
       <View style={estilos.pie}>
         <Text style={estilos.notaPie}>Nada se guarda hasta que confirmás.</Text>
         <View style={estilos.filaBotones}>
-          <Pressable style={estilos.botonSecundario} onPress={onVolver} disabled={guardando}>
+          <Pressable
+            style={estilos.botonSecundario}
+            onPress={intentarVolver}
+            disabled={guardando}
+            accessibilityRole="button"
+          >
             <Text style={estilos.textoBotonSecundario}>Editar nota</Text>
           </Pressable>
           <Pressable
             style={[estilos.botonPrimario, guardando && estilos.botonDeshabilitado]}
             onPress={confirmar}
             disabled={guardando}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: guardando, busy: guardando }}
           >
             <Text style={estilos.textoBotonPrimario}>
               {guardando ? 'Guardando…' : 'Confirmar y guardar'}
@@ -155,7 +206,7 @@ export function ConfirmacionBorrador({
           </Pressable>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

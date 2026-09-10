@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import CapturarScreen from './src/app/CapturarScreen.tsx';
 import Cliente360Screen from './src/app/Cliente360Screen.tsx';
@@ -63,6 +63,22 @@ function Marco() {
     if (destino === 'clientes') setRecargarToken((n) => n + 1);
     setPestana(destino);
   }
+
+  // El botón/gesto Atrás del sistema en la pestaña Clientes vuelve a
+  // Capturar en vez de cerrar la app. En Capturar lo maneja `CapturarScreen`
+  // (sus sub-pantallas) y, más adentro, `ConfirmacionBorrador`; cuando esos
+  // dejan pasar el evento, Atrás cierra la app como corresponde. Los tres
+  // handlers componen porque `BackHandler` los evalúa en orden LIFO.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pestana === 'clientes') {
+        setPestana('capturar');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [pestana]);
 
   return (
     <View style={estilos.contenedor}>
