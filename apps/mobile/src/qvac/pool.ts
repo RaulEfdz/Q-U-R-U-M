@@ -1,16 +1,43 @@
 import {
   loadModel, unloadModel, getLoadedModelInfo,
-  WHISPER_TINY, QWEN3_5_0_8B_MULTIMODAL_Q4_K_M, QWEN3_1_7B_INST_Q4,
+  WHISPER_BASE_Q8_0, QWEN3_5_0_8B_MULTIMODAL_Q4_K_M, QWEN3_1_7B_INST_Q4,
   VAD_SILERO_5_1_2,
 } from '@qvac/sdk';
+import { PROMPT_ASR } from '../pipeline/lexico.ts';
 
 /**
  * Identificadores reales verificados contra @qvac/sdk@0.18.2 (apps/mobile/CLAUDE.md).
  * Son OBJETOS descriptores del registro (src, sha256Checksum, expectedSize, modelId),
  * no strings — la fuente del Anexo D usaba 'QWEN3_5_0_8B_INST_Q4', que no existe.
+ *
+ * ★ ASR — la escalera de whisper, para poder subir o bajar cambiando ESTA línea:
+ *
+ * | Constante                  | RAM    | Nota                                    |
+ * |----------------------------|--------|-----------------------------------------|
+ * | `WHISPER_TINY_Q8_0`        |  42 MB | el piso; solo si la RAM aprieta de verdad |
+ * | `WHISPER_TINY`             |  74 MB | lo que usábamos hasta v0.5.0            |
+ * | `WHISPER_BASE_Q8_0`        |  78 MB | **actual** — +4 MB sobre tiny           |
+ * | `WHISPER_SMALL_Q8_0`       | 252 MB | el siguiente escalón real de precisión  |
+ * | `WHISPER_SPANISH_TINY_Q8_0`|  42 MB | finetune en español de tiny, sin medir   |
+ *
+ * `WHISPER_BASE_Q8_0` en vez de `WHISPER_TINY` es el cambio más barato que hay
+ * acá: cuesta CUATRO megabytes (78 vs 74) porque el base viene cuantizado a
+ * q8_0 y el tiny que traíamos era f16 sin cuantizar, y base es el escalón
+ * siguiente de whisper. En un presupuesto donde el extractor solo ya se lleva
+ * 1057 MB, no mueve la aguja de la RAM.
+ *
+ * El siguiente escalón (`WHISPER_SMALL_Q8_0`, +174 MB sobre base) es el que de
+ * verdad cambia las cifras, pero hay que MEDIRLO en el teléfono antes de
+ * dejarlo: el dictado es en vivo, small decodifica bastante más lento que base
+ * y si el texto llega tarde a la pantalla la mejora de precisión no se nota.
+ * Cambiar esta línea, correr un dictado y mirar el `ms` del paso «dictando».
+ *
+ * `WHISPER_SPANISH_TINY_Q8_0` (finetune en castellano, mismo tamaño que tiny)
+ * es el otro candidato a probar; no está medido y no hay tarjeta del modelo,
+ * por eso no es el default.
  */
 export const MODELOS = {
-  asr: WHISPER_TINY,
+  asr: WHISPER_BASE_Q8_0,
   portero: QWEN3_5_0_8B_MULTIMODAL_Q4_K_M,
   extractor: QWEN3_1_7B_INST_Q4,
 } as const;
@@ -116,9 +143,19 @@ async function liberarBajoPresion(
  *   `temperature: 0`                   determinismo, igual que en el resto
  *                                     del pipeline
  *
- * `initial_prompt` se queda igual: además del idioma, mete el vocabulario del
- * dominio (siglas de modalidad y las marcas del vocabulario ficticio), que es
- * lo que un modelo tiny no conoce.
+ * `initial_prompt` además del idioma mete el vocabulario del dominio (siglas
+ * de modalidad y marcas del vocabulario ficticio), que es lo que un modelo
+ * chico no conoce. Vive en `pipeline/lexico.ts`, junto al corrector que limpia
+ * lo que el prompt no alcanza a arreglar.
+ *
+ * ★ El resto de los parámetros de decodificación —`strategy`,
+ * `beam_search_beam_size`, `no_context`, el fallback por temperatura— están
+ * comentados uno por uno abajo, en el objeto. Van todos en el config de CARGA
+ * y no por llamada: el driver arma la config de whisper una sola vez, al
+ * configurar el modelo (`_buildConfigurationParams` →`_buildWhisperConfig`,
+ * `node_modules/@qvac/asr-ggml/engines/whisper/driver.js`), y de ahí la usan
+ * tanto `transcribe()` como las sesiones de streaming. Cambiar acá cambia los
+ * dos modos.
  *
  * ★ `contextParams.use_gpu`: OBLIGATORIO, mismo motivo que `device: 'gpu'` +
  * `gpu_layers: 99` en `CONFIG` más abajo para portero/extractor — sin esto la
@@ -176,19 +213,111 @@ const CONFIG_ASR = {
   suppress_nst: true,
   temperature: 0,
   audio_format: 's16le',
+
+  /*
+   * ★ Estrategia de decodificación: búsqueda en haz, no codicioso.
+   *
+   * El default de whisper.cpp es `greedy` — en cada paso se queda con el token
+   * más probable y no vuelve atrás. Es la razón de una clase entera de errores
+   * que en esta app duelen el doble: una sílaba mal resuelta al principio de
+   * una palabra arrastra el resto («Blue Pick» en vez de «BluePeak») porque el
+   * modelo nunca reconsidera. `beam_search` mantiene 5 hipótesis en paralelo y
+   * se queda con la de mejor probabilidad TOTAL de la frase, que es justo lo
+   * que hace falta cuando la palabra rara está rodeada de contexto que sí se
+   * entendió bien.
+   *
+   * Cuesta tiempo de decodificación (no de encoder, que es la parte cara y no
+   * cambia). Si el dictado en vivo empieza a llegar tarde a la pantalla, esto
+   * es lo PRIMERO que hay que bajar —a 3, y después a `greedy`— antes de tocar
+   * el modelo: ver el `ms` del paso «dictando» en la pantalla de captura.
+   */
+  strategy: 'beam_search',
+  beam_search_beam_size: 5,
+
+  /*
+   * ★ `no_context: true` — cada segmento se decodifica solo.
+   *
+   * Por default whisper le pasa el texto del segmento anterior como contexto al
+   * siguiente. Suena bien y es exactamente el mecanismo por el que se enganchan
+   * los bucles de repetición que `pareceAlucinacion()` (`pipeline/dictar.ts`)
+   * tiene que salir a atrapar después: una frase inventada entra al contexto,
+   * sube su propia probabilidad, y se repite quince veces.
+   *
+   * Acá el contexto no aporta: una nota de campo son dos o tres frases sueltas
+   * («vi dos MR. El CT es nuevo.»), no un discurso donde la coherencia entre
+   * segmentos ayude a desambiguar. Y cortarlo tiene una segunda ventaja: con
+   * `no_context`, el `initial_prompt` —el vocabulario de marcas y siglas— se
+   * vuelve a aplicar en CADA segmento en vez de diluirse detrás del texto ya
+   * transcrito.
+   */
+  no_context: true,
+
+  /*
+   * ★ Fallback por temperatura — la defensa que trae el propio whisper.
+   *
+   * `temperature: 0` sola no alcanza: si la decodificación sale degenerada
+   * (entropía alta = bucle de repetición, o log-prob promedio muy bajo = el
+   * modelo no entendió nada), whisper puede REINTENTAR el segmento subiendo la
+   * temperatura de a `temperature_inc`. Sin `temperature_inc` no hay reintento
+   * y el segmento degenerado sale tal cual.
+   *
+   * Los tres valores son los del whisper original (0.2 / 2.4 / -1.0), no
+   * inventados. Y sí: el reintento rompe el determinismo estricto que pide
+   * `apps/mobile/CLAUDE.md §Determinismo`, pero SOLO en la rama de fallo —
+   * un segmento que decodifica limpio a temperatura 0 sigue siendo
+   * reproducible. Cambiar una alucinación determinista por una transcripción
+   * no determinista es el negocio correcto.
+   */
+  temperature_inc: 0.2,
+  entropy_thold: 2.4,
+  logprob_thold: -1.0,
+
   contextParams: { use_gpu: true, gpu_device: 0 },
   vadModelSrc: VAD_SILERO_5_1_2,
   vad_params: {
-    threshold: 0.6,
+    /*
+     * `threshold` 0.6 → 0.5 (el default de Silero, y el que usa el propio
+     * driver en modo streaming: `DEFAULT_STREAMING_VAD_CONFIG.vadThreshold`).
+     * A 0.6 el VAD exige bastante energía para declarar «esto es voz», y lo
+     * que se pierde no es ruido: es el ARRANQUE de la frase, que es la parte
+     * más floja de una nota dictada de pie en un pasillo. Con la primera
+     * palabra recortada, «dos MR» llega como «MR» — y la cantidad es
+     * justamente uno de los campos que después reconcilia el quórum.
+     */
+    threshold: 0.5,
     min_speech_duration_ms: 250,
     min_silence_duration_ms: 500,
-    max_speech_duration_s: 15.0,
-    speech_pad_ms: 200,
+    /*
+     * 15 s → 20 s. Es un corte DURO: al llegar al tope el VAD cierra el
+     * segmento esté donde esté, y si cae a mitad de «BluePeak Medical» whisper
+     * decodifica dos mitades sin sentido. Una frase de nota rara vez pasa de
+     * 20 s, así que el tope casi no se toca; cuando se toca, corta menos veces.
+     */
+    max_speech_duration_s: 20.0,
+    /*
+     * 200 → 300 ms de colchón a cada lado del segmento detectado. El VAD marca
+     * dónde hay energía de voz, no dónde empieza la PALABRA: las consonantes
+     * iniciales sordas (la «c» de «CT», la «p» de «paciente») tienen poca
+     * energía y quedan del lado de afuera del corte.
+     */
+    speech_pad_ms: 300,
+    /*
+     * Solapa 0.1 s entre segmentos consecutivos, para que una palabra partida
+     * por el corte aparezca entera en al menos uno de los dos. Es el default
+     * del driver en streaming; acá se declara para que el modo archivo
+     * (`transcribirLocal`) lo tenga también.
+     */
+    samples_overlap: 0.1,
   },
-  initial_prompt:
-    'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
-    'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
-    'Marcas: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.',
+  /*
+   * Fuente única en `pipeline/lexico.ts`. OJO: este `initial_prompt` NO
+   * sobrevive a la primera nota — el SDK, cuando `transcribe()`/
+   * `transcribeStream()` reciben `prompt`, recarga el modelo y al terminar lo
+   * deja en cadena vacía (ver el comentario de `PROMPT_ASR`). Queda acá para
+   * que el modelo arranque bien configurado; el que gobierna de la primera
+   * nota en adelante es el que pasa `dictar.ts`, y por eso es el mismo.
+   */
+  initial_prompt: PROMPT_ASR,
 } as const;
 
 export async function obtener(rol: Rol, ramTotalBytes?: number): Promise<string> {

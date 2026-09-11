@@ -32,7 +32,7 @@ list.filter(x => /qwen|whisper/i.test(x.name));
 
 | Rol | Constante a importar del SDK | Tamaño |
 |---|---|---|
-| ASR | `WHISPER_TINY` | 78 MB |
+| ASR | `WHISPER_BASE_Q8_0` | 78 MB |
 | Portero | `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M` | 533 MB |
 | Extractor | `QWEN3_1_7B_INST_Q4` | 1057 MB |
 
@@ -41,6 +41,19 @@ list.filter(x => /qwen|whisper/i.test(x.name));
 Las constantes son **objetos** (con `src`, `sha256Checksum`, `expectedSize`), no strings. Importalas del SDK; no escribas `'WHISPER_TINY'` como literal de texto.
 
 Los tres ya están descargados en `~/.qvac/models` (2026-09-10).
+
+⚠️ **El ASR cambió de `WHISPER_TINY` a `WHISPER_BASE_Q8_0`** — el base todavía **no** está en `~/.qvac/models` ni en el teléfono. `loadModel` lo baja solo la primera vez (78 MB), pero eso significa que el primer arranque después de este cambio **necesita red**. Antes de una demo: abrir la app una vez con conectividad y esperar a que `[QUÓRUM·precarga] asr listo` aparezca en el log. Vale para cualquier cambio de la escalera de modelos de `qvac/pool.ts`.
+
+## Precisión del ASR — qué se tocó y dónde
+
+Cuatro palancas, en orden de cuánto mueven la aguja. Todas viven en dos archivos: `qvac/pool.ts` (`CONFIG_ASR`) y `pipeline/lexico.ts`.
+
+1. **Modelo.** `WHISPER_BASE_Q8_0` en vez de `WHISPER_TINY`: cuesta 4 MB (78 vs 74 — el base viene cuantizado q8_0, el tiny que traíamos era f16) y es un escalón entero de whisper. La escalera completa, con `WHISPER_SMALL_Q8_0` (+174 MB) como próximo paso, está tabulada en el comentario de `MODELOS`. **Small no está medido**: el dictado es en vivo y hay que mirar el `ms` del paso «dictando» antes de dejarlo.
+2. **Decodificación.** `strategy: 'beam_search'` + `beam_search_beam_size: 5` en vez del `greedy` por default — greedy no reconsidera, y una sílaba mal resuelta arrastra la palabra entera («Blue Pick» por «BluePeak»). Más `no_context: true` (corta el bucle de repetición de raíz) y el fallback por temperatura de whisper (`temperature_inc` + `entropy_thold` + `logprob_thold`). **Si el dictado en vivo llega tarde a la pantalla, bajar el beam a 3 es lo primero que hay que probar, antes de tocar el modelo.**
+3. **VAD.** `threshold` 0.6 → 0.5 y `speech_pad_ms` 200 → 300: a 0.6 el VAD se comía el arranque de la frase, y «dos MR» llegaba como «MR» — perder la cantidad es perder justo uno de los campos que reconcilia el quórum.
+4. **Corrector léxico** (`pipeline/lexico.ts`, nuevo). Ningún whisper vio nunca «BluePeak Medical»: subir el modelo mejora el promedio y no cierra el vocabulario cerrado. La corrección va en CÓDIGO —alias exactos para las siglas, similitud difusa acotada para las 6 marcas— y **devuelve qué cambió**, que la pantalla de captura muestra: la nota la confirma la persona como propia y una palabra que reescribió el código sin avisar sería inaceptable. Umbral 0.88, **medido** (ver el comentario de `UMBRAL_MARCA`), no elegido a ojo. Tests en `test/lexico.test.ts`.
+
+El `initial_prompt` está escrito **con forma de nota dictada**, no de descripción del dominio: el prompt de whisper no es una instrucción, son tokens que el modelo imita. Vive en `pipeline/lexico.ts` como `PROMPT_ASR` y es fuente única — el SDK, al recibir `prompt` en `transcribe()`, recarga el modelo y al terminar deja el `initial_prompt` en cadena vacía, así que el de la carga no sobrevive a la primera nota y los dos tienen que decir lo mismo.
 
 **Oportunidad:** el modelo del portero es multimodal. La captura por foto que el doc maestro corta en H-14 usa **el mismo modelo** que ya cargás para el portero — sale sin RAM adicional.
 
@@ -127,7 +140,7 @@ El schema de `generationParams` es `$strict` (`node_modules/@qvac/sdk/dist/schem
 
 | Componente | RAM |
 |---|---|
-| Whisper tiny | ~78 MB |
+| Whisper base q8_0 | ~78 MB |
 | Portero Qwen3.5 0.8B Q4_K_M | ~533 MB |
 | Extractor Qwen3 1.7B Q4_0 | ~1057 MB |
 | KV cache (portero 1024 + extractor 2048) | ~150 MB |

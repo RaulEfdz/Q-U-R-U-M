@@ -2,6 +2,7 @@ import { transcribe, transcribeStream } from '@qvac/sdk';
 import type { TranscribeStreamConversationSession } from '@qvac/sdk';
 import type { RecordingOptions } from 'expo-audio';
 import { obtener, liberar } from '../qvac/pool.ts';
+import { PROMPT_ASR, corregirLexico, type CorreccionLexica } from './lexico.ts';
 
 /**
  * Fase 11 · dictado por voz. Audio → texto, ENTERAMENTE en el dispositivo.
@@ -81,19 +82,12 @@ async function conTecho<T>(tarea: Promise<T>, ms: number, mensaje: string): Prom
 }
 
 /**
- * Prompt inicial de whisper. El SDK no expone un parámetro de idioma (solo
- * `modelId`, `prompt`, `metadata` y `audioChunk`), y sin ninguna pista whisper
- * AUTODETECTA — con audio corto o flojo eligió inglés y devolvió una frase en
- * inglés repetida quince veces sobre una grabación en silencio.
- *
- * El prompt hace dos cosas a la vez: ancla el idioma en castellano y le mete
- * el vocabulario del dominio, que es justo lo que un modelo tiny no conoce
- * (las siglas de modalidad y las marcas del vocabulario ficticio).
+ * El prompt de whisper vive en `pipeline/lexico.ts`, junto al vocabulario que
+ * después corrige: son la misma decisión de producto vista dos veces (qué
+ * palabras existen en este dominio), y tenerlos en archivos distintos ya nos
+ * dejó una vez el prompt de la carga diciendo una cosa y el de la llamada
+ * otra. Ver ahí por qué está escrito con forma de nota y no de instrucción.
  */
-const PROMPT_ASR =
-  'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
-  'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
-  'Marcas: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.';
 
 /**
  * Whisper ALUCINA con audio sin voz: devuelve una frase corta repetida muchas
@@ -150,6 +144,30 @@ export interface Transcripcion {
   tardoMs: number;
   /** `true` si se descartó la salida por parecer alucinación de whisper. */
   descartadaPorAlucinacion: boolean;
+  /**
+   * Siglas y marcas que `corregirLexico` reescribió sobre la salida cruda del
+   * modelo. Va en el resultado y no queda adentro porque la nota la confirma la
+   * persona como propia: si el código le cambió «Blue Pick» por «BluePeak
+   * Medical», tiene derecho a enterarse. Vacío en el caso normal.
+   */
+  correcciones: CorreccionLexica[];
+}
+
+/**
+ * Pasada final sobre lo que devolvió whisper: filtro de alucinación primero,
+ * corrección léxica después.
+ *
+ * El orden importa. Corregir antes de filtrar sería darle al corrector un
+ * texto que ya sabemos que es basura, y podría acercar alguna repetición a una
+ * marca del vocabulario — se corrige solo lo que ya pasó el filtro.
+ */
+function rematar(crudo: string, arranque: number): Transcripcion {
+  const alucinada = crudo.length > 0 && (pareceAlucinacion(crudo) || esFraseBasura(crudo));
+  if (alucinada) {
+    return { texto: '', tardoMs: Date.now() - arranque, descartadaPorAlucinacion: true, correcciones: [] };
+  }
+  const { texto, correcciones } = corregirLexico(crudo);
+  return { texto, tardoMs: Date.now() - arranque, descartadaPorAlucinacion: false, correcciones };
 }
 
 /**
@@ -185,12 +203,7 @@ export async function transcribirLocal(
         // autodetecta, y con audio flojo eligió inglés.
         const crudo = String(
           await transcribe({ modelId, audioChunk: ruta, prompt: PROMPT_ASR }) ?? '').trim();
-        const alucinada = pareceAlucinacion(crudo) || esFraseBasura(crudo);
-        return {
-          texto: alucinada ? '' : crudo,
-          tardoMs: Date.now() - arranque,
-          descartadaPorAlucinacion: alucinada,
-        };
+        return rematar(crudo, arranque);
       })(),
       timeoutMs,
       'La transcripción tardó demasiado y se canceló. Probá de nuevo, o escribí la nota a mano — no se perdió lo que ya tenías.',
@@ -253,9 +266,16 @@ export interface SesionDictado {
  *
  * El filtro de alucinaciones (`pareceAlucinacion`/`esFraseBasura`) corre DOS
  * veces: por segmento apenas llega (descarta ese pedazo puntual sin tocar
- * los demás), y una pasada final sobre el texto acumulado (atrapa
- * alucinaciones que se arman combinando dos segmentos cortos que solos no
- * matchean nada de la lista).
+ * los demás), y una pasada final sobre el texto acumulado, dentro de
+ * `rematar()` (atrapa alucinaciones que se arman combinando dos segmentos
+ * cortos que solos no matchean nada de la lista).
+ *
+ * La corrección léxica, en cambio, corre UNA sola vez, al final: por segmento
+ * no podría ver una marca que quedó partida entre dos («…Blue» / «Peak
+ * Medical…»), que es justo el caso que tiene que arreglar. Por eso el texto
+ * que llega en vivo por `onTexto` es el crudo del modelo y el de `terminar()`
+ * es el corregido — la pantalla de captura ya pisa lo que mostró en vivo con
+ * el valor final.
  */
 export async function abrirSesionDictado(
   callbacks: CallbacksSesionDictado = {},
@@ -321,13 +341,7 @@ export async function abrirSesionDictado(
         consumo, 15_000,
         'La transcripción no cerró a tiempo.',
       ).catch(() => { /* seguimos con lo que se alcanzó a acumular */ });
-      const texto = segmentos.join(' ').trim();
-      const alucinada = texto.length > 0 && (pareceAlucinacion(texto) || esFraseBasura(texto));
-      return {
-        texto: alucinada ? '' : texto,
-        tardoMs: Date.now() - arranque,
-        descartadaPorAlucinacion: alucinada,
-      };
+      return rematar(segmentos.join(' ').trim(), arranque);
     },
     destruir() {
       destruida = true;
