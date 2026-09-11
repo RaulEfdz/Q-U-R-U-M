@@ -194,7 +194,12 @@ export default function CapturarScreen() {
       setVista({ paso: 'revision', salida, nota: texto });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
+      // El prefijo va ACÁ, no en el banner de abajo: `error` también lo
+      // setea `alternarDictado` con frases ya completas ("No se escuchó voz
+      // en la grabación…", "Sin permiso de micrófono…"), y anteponerles
+      // "No se pudo interpretar la nota" ahí las vuelve confusas — un
+      // problema del micrófono se leía como si fuera del extractor.
+      setError(`No se pudo interpretar la nota: ${msg}`);
       // Marcá la etapa que estaba corriendo como cortada, así en pantalla
       // queda claro DÓNDE falló, no solo que falló.
       setPasos((prev) => prev.map((p) =>
@@ -312,7 +317,7 @@ export default function CapturarScreen() {
 
         {error && (
           <Text style={estilos.error} accessibilityLiveRegion="polite">
-            No se pudo interpretar la nota: {error}
+            {error}
           </Text>
         )}
 

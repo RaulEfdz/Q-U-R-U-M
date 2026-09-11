@@ -114,12 +114,20 @@ async function liberarBajoPresion(
  *                                     segmentos sin habla
  *   `temperature: 0`                   determinismo, igual que en el resto
  *                                     del pipeline
- *   `no_speech_thold`                  umbral por encima del cual un segmento
- *                                     se considera sin voz
  *
  * `initial_prompt` se queda igual: además del idioma, mete el vocabulario del
  * dominio (siglas de modalidad y las marcas del vocabulario ficticio), que es
  * lo que un modelo tiny no conoce.
+ *
+ * ★ `no_speech_thold` (el umbral de whisper.cpp para "segmento sin voz") NO
+ * va acá: `whisperConfigSchema` de este SDK (0.18.2) no lo declara —
+ * verificado contra `node_modules/@qvac/sdk/dist/schemas/transcription-config.js`,
+ * que expone `thold_pt`/`thold_ptsum`/`entropy_thold`/`logprob_thold` pero no
+ * `no_speech_thold`. Pasarlo tira "Unrecognized key" al cargar el modelo y
+ * `loadModel` falla ANTES de grabar nada — el dictado queda roto de punta a
+ * punta. La defensa contra alucinación sobre silencio ya la hacen, en código
+ * y de forma determinista, `pareceAlucinacion()`/`esFraseBasura()` en
+ * `pipeline/dictar.ts`; no hace falta el parámetro del modelo.
  */
 const CONFIG_ASR = {
   /*
@@ -141,7 +149,6 @@ const CONFIG_ASR = {
   suppress_blank: true,
   suppress_nst: true,
   temperature: 0,
-  no_speech_thold: 0.6,
   initial_prompt:
     'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
     'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
