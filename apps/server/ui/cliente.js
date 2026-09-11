@@ -69,22 +69,49 @@ function filaCampo(clave, nombre, campo, { sangrada = false } = {}) {
  *  Las cohortes son la respuesta visual a "tres MR, dos viejos y uno nuevo":
  *  composición, no contradicción. */
 function filaCohorte(clave, cohorte, indice) {
-  const uds = cohorte.cantidad?.valor ?? '?';
+  const cantidad = cohorte.cantidad ?? {};
+  /*
+   * ★ `cohorte.estado` NO habla de la cantidad.
+   *
+   * Lo calcula el clúster de EDAD, mientras `cohorte.cantidad` se resuelve
+   * por separado y puede quedar `Sin quórum` — y ahí `valor` viene
+   * `undefined`, porque el motor no elige ni promedia (RD-2). La fila salía
+   * entonces como «? uds · 8 años ● Quórum»: el conflicto desaparecía y
+   * encima se mostraba con el glifo de máxima confianza.
+   *
+   * El motor está bien; lo que estaba mal era la presentación. Se resuelve
+   * igual que `filaCampo()` resuelve el mismo caso para los campos —«en
+   * disputa», clase `es-conflicto` y el bloque con todas las versiones y
+   * quién sostiene cada una— porque es el mismo hecho y merece el mismo
+   * tratamiento, no uno nuevo.
+   */
+  const enDisputa = cantidad.estado === 'Sin quórum';
+  const uds = cantidad.valor;
   const edad = formatearValor(cohorte.edad);
   // «1 uds» se lee como un bug de plantilla en una pantalla que promete
   // precisión sobre los datos.
   const unidad = uds === 1 ? 'ud' : 'uds';
-  const partes = [`${uds} ${unidad} · ${edad} años`];
+  const partes = [enDisputa
+    ? `cantidad en disputa · ${edad} años`
+    : `${formatearValor(uds)} ${unidad} · ${edad} años`];
   if (cohorte.anioInstalacion !== undefined) partes.push(`(≈${cohorte.anioInstalacion})`);
 
-  const fila = h('tr', { clase: [claseEstado(cohorte.estado), 'sangrada'] },
+  // La insignia de la fila no puede afirmar quórum sobre una fila cuyo dato
+  // principal está en conflicto: mientras la cantidad se discuta, la cohorte
+  // entera es `Sin quórum`. Las versiones de la EDAD, que sí puede tener
+  // quórum, siguen visibles en el valor.
+  const estadoFila = enDisputa ? 'Sin quórum' : cohorte.estado;
+
+  const fila = h('tr', { clase: [claseEstado(estadoFila), 'sangrada', enDisputa && 'es-conflicto'] },
     h('td', { clase: 'campo', texto: '— cohorte' }),
-    h('td', { clase: 'num', texto: partes.join(' ') }),
-    h('td', null, insignia(cohorte.estado)),
+    h('td', { clase: enDisputa ? 'num disputa' : 'num', texto: partes.join(' ') }),
+    h('td', null, insignia(estadoFila)),
     h('td', { clase: 'quienes' }, h('span', { texto: testigos((cohorte.observadores ?? []).length) })));
 
-  marcarAscenso(fila, `${clave}|cohorte${indice}`, cohorte.estado);
-  return fila;
+  marcarAscenso(fila, `${clave}|cohorte${indice}`, estadoFila);
+  // `cohorte.cantidad.clusters` trae las versiones en conflicto: mismo bloque
+  // que usan los campos, siempre visible y nunca detrás de un click.
+  return enDisputa ? [fila, bloqueConflicto(cantidad)] : fila;
 }
 
 function tituloEquipo(g) {
@@ -96,7 +123,7 @@ function tituloEquipo(g) {
 const dec2 = (n) => (typeof n === 'number' ? n.toFixed(2) : '—');
 
 /** Un grupo de equipo = un cliente + una modalidad reconciliada. */
-export function pintarGrupo(g) {
+export function pintarGrupo(g, meta = {}) {
   const c = g.campos ?? {};
   const p = g.puntaje ?? {};
 
@@ -109,7 +136,8 @@ export function pintarGrupo(g) {
       // cliente — mantenerlos distintos era drift entre las dos superficies.
       h('h3', { clase: 'equipo-titulo con-icono' },
         iconoModalidad(g.campos?.modalidad?.valor, { clase: 'icono-modalidad' }),
-        tituloEquipo(g)),
+        tituloEquipo(g),
+        meta.modeloIA ? h('span', { clase: 'modelo-card', title: 'Modelo local usado para interpretar las observaciones' }, `IA · ${meta.modeloIA}`) : null),
       h('div', { clase: 'puntaje-caja' },
         h('span', {
           clase: 'puntaje num',
@@ -125,11 +153,14 @@ export function pintarGrupo(g) {
       : null,
 
     h('table', { clase: 'confianza' },
+      // `scope="col"` en cada encabezado: sin eso un lector de pantalla no
+      // puede nombrar la columna al leer una celda, y esta tabla es cuatro
+      // columnas de contexto sobre un solo dato.
       h('thead', null, h('tr', null,
-        h('th', { texto: 'Campo' }),
-        h('th', { clase: 'num', texto: 'Valor' }),
-        h('th', { texto: 'Estado de quórum' }),
-        h('th', { texto: 'Quién lo sostiene' }))),
+        h('th', { scope: 'col', texto: 'Campo' }),
+        h('th', { scope: 'col', clase: 'num', texto: 'Valor' }),
+        h('th', { scope: 'col', texto: 'Estado de quórum' }),
+        h('th', { scope: 'col', texto: 'Quién lo sostiene' }))),
       h('tbody', null,
         filaCampo(`${g.clave}|modalidad`, 'Modalidad', c.modalidad),
         filaCampo(`${g.clave}|marca`, 'Marca', c.marca),
@@ -187,7 +218,7 @@ export function pintarCliente(seccion, datos) {
           ubicacion ? h('p', { clase: 'ubicacion', texto: ubicacion }) : null,
           h('p', { clase: 'small', texto: suyos.length === 1
             ? '1 grupo de equipo' : `${suyos.length} grupos de equipo` })),
-        suyos.map(pintarGrupo));
+        suyos.map((g) => pintarGrupo(g, d.meta ?? {})));
     }));
 }
 

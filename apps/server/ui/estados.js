@@ -27,12 +27,15 @@ const INFO = {
 };
 const DESCONOCIDO = { glifo: '·', clase: 'nulo' };
 
-/** Orden de la escalera de quórum. `Sin quórum` no está en la escalera:
- *  no es "menos que Reportado", es una categoría aparte (RD-2). */
-const ESCALERA = ['Sin datos', 'Estimado', 'Reportado', 'Quórum'];
-
+/*
+ * El ORDEN de la escalera (`Sin datos` → `Estimado` → `Reportado` →
+ * `Quórum`) vive en el motor, no acá: la UI no compara estados entre sí, y
+ * `Sin quórum` no está en esa escalera de todos modos — no es "menos que
+ * Reportado", es una categoría aparte (RD-2). Esta pantalla solo necesita
+ * saber cómo se pinta cada estado, y el glifo nunca sale suelto: siempre va
+ * dentro de la insignia, junto a su etiqueta y su color.
+ */
 export const claseEstado = (estado) => (INFO[estado] ?? DESCONOCIDO).clase;
-export const glifoEstado = (estado) => (INFO[estado] ?? DESCONOCIDO).glifo;
 
 /** Insignia de estado de quórum: glifo + etiqueta + color. Los tres. */
 export function insignia(estado) {
@@ -47,8 +50,6 @@ export function insignia(estado) {
 export function esAscensoAQuorum(anterior, actual) {
   return actual === 'Quórum' && anterior !== undefined && anterior !== 'Quórum';
 }
-
-export const rangoEscalera = (estado) => ESCALERA.indexOf(estado);
 
 /* ─────────────── Eje de FRESCURA (independiente del anterior) ─────────────── */
 

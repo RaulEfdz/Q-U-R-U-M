@@ -18,12 +18,35 @@
  * archivo no la nombra ni la referencia por ningún nombre, a propósito:
  * el control de cumplimiento es un grep automatizado.
  */
-import { $, h, api, pintar, formatearValor, icono } from './dom.js';
+import { $, h, api, pintar, formatearValor, icono, error, testimonios } from './dom.js';
+import { explicar } from './errores.js';
+
+/*
+ * VOCABULARIO CONTROLADO de modalidad — copia literal de `MODALIDADES` en
+ * `src/core/contracts.ts`.
+ *
+ * Está duplicado a mano porque esta UI es JS plano sin build y no puede
+ * importar de un `.ts`. SI CAMBIA EL CONTRATO, HAY QUE ACTUALIZAR ESTA LISTA:
+ * es el único lugar de `ui/` donde vive el vocabulario.
+ *
+ * Y tiene que estar acá porque `modalidad` era un input de texto libre contra
+ * un `z.enum` cerrado del servidor: quien escribía «MRI», «mr» o «resonador»
+ * —lo que una persona escribe naturalmente— se comía un 400 de
+ * `/api/confirmar` que tiraba TODAS las correcciones del lote, no solo la
+ * mala. Un vocabulario cerrado no se corrige escribiendo; se elige.
+ *
+ * `marca` NO recibe el mismo trato a propósito: el servidor la acepta como
+ * string libre (`z.string().min(1).max(120)`), así que ahí no hay nada que
+ * cerrar y una lista de marcas sería una restricción inventada por la UI.
+ */
+const MODALIDADES = [
+  'MR', 'CT', 'Ultrasound', 'XRay', 'PatientMonitoring', 'ImageGuidedTherapy',
+];
 
 /** Campos del lote que el humano puede corregir antes de guardar. */
 const EDITABLES = [
   { llave: 'cantidad', etiqueta: 'Cantidad', tipo: 'number', min: 1, max: 500, paso: 1 },
-  { llave: 'modalidad', etiqueta: 'Modalidad', tipo: 'text' },
+  { llave: 'modalidad', etiqueta: 'Modalidad', tipo: 'seleccion', opciones: MODALIDADES },
   { llave: 'marca', etiqueta: 'Marca', tipo: 'text' },
   { llave: 'modelo', etiqueta: 'Modelo', tipo: 'text' },
   { llave: 'edadAnios', etiqueta: 'Edad (años)', tipo: 'number', min: 0, max: 60, paso: 1 },
@@ -44,8 +67,52 @@ function anotarCorreccion(obsId, llave, valor) {
   $('#corregido').hidden = !Object.keys(correcciones).length;
 }
 
+/**
+ * Control de un campo con VOCABULARIO CERRADO: un `<select>`, no un input.
+ *
+ * Comparte la marca de `editado` con los inputs de texto —borde de acción
+ * cuando el valor difiere del que propuso el modelo— y el mismo
+ * `anotarCorreccion`, así que la nota «Corregiste campos» y el envío de
+ * `correcciones` funcionan igual sin saber qué tipo de control lo produjo.
+ */
+function selectorVocabulario(obs, def, original) {
+  const actual = original === undefined || original === null ? '' : String(original);
+  // Si el modelo devolvió un valor fuera de la lista (no debería: el servidor
+  // ya lo validó contra el enum), se agrega como opción en vez de cambiarlo
+  // por lo bajo. La UI no decide por el humano, ni siquiera para corregir.
+  const opciones = actual && !def.opciones.includes(actual)
+    ? [actual, ...def.opciones]
+    : def.opciones;
+
+  const select = h('select', {
+    name: `${obs.id}-${def.llave}`,
+    clase: 'select-vocabulario',
+    onchange: (e) => {
+      const valor = e.target.value;
+      // El valor vacío no se manda: `modalidad` es requerida en el lote y un
+      // `''` volvería a ser el 400 que este cambio vino a eliminar.
+      anotarCorreccion(obs.id, def.llave, !valor || valor === actual ? undefined : valor);
+      e.target.classList.toggle('editado', correcciones[obs.id]?.[def.llave] !== undefined);
+    },
+  },
+  // La opción vacía existe SOLO cuando el modelo no extrajo nada: si extrajo
+  // una modalidad, vaciarla no es una corrección posible.
+  actual === '' ? h('option', { value: '', texto: '—' }) : null,
+  opciones.map((v) => h('option', { value: v, texto: v })));
+
+  select.value = actual;
+  return select;
+}
+
 function campoEditable(obs, def) {
   const original = obs.lote?.[def.llave];
+
+  if (def.tipo === 'seleccion') {
+    return h('label', { clase: 'campo-editable' },
+      h('span', { clase: 'etiqueta', texto: def.etiqueta }),
+      selectorVocabulario(obs, def, original));
+  }
+
   // `edadAnios` puede venir como rango `[a,b]`: eso no se edita con un
   // input numérico, se muestra tal cual y se deja intacto.
   const esRango = Array.isArray(original);
@@ -130,18 +197,53 @@ function pintarRevision(borrador) {
 function cerrarRevision() {
   $('#revision').hidden = true;
   pintar($('#campos'));
+  // El chip de ruta describe DÓNDE corrió la inferencia de un borrador
+  // concreto. Si el borrador se va, el chip se va con él: dejarlo en pantalla
+  // afirmaba «Inferencia local en este equipo» sobre algo que ya no existe.
+  $('#ruta').hidden = true;
+  pintar($('#ruta'));
   borradorActual = null;
   correcciones = {};
 }
 
 /* ─────────────────────────── Interpretar ─────────────────────────── */
 
+/**
+ * Muestra una falla con el texto accionable de `errores.js`: el titular en la
+ * región viva (se anuncia una vez) y la explicación con sus pasos en la caja
+ * de abajo. Acá NO se redacta nada: si falta un caso, la entrada nueva va en
+ * el diccionario, no en esta pantalla.
+ */
+function fallar(e) {
+  estado(explicar(e).titulo, 'malo');
+  const caja = $('#falla-captura');
+  pintar(caja, error(e));
+  caja.hidden = false;
+}
+
+function limpiarFalla() {
+  const caja = $('#falla-captura');
+  pintar(caja);
+  caja.hidden = true;
+}
+
+/** ¿Hay una interpretación en vuelo? Mientras la haya, dictar está vedado:
+ *  la transcripción escribe en el textarea que se está interpretando y
+ *  pisaría el texto que produjo el borrador que está por aparecer. */
+let interpretando = false;
+
 async function interpretar() {
+  if (interpretando) return;
   const texto = $('#texto').value.trim();
   if (!texto) { estado('Escribí o dictá una nota antes de interpretar.', 'aviso'); return; }
   const boton = $('#enviar');
+  interpretando = true;
   boton.disabled = true;
-  estado('Interpretando on-device…', 'trabajando');
+  $('#dictar').disabled = true;
+  limpiarFalla();
+  estado('Interpretando on-device… la primera vez puede incluir la carga del modelo.', 'trabajando');
+  const detenerLatido = latido();
+  const tope = conTope(TOPE_INTERPRETAR, 'interpretación');
   try {
     const r = await api('/api/observar', {
       texto,
@@ -150,22 +252,29 @@ async function interpretar() {
       // introduciría el huso horario del navegador en la fecha de la visita.
       ...($('#visita').value ? { visitadoEn: $('#visita').value } : {}),
       fuente: $('#texto').dataset.fuente === 'voz' ? 'voz' : 'texto',
-    });
+    }, { senal: tope.senal });
     const inf = r.inferencia ?? {};
     // Chip de ruta de inferencia: pequeño y permanente. Nunca dice "nube",
     // porque nunca la hay: local u otro dispositivo autorizado por P2P.
+    const modelo = inf.modelo ? ` · modelo ${inf.modelo}` : '';
     pintar($('#ruta'),
       h('i', { clase: 'glifo', 'aria-hidden': 'true', texto: inf.delegado ? '⇄' : '⌂' }),
       h('span', { texto: inf.delegado
-        ? 'Inferencia delegada a un dispositivo autorizado de la red'
-        : `Inferencia local en este equipo${inf.politica?.razon ? ` · ${inf.politica.razon}` : ''}` }));
+        ? `Inferencia delegada a un dispositivo autorizado de la red${modelo}`
+        : `Inferencia local en este equipo${modelo}${inf.politica?.razon ? ` · ${inf.politica.razon}` : ''}` }));
     $('#ruta').hidden = false;
     pintarRevision(r.borrador ?? {});
     estado('', null);
   } catch (e) {
-    estado(e.message, 'malo');
+    fallar(tope.traducir(e));
   } finally {
+    tope.fin();
+    detenerLatido();
+    interpretando = false;
+    // El botón vuelve a quedar usable SIEMPRE, también al vencer el tope: la
+    // nota sigue escrita en el campo y reintentar es lo que hay que hacer.
     boton.disabled = false;
+    $('#dictar').disabled = false;
   }
 }
 
@@ -184,32 +293,150 @@ async function confirmar() {
     cerrarRevision();
     $('#texto').value = '';
     delete $('#texto').dataset.fuente;
-    estado(`Guardado: ${r.persistidas ?? 0} testimonio(s).`, 'bueno');
+    informarGuardado(r);
     alRefrescar();
   } catch (e) {
-    estado(e.message, 'malo');
+    fallar(e);
   } finally {
     boton.disabled = false;
   }
+}
+
+/**
+ * Resultado del guardado, incluidos los lotes que el servidor DESCARTÓ.
+ *
+ * `/api/confirmar` responde `{ persistidas, descartadas: [{id, issues}] }`:
+ * un lote que no pasa `zObservacion` se degrada solo (corrección #13, para no
+ * perder la nota entera) y el resto se guarda. Antes se leía un éxito liso
+ * —«Guardado: 1 testimonio(s)»— aunque se hubieran caído 2 de 3, y esa es
+ * justo la pérdida silenciosa que `src/store/observations.ts` declara
+ * inaceptable. Así que la pérdida se cuenta con el mismo peso que el éxito, y
+ * se dice que NO se recupera reintentando: el borrador ya se consumió del
+ * lado del servidor y el único camino es volver a capturar la nota.
+ */
+function informarGuardado(r) {
+  const guardadas = r.persistidas ?? 0;
+  const perdidas = Array.isArray(r.descartadas) ? r.descartadas.length : (r.descartadas ?? 0);
+  if (!perdidas) {
+    estado(`Guardado: ${testimonios(guardadas)}.`, 'bueno');
+    return;
+  }
+  // Tono `malo`, no `bueno` ni `aviso`: hubo pérdida de datos, y el titular
+  // de la línea no puede ser el éxito parcial.
+  estado(
+    `Guardado: ${testimonios(guardadas)}. SE DESCARTARON ${perdidas} ` +
+    `${perdidas === 1 ? 'equipo' : 'equipos'} y no se recuperan reintentando.`,
+    'malo');
+  const caja = $('#falla-captura');
+  pintar(caja,
+    h('div', { clase: 'error-caja grave' },
+      h('b', { clase: 'error-titulo',
+        texto: `${perdidas} ${perdidas === 1 ? 'equipo no se guardó' : 'equipos no se guardaron'}` }),
+      h('p', { clase: 'error-explicacion', texto:
+        'El servidor aceptó el resto de la nota y rechazó estos lotes porque no ' +
+        'cumplen el contrato de datos. El borrador ya se consumió: volver a ' +
+        'tocar «guardar» no los recupera.' }),
+      h('ul', { clase: 'error-pasos' },
+        (Array.isArray(r.descartadas) ? r.descartadas : []).map((d) => h('li', null,
+          h('code', { texto: String(d?.id ?? '?') }),
+          h('span', { texto: ` · ${d?.issues ?? '?'} ${d?.issues === 1 ? 'problema' : 'problemas'} de validación` })))),
+      h('p', { clase: 'error-explicacion', texto:
+        'Para no perder esos equipos: volvé a capturar la nota nombrando el tipo ' +
+        'de equipo, la cantidad y la edad de forma directa, y revisá los campos ' +
+        'antes de guardar.' })));
+  caja.hidden = false;
 }
 
 async function descartar() {
   if (!borradorActual) return;
   try {
     await api('/api/descartar', { borradorId: borradorActual.id });
+    limpiarFalla();
     estado('Borrador descartado. No se guardó nada.', null);
   } catch (e) {
-    estado(e.message, 'malo');
+    fallar(e);
   } finally {
     cerrarRevision();
   }
 }
 
+/**
+ * Nodo del contador de segundos de la espera en curso. Vive DENTRO de
+ * `#estado-captura`, que es región viva (`role="status"`), pero marcado
+ * `aria-hidden`: el mensaje se anuncia una vez y el contador cambia cada
+ * segundo sin volver a anunciarse. Sin esa separación, dar señal de vida al
+ * usuario que ve la pantalla significaría gritarle un número por segundo a
+ * quien la escucha.
+ */
+let elContador = null;
+
 function estado(mensaje, tono) {
   const el = $('#estado-captura');
-  el.textContent = mensaje ?? '';
+  elContador = h('span', { clase: 'contador small', 'aria-hidden': 'true' });
+  // El nodo del contador se mantiene aparte del texto anunciado: el latido
+  // solo le escribe a él, nunca vuelve a tocar el mensaje.
+  pintar(el, mensaje ? h('span', { texto: mensaje }) : null, elContador);
   el.className = tono ? `estado ${tono}` : 'estado';
   el.hidden = !mensaje;
+}
+
+/**
+ * SEÑAL DE VIDA durante una espera larga: los segundos transcurridos, junto
+ * al mensaje. Devuelve la función que lo detiene.
+ *
+ * Es la mitad importante del arreglo del tope de tiempo. Un tope corto
+ * mentiría (la primera inferencia puede tardar minutos legítimamente) y un
+ * tope largo sin señal de vida se ve idéntico a una app colgada. Con el
+ * contador corriendo, esperar es una decisión informada del usuario.
+ */
+function latido() {
+  const inicio = Date.now();
+  const destino = elContador;
+  const paso = () => {
+    if (!destino.isConnected) return;   // `estado()` ya pintó otra cosa
+    destino.textContent = ` · ${Math.round((Date.now() - inicio) / 1000)} s`;
+  };
+  const id = setInterval(paso, 1000);
+  return () => clearInterval(id);
+}
+
+/*
+ * TOPES DE TIEMPO de las dos llamadas que invocan al modelo.
+ *
+ * Sin tope, un modelo colgado deja el botón `disabled` con «Interpretando
+ * on-device…» para siempre y el único camino es recargar la página —
+ * exactamente el bug que la app móvil ya corrigió (`feat/apk-v0.1-timeout-dictado`)
+ * y que esta UI nunca recibió.
+ *
+ * Los valores son deliberadamente ALTOS. La primera interpretación de la
+ * sesión puede incluir la descarga del modelo (alrededor de 1 GB, como ya
+ * documenta `errores.js`), así que un tope de pocos segundos convertiría el
+ * caso normal en un error y sería peor que no tener tope. Estos números no
+ * están para acelerar nada: están para que exista un final. Quien mira la
+ * pantalla no espera a ciegas — el contador de `latido()` le dice que sigue
+ * viva.
+ */
+const TOPE_INTERPRETAR = 300_000;   // 5 min: descarga del modelo + inferencia
+const TOPE_TRANSCRIBIR = 120_000;   // 2 min: whisper tiny sobre un dictado corto
+
+/**
+ * `AbortController` con tope de tiempo. `traducir()` distingue el vencimiento
+ * de cualquier otro fallo: un `AbortError` crudo dice «The user aborted a
+ * request», que es justo lo contrario de lo que pasó.
+ */
+function conTope(ms, etiqueta) {
+  const control = new AbortController();
+  let vencido = false;
+  const t = setTimeout(() => { vencido = true; control.abort(); }, ms);
+  return {
+    senal: control.signal,
+    fin: () => clearTimeout(t),
+    traducir: (e) => (vencido
+      // El prefijo es la llave del diccionario de `errores.js`, donde vive el
+      // texto accionable. Acá no se redacta nada para el usuario.
+      ? new Error(`Tope de tiempo · ${etiqueta}: no hubo respuesta en ${Math.round(ms / 1000)} s`)
+      : e),
+  };
 }
 
 /* ──────────────── Dictado: WebAudio → WAV PCM 16 kHz mono ──────────────── */
@@ -224,6 +451,11 @@ function etiquetarBoton(boton, nombreIcono, etiqueta) {
 async function alternarDictado() {
   const boton = $('#dictar');
   if (grabadora) { grabadora.stop(); return; }
+  // El botón ya está `disabled` mientras se interpreta, pero la guarda vive
+  // también acá: el atajo ⌘/Ctrl+Enter puede lanzar una interpretación sin
+  // pasar por el botón, y una transcripción que llega después pisaría el
+  // texto que produjo el borrador que está por aparecer.
+  if (interpretando) return;
 
   if (!navigator.mediaDevices?.getUserMedia || typeof AudioContext === 'undefined') {
     estado('Este navegador no puede grabar audio. Escribí la nota a mano.', 'malo');
@@ -234,7 +466,9 @@ async function alternarDictado() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
-    estado('Sin permiso de micrófono. Escribí la nota a mano.', 'malo');
+    // El diccionario de `errores.js` tiene la entrada del permiso, con los
+    // pasos para darlo desde la barra de direcciones.
+    fallar(new Error('Sin permiso de micrófono'));
     return;
   }
 
@@ -323,12 +557,19 @@ async function alternarDictado() {
       boton.classList.remove('grabando');
       if (!muestras) { estado('No se grabó audio.', 'aviso'); return; }
 
+      limpiarFalla();
       estado('Transcribiendo on-device con whisper…', 'trabajando');
+      // Mismo problema y mismo remedio que en `interpretar()`: sin tope, un
+      // whisper colgado deja «Transcribiendo…» eterno y el botón inservible.
+      const detenerLatido = latido();
+      const tope = conTope(TOPE_TRANSCRIBIR, 'transcripción');
+      boton.disabled = true;
       try {
         const res = await fetch('/api/transcribir', {
           method: 'POST',
           headers: { 'content-type': 'audio/wav' },
           body: aWav(trozos, muestras, tasa),
+          signal: tope.senal,
         });
         if (!res.ok) throw new Error(`/api/transcribir devolvió ${res.status}`);
         const { texto } = await res.json();
@@ -338,7 +579,13 @@ async function alternarDictado() {
         caja.focus();
         estado(texto ? 'Transcrito en este equipo. Revisá antes de interpretar.' : 'La transcripción vino vacía.', texto ? 'bueno' : 'aviso');
       } catch (e) {
-        estado(`No se pudo transcribir: ${e.message}`, 'malo');
+        fallar(tope.traducir(e));
+      } finally {
+        tope.fin();
+        detenerLatido();
+        // El audio ya se fue del navegador, pero dictar de nuevo tiene que
+        // ser posible incluso si esta transcripción no volvió.
+        boton.disabled = false;
       }
     },
   };

@@ -121,3 +121,51 @@ test('score.test: frescura decae con tiempo desde visitadoEn', () => {
   // La reciente es más fresca que la vieja
   assert(frescura1 > frescura2, 'información más reciente tiene frescura mayor');
 });
+
+test('score.test: un campo en `Sin quórum` NO cuenta como completo — la disputa baja el puntaje, no lo sube', () => {
+  // Regresión del hallazgo de severidad alta: `puntuar()` solo recortaba el
+  // factor `corroboracion`, y `completitud` seguía contando un campo en
+  // disputa como dato presente (miraba solo `estado !== 'Sin datos'`).
+  // Medido en vivo contra el dataset real, el grupo
+  // `Hospital DemoCare Pacific | MR | NovaMed` — con `estadoGeneral: 'Sin
+  // quórum'` porque la edad está en disputa (un clúster dice 7 años, otro 12)
+  // — sacaba 88/100, el puntaje MÁS ALTO de los 16 grupos, por encima de dos
+  // grupos con quórum pleno que sacaban 87 y 84. La pantalla que existe para
+  // señalar disputa premiaba la disputa.
+  //
+  // El puntaje es "calidad del dato". `Sin quórum` significa, por definición
+  // del producto (RD-2), que el sistema NO SABE cuál de los dos valores es el
+  // bueno: no es un dato de alta calidad, es una pregunta abierta.
+  const ahora = new Date();
+
+  const trio = (edades: number[], cliente: string) => edades.map((edadAnios, i) =>
+    armarObservacion({
+      observadorId: `obs-${cliente}-${i}`,
+      sesionId: `sesion-${cliente}-${i}`,
+      cliente: { nombre: cliente, ciudad: 'Panamá', pais: 'PA', sitio: 'Planta 2' },
+      lote: { modalidad: 'MR', marca: 'NovaMed', modelo: 'Model-X', cantidad: 2, edadAnios },
+      naturaleza: 'Directo',
+      hedging: false,
+      visitadoEn: ahora.toISOString(),
+    }));
+
+  // Mismo grupo, misma frescura, mismos campos presentes. Lo ÚNICO que cambia
+  // es que en uno la edad está en disputa (7, 7, 12) y en el otro no (7, 7, 7).
+  const conDisputa = reconciliar(trio([7, 7, 12], 'Hospital Disputa'), ahora)[0]!;
+  const sinDisputa = reconciliar(trio([7, 7, 7], 'Hospital Acuerdo'), ahora)[0]!;
+
+  assert.strictEqual(conDisputa.campos.edad.estado, 'Sin quórum',
+    'la edad discrepante queda en Sin quórum');
+  assert.notStrictEqual(sinDisputa.campos.edad.estado, 'Sin quórum',
+    'la edad concordante NO queda en Sin quórum');
+
+  // El campo en disputa deja de aportar su peso a la completitud.
+  assert(conDisputa.puntaje.completitud < sinDisputa.puntaje.completitud,
+    `completitud con disputa (${conDisputa.puntaje.completitud}) debe ser menor ` +
+    `que sin disputa (${sinDisputa.puntaje.completitud})`);
+
+  // Y el total, que es lo que se muestra y lo que ordena la lista.
+  assert(conDisputa.puntaje.total < sinDisputa.puntaje.total,
+    `total con disputa (${conDisputa.puntaje.total}) debe ser menor ` +
+    `que sin disputa (${sinDisputa.puntaje.total})`);
+});
