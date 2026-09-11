@@ -2,6 +2,7 @@ import { obtenerIdentidad } from '../app/identidad.ts';
 import { sincronizar } from './manager.ts';
 import { listarPendientes } from './queue.ts';
 import { crearHello } from './protocol.ts';
+import { demoraReintento } from './retry.ts';
 import { TransporteP2P, type EstadoTransporte } from './transport-p2p.ts';
 
 export interface EstadoSyncGlobal {
@@ -23,6 +24,8 @@ let estado: EstadoSyncGlobal = {
 let transporte: TransporteP2P | null = null;
 let iniciada = false;
 let sincronizando = false;
+let reintentos = 0;
+let temporizadorReintento: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<(estado: EstadoSyncGlobal) => void>();
 
 function publicar(patch: Partial<EstadoSyncGlobal>): void {
@@ -31,7 +34,19 @@ function publicar(patch: Partial<EstadoSyncGlobal>): void {
 }
 
 async function contar(): Promise<void> {
-  publicar({ pendientes: (await listarPendientes()).length });
+  const pendientes = await listarPendientes();
+  publicar({
+    pendientes: pendientes.length,
+    error: pendientes.find((e) => e.estado === 'error-visible')?.ultimoError ?? estado.error,
+  });
+}
+
+function programarReintento(): void {
+  if (temporizadorReintento || estado.transporte !== 'conectado') return;
+  temporizadorReintento = setTimeout(() => {
+    temporizadorReintento = null;
+    void sincronizarAhora();
+  }, demoraReintento(reintentos++));
 }
 
 export function suscribirSync(listener: (estado: EstadoSyncGlobal) => void): () => void {
@@ -59,7 +74,10 @@ export async function sincronizarAhora(): Promise<void> {
     const identidad = await obtenerIdentidad();
     const ack = await sincronizar(identidad, transporte, (loteId) => transporte!.esperarAck(loteId));
     await contar();
-    if (ack) publicar({ ultimoSyncEn: new Date().toISOString(), error: null });
+    if (ack) {
+      reintentos = 0;
+      publicar({ ultimoSyncEn: new Date().toISOString(), error: null });
+    } else if (estado.pendientes > 0) programarReintento();
   } finally {
     sincronizando = false;
   }

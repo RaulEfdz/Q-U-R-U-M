@@ -17,7 +17,7 @@
 #   detener
 
 set -uo pipefail
-DIR_SALIDA="docs/video/tomas"
+DIR_SALIDA="dev/video/tomas"
 mkdir -p "$DIR_SALIDA"
 PID_GRABACION=""
 ARCHIVO_ACTUAL=""

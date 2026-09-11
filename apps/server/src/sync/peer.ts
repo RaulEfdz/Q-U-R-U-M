@@ -148,9 +148,8 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
       detalle: { clave: clave.slice(0, 16) },
     });
 
-    void enviarPropias(socket);
-
     const acumulador = crearAcumuladorLineas();
+    const sesion: SesionSync = {};
     socket.on('data', (chunk: Buffer) => {
       const { lineas, excedido } = acumulador.alRecibir(chunk);
 
@@ -172,7 +171,7 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
 
       void procesarLineas(lineas, clave, opts.onCambio, (mensaje) => {
         socket.write(JSON.stringify(mensaje) + '\n');
-      });
+      }, sesion);
     });
 
     socket.on('close', () => {
@@ -195,9 +194,9 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
   };
 }
 
-async function enviarPropias(socket: PeerSocket): Promise<void> {
-  const propias = await cargar();
-  socket.write(JSON.stringify({ tipo: 'observaciones', datos: propias }) + '\n');
+export interface SesionSync {
+  dispositivoId?: string;
+  observadorId?: string;
 }
 
 /**
@@ -211,6 +210,7 @@ async function enviarPropias(socket: PeerSocket): Promise<void> {
 export async function procesarLineas(
   lineas: string[], clave: string, onCambio?: (n: number) => void,
   responder?: (mensaje: MensajeSalidaSync) => void,
+  sesion?: SesionSync,
 ): Promise<void> {
   for (const linea of lineas) {
     if (!linea.trim()) continue;
@@ -223,6 +223,10 @@ export async function procesarLineas(
     }
     if (mensaje.tipo === 'hello') {
       if (mensaje.versionProtocolo !== 1 || !mensaje.dispositivoId || !mensaje.observadorId) continue;
+      if (sesion) {
+        sesion.dispositivoId = mensaje.dispositivoId;
+        sesion.observadorId = mensaje.observadorId;
+      }
       registrarActividad(clave.slice(0, 16), {
         dispositivoId: mensaje.dispositivoId, observadorId: mensaje.observadorId,
       });
@@ -236,6 +240,20 @@ export async function procesarLineas(
 
     const loteV1 = mensaje.versionProtocolo === 1 && typeof mensaje.loteId === 'string';
     const loteId = loteV1 ? mensaje.loteId! : undefined;
+    if (loteV1 && sesion && (
+      !sesion.dispositivoId || !sesion.observadorId ||
+      mensaje.dispositivoId !== sesion.dispositivoId
+    )) {
+      responder?.({
+        tipo: 'ack', versionProtocolo: 1, loteId: loteId!,
+        recibidas: [], duplicadas: [],
+        rechazadas: mensaje.datos.map((d) => ({
+          id: typeof d === 'object' && d !== null && 'id' in d && typeof d.id === 'string' ? d.id : 'sin-id',
+          motivo: 'IDENTIDAD_DE_SESION_INVALIDA',
+        })),
+      });
+      continue;
+    }
     const almacenadas = new Set((await cargar()).map((o) => o.id));
     const pendientes = idsObservacionesPendientes();
 
@@ -248,6 +266,13 @@ export async function procesarLineas(
         const id = typeof d === 'object' && d !== null && 'id' in d && typeof d.id === 'string'
           ? d.id : 'sin-id';
         rechazadas.push({ id, motivo: 'CONTRATO_INVALIDO' });
+        continue;
+      }
+      if (loteV1 && sesion && (
+        p.data.dispositivoId !== sesion.dispositivoId ||
+        p.data.observadorId !== sesion.observadorId
+      )) {
+        rechazadas.push({ id: p.data.id, motivo: 'IDENTIDAD_DE_SESION_INVALIDA' });
         continue;
       }
       if (almacenadas.has(p.data.id) || pendientes.has(p.data.id)) {

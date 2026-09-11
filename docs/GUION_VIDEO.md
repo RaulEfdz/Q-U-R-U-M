@@ -68,8 +68,8 @@ Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no 
 
 | Script | Superficie | Cómo se usa |
 |---|---|---|
-| `docs/video/grabar-bloques.sh` | Escritorio (navegador) | `source` → `iniciar <nombre>` (arranca `screencapture -v -k -C -D1`, pantalla completa) → hacer los clicks del bloque → `detener` (para con `kill -INT`, nunca `-9`, y verifica el archivo con `ffprobe`). |
-| `docs/video/grabar-celular.sh` | Mobile (Pixel 7 por USB) | `source` → `grabar_celular <nombre> <segundos>` — usa `adb shell screenrecord` nativo, sin instalar nada. Bloqueante: no hace falta parar nada, corta sola a los segundos pedidos y baja el archivo. |
+| `docs/video/grabar-bloques.sh` | Escritorio (navegador) | `source` → `iniciar <nombre>` (arranca `screencapture -v -k -C -D1`, pantalla completa) → hacer los clicks del bloque → `detener` (para con `kill -INT`, nunca `-9`, y verifica el archivo con `ffprobe`). Las tomas quedan en `dev/video/tomas/`, ignorado por Git. |
+| `docs/video/grabar-celular.sh` | Mobile (Pixel 7 por USB) | `source` → `grabar_celular <nombre> <segundos>` — usa `adb shell screenrecord` nativo, sin instalar nada. Bloqueante: no hace falta parar nada, corta sola a los segundos pedidos y baja el archivo a `dev/video/tomas/`, ignorado por Git. |
 
 **Antes de grabar escritorio — importante, no es opcional:** `grabar-bloques.sh` graba el **display completo** (`-D1`), no solo la ventana del navegador. Probado una vez sin aislar: salieron en cuadro el editor de código y otra sesión de trabajo con cambios sin confirmar — nada de eso puede quedar en el video. **Poner el navegador en pantalla completa (o cerrar/minimizar todo lo demás) antes de correr `iniciar`.**
 
