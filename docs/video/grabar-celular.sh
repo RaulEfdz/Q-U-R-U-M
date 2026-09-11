@@ -19,7 +19,7 @@
 #   # (la función ya espera sola y baja el archivo al terminar)
 
 set -uo pipefail
-DIR_SALIDA="docs/video/tomas"
+DIR_SALIDA="dev/video/tomas"
 mkdir -p "$DIR_SALIDA"
 RUTA_DISPOSITIVO="/sdcard/quorum-toma-tmp.mp4"
 
@@ -42,7 +42,7 @@ verificar_dispositivo() {
 }
 
 # grabar_celular <nombre> <segundos> — graba, baja el archivo a
-# docs/video/tomas/<nombre>.mp4 y limpia el temporal del teléfono.
+# dev/video/tomas/<nombre>.mp4 y limpia el temporal del teléfono.
 # BLOQUEANTE: no vuelve hasta terminar los <segundos> — actuá/dictá en el
 # teléfono DESPUÉS de lanzar el comando (screenrecord ya está grabando desde
 # el instante en que arranca, no hay cuenta regresiva).

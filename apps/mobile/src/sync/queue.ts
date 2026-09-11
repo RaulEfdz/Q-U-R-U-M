@@ -1,44 +1,30 @@
 import { File, Paths } from 'expo-file-system';
 import type { ObservacionConfirmada } from '../store/expo-store.ts';
+import {
+  aplicarEvento, ordenarPendientes, reconstruirCola,
+  type EntradaSync, type EstadoSync, type EventoCola,
+} from './queue-state.ts';
 
 const ARCHIVO = new File(Paths.document, 'sync-queue.jsonl');
 
-export type EstadoSync = 'pendiente-local' | 'enviando' | 'recibida-pendiente-de-revision' | 'error-visible';
-
-export interface EntradaSync {
-  observacion: ObservacionConfirmada;
-  estado: EstadoSync;
-  intentos: number;
-  actualizadaEn: string;
-  ultimoError?: string;
-}
-
-type Evento =
-  | { op: 'upsert'; entrada: EntradaSync }
-  | { op: 'retirar'; id: string };
+export type { EntradaSync, EstadoSync } from './queue-state.ts';
 
 let cache: Map<string, EntradaSync> | null = null;
-
-function aplicar(evento: Evento, mapa: Map<string, EntradaSync>): void {
-  if (evento.op === 'upsert') mapa.set(evento.entrada.observacion.id, evento.entrada);
-  else mapa.delete(evento.id);
-}
 
 async function cargarMapa(): Promise<Map<string, EntradaSync>> {
   if (cache) return cache;
   const mapa = new Map<string, EntradaSync>();
   try {
     if (ARCHIVO.exists) {
-      for (const linea of (await ARCHIVO.text()).split('\n').filter(Boolean)) {
-        try { aplicar(JSON.parse(linea) as Evento, mapa); } catch { /* conserva eventos sanos */ }
-      }
+      const reconstruida = reconstruirCola((await ARCHIVO.text()).split('\n'));
+      for (const [id, entrada] of reconstruida.mapa) mapa.set(id, entrada);
     }
   } catch { /* la cola vacía no oculta observaciones del store principal */ }
   cache = mapa;
   return mapa;
 }
 
-async function registrar(evento: Evento): Promise<void> {
+async function registrar(evento: EventoCola): Promise<void> {
   if (!ARCHIVO.exists) ARCHIVO.create({ intermediates: true });
   ARCHIVO.write(JSON.stringify(evento) + '\n', { append: true });
 }
@@ -60,9 +46,7 @@ export async function encolar(observaciones: ObservacionConfirmada[]): Promise<n
 }
 
 export async function listarPendientes(): Promise<EntradaSync[]> {
-  return [...(await cargarMapa()).values()]
-    .filter((e) => e.estado !== 'recibida-pendiente-de-revision')
-    .sort((a, b) => a.actualizadaEn.localeCompare(b.actualizadaEn));
+  return ordenarPendientes(await cargarMapa());
 }
 
 export async function marcarEnviando(ids: string[]): Promise<void> {
