@@ -270,7 +270,7 @@ Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no 
 - [ ] Ninguna marca real de la competencia en pantalla — el control 4 del script lo verifica
 - [ ] Ningún dato de cliente real: el vocabulario es ficticio (`MARCAS_DUMMY`)
 - [ ] El límite honesto de la delegación, dicho en voz alta
-- [ ] Declaración de trabajo previo publicada en el README **antes** de subir el video
+- [x] Declaración de trabajo previo publicada en el README **antes** de subir el video (2026-09-11)
 
 ---
 

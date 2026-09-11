@@ -41,6 +41,22 @@ El flujo de producto está implementado: **capturar → interpretar → revisar 
 
 Hay trabajo de demostración y validación real que no debe maquillarse como terminado: la lista priorizada, los criterios de cierre y la evidencia esperada están en [FALTANTES_PARA_DEMO.md](docs/FALTANTES_PARA_DEMO.md).
 
+### Declaración de trabajo previo
+
+Exigida por las reglas del hackathon (*Decentralized AI Hackathon*, ISD Summit Panamá): toda base preexistente debe declararse acá; omitirla descalifica la entrega.
+
+**Todo el código de este repositorio se escribió durante las 48 horas del hackathon** (9–11 de septiembre de 2026). Verificable en el historial de git: el primer commit es del **2026-09-10 00:16:46**, dentro de la ventana de construcción (arranca el 9/09 08:00, cierra el 11/09 08:00).
+
+**Lo único externo son dependencias públicas de propósito general, todas declaradas:**
+
+| Paquete | Dónde | Por qué no es "base preexistente" |
+|---|---|---|
+| `@qvac/sdk` | `apps/server`, `apps/mobile` | Stack **obligatorio** del reto (`qvac.tether.io`) — no es una elección del equipo |
+| `hyperswarm`, `zod` | `apps/server` | Librerías de propósito general (transporte P2P, validación de esquemas), sin lógica de producto |
+| Expo / React Native | `apps/mobile` | Framework de plataforma, no un starter con funcionalidad de negocio ya escrita |
+
+Ningún boilerplate, plantilla ni proyecto de arranque con lógica de producto propia se usó como punto de partida. Los contratos de datos, el motor de reconciliación de confianza, la política de seguridad, y las dos interfaces (escritorio y mobile) se escribieron enteros durante el hackathon.
+
 ---
 
 ## Versión
