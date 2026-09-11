@@ -10,6 +10,31 @@ Requisito duro: inferencia on-device o delegada P2P con QVAC. **Nube prohibida e
 
 ---
 
+## La respuesta al challenge, en una frase
+
+**QUÓRUM convierte lo que una persona observa durante una visita en evidencia estructurada y sincronizable; después reúne testimonios independientes para construir una visión viva de la base instalada, sin presentar incertidumbre o contradicciones como hechos.**
+
+El reto pregunta cómo transformar observaciones de campo en visibilidad estructurada, confiable y accionable. Nuestra respuesta separa deliberadamente tres responsabilidades:
+
+- **El móvil captura:** funciona en campo, acepta texto o voz, ejecuta QVAC localmente, permite corregir el borrador y conserva una cola offline.
+- **La red sincroniza:** Hyperswarm transporta observaciones confirmadas con allowlist, ACK, reintentos e idempotencia.
+- **El centro de control convierte evidencia en inteligencia:** conserva procedencia, detecta conflictos y posibles duplicados, calcula quórum y frescura, y explica oportunidades en Cliente 360.
+
+```mermaid
+flowchart LR
+    A[Visita de campo] --> B[Texto o voz]
+    B --> C[QVAC local<br/>entiende y estructura]
+    C --> D[Confirmación humana]
+    D --> E[Cola offline]
+    E --> F[Sync P2P<br/>ACK + reintentos]
+    F --> G[Revisión central]
+    G --> H[Evidencia y procedencia]
+    H --> I[Quórum · conflicto<br/>confianza · frescura]
+    I --> J[Cliente 360]
+    I --> K[Panorama y analytics]
+    I --> L[Oportunidades explicables]
+```
+
 ## Por qué existe QUÓRUM
 
 Después de cada visita a un hospital, alguien puede haber visto información decisiva: cuántos MR, CT o ecógrafos hay; de qué fabricante son; cuáles parecen viejos; qué equipos convendría renovar. Hoy ese conocimiento termina repartido entre notas, conversaciones, hojas de cálculo y memoria personal. No se puede consultar con confianza, comparar entre cuentas ni convertir en una decisión comercial o de servicio.
@@ -28,6 +53,35 @@ QUÓRUM convierte una conversación de campo en una base instalada que conserva 
 | Un borrador de IA puede estar equivocado | Revisión y confirmación humana obligatorias antes de persistir | La IA asiste; no convierte una suposición en registro oficial |
 | Los datos sensibles no deberían salir del entorno | Inferencia QVAC local; P2P permitido solo por allowlist y con revisión humana | El conocimiento no depende de enviar notas a un proveedor cloud |
 | Es difícil actuar sobre muchas visitas aisladas | Cliente 360, Panorama, frescura, oportunidades, filtros y exportación | Una observación se transforma en inteligencia accionable entre clientes |
+
+### Cobertura del prototipo solicitado
+
+| Capacidad del challenge | Evidencia en QUÓRUM |
+|---|---|
+| Captura natural | Nota libre y dictado; no obliga a completar un formulario largo |
+| Extracción con IA | QVAC local extrae cliente, ubicación, modalidad, marca, modelo, cantidad, edad y cita original |
+| Información incompleta | Lo desconocido conserva estado `UNKNOWN`; no se rellena ni se descarta |
+| Validación | Borrador editable y confirmación humana obligatoria antes de persistir |
+| Dataset estructurado | Observaciones con autor, fecha, fuente, confianza, estado, evidencia y trazabilidad |
+| Customer 360 | Base instalada por cliente con desglose hasta cada testimonio |
+| Agregación geográfica | País → ciudad → cliente → equipos observados |
+| Dashboard y analytics | Modalidad, geografía, antigüedad, calidad, conflictos, frescura y prioridades |
+| Duplicados y conflictos | Señala candidatos; conserva versiones incompatibles y nunca fusiona en silencio |
+| Lenguaje natural | Convierte preguntas a filtros deterministas y devuelve resultados con evidencia |
+| Oportunidades | Explica motivo, score, frescura, evidencia y siguiente acción recomendada |
+| Datos de demostración seguros | Clientes, fabricantes y modelos ficticios; controles automáticos evitan marcas competitivas reales |
+
+El mínimo viable pedido por el challenge está cubierto. Además, QUÓRUM implementa siete objetivos extendidos: voz, posibles duplicados, confidence scoring, data freshness, preguntas de seguimiento, analytics en lenguaje natural y oportunidades.
+
+### Por qué esta propuesta puede destacar
+
+1. **No confunde extracción con verdad.** Una salida del modelo es un borrador; una observación confirmada sigue siendo evidencia, no necesariamente un hecho consolidado.
+2. **La confianza se resuelve por campo.** Dos personas pueden coincidir en modalidad y cantidad, pero discrepar en edad; QUÓRUM conserva ambas conclusiones con precisión.
+3. **Cada decisión tiene un “por qué”.** Un KPI, conflicto u oportunidad permite volver a sus observaciones, autores, fechas y citas originales.
+4. **La arquitectura refleja el trabajo de campo real.** El móvil puede capturar offline y sincronizar después; la plataforma central concentra validación, cobertura y decisiones.
+5. **La privacidad es demostrable.** QVAC corre localmente y `verify:no-cloud` busca activamente proveedores, egress y APIs prohibidas.
+
+La ventaja competitiva no es tener más gráficas: es convertir conocimiento informal en una memoria organizacional que sabe **qué conoce, por qué lo cree y qué todavía necesita verificar**.
 
 ### La idea que va más allá del prototipo
 
@@ -222,6 +276,10 @@ curl -s http://127.0.0.1:3000/api/base-instalada | head -c 200
 ```
 
 ### Arrancar la app móvil (Android)
+
+**APK de release ya compilado:** [`mobile-v0.5.0`](https://github.com/RaulEfdz/Q-U-R-U-M/releases/tag/mobile-v0.5.0) — instalado y verificado en un Pixel 7 real, abre sin depender de Metro (bundle embebido). `adb install app-release.apk`, o transferir e instalar directo (activar "orígenes desconocidos" para este APK). Requiere Android 12+, arm64, dispositivo físico.
+
+Para compilarlo vos mismo en vez de usar el release:
 
 Teléfono conectado por USB con depuración activada — `adb devices` lo tiene que listar. Después:
 
