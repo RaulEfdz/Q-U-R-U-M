@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { completion, type CompletionFinal, type Tool } from '@qvac/sdk';
 import { obtener, MODELOS } from '../qvac/pool.ts';
 import { nuevoId } from '../core/ids.ts';
-import { zObservacion, zRangoEdad, type Observacion } from '../core/contracts.ts';
+import { zObservacion, zRangoEdad, type Observacion, type UbicacionCaptura } from '../core/contracts.ts';
 import { normalizarModalidad, detectarHedging, inferirNaturaleza } from '../trust/normalize.ts';
 import { diagModelo } from './_diag.ts';
 
@@ -140,6 +140,9 @@ export interface ContextoExtraccion {
   /** Corrección #14: requerido, no opcional — RD-6 mide frescura desde acá. */
   visitadoEn: string;
   fuente: 'voz' | 'texto' | 'foto';
+  /** GPS del teléfono al momento de esta captura, si hubo (`app/ubicacion.ts`).
+   *  Opcional: sin permiso o sin señal, la nota se sigue procesando igual. */
+  ubicacionCaptura?: UbicacionCaptura;
 }
 
 /**
@@ -211,6 +214,7 @@ function aObservaciones(
       dispositivoId: ctx.dispositivoId,
       visitadoEn: ctx.visitadoEn,
       capturadaEn,
+      ubicacionCaptura: ctx.ubicacionCaptura,
       fuente: ctx.fuente,
       naturaleza,
       origen: 'local',

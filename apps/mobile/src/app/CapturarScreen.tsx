@@ -10,6 +10,7 @@ import { abrirSesionDictado, type SesionDictado } from '../pipeline/dictar.ts';
 import type { ContextoExtraccion } from '../pipeline/extractor.ts';
 import { estaListo, MODELOS } from '../qvac/pool.ts';
 import { obtenerIdentidad } from './identidad.ts';
+import { obtenerUbicacionCaptura } from './ubicacion.ts';
 import { ConfirmacionBorrador } from './ConfirmacionBorrador.tsx';
 import { Icono } from './components/Icono.tsx';
 import { color, espacio, radio, tap, tipografia } from './theme.ts';
@@ -265,13 +266,23 @@ export default function CapturarScreen() {
     pasoCorriendoDesde.current = null;
     setVista({ paso: 'procesando' });
     try {
-      const identidad = await obtenerIdentidad();
+      // GPS del teléfono en el instante de "Interpretar" — no de la visita
+      // en sí (`visitadoEn` puede ser un día anterior, ver el selector de
+      // fecha de arriba). En paralelo con `obtenerIdentidad` — el GPS puede
+      // tardar hasta 8 s (`app/ubicacion.ts`) y no hay motivo para
+      // encadenarlo detrás de una lectura de archivo instantánea. Nunca
+      // bloquea: sin permiso o sin señal, sigue `undefined` y la nota se
+      // interpreta igual.
+      const [identidad, ubicacionCaptura] = await Promise.all([
+        obtenerIdentidad(), obtenerUbicacionCaptura(),
+      ]);
       const visitadoEn = new Date(Date.now() - diasAtras * 86_400_000).toISOString();
       const ctx: ContextoExtraccion = {
         observadorId: identidad.observadorId,
         dispositivoId: identidad.dispositivoId,
         visitadoEn,
         fuente: 'texto',
+        ubicacionCaptura,
       };
       const salida = await procesarNota(texto, ctx, actualizarPaso);
       setVista({ paso: 'revision', salida, nota: texto });

@@ -48,6 +48,21 @@ export const zRangoEdad = z.union([
 ]);
 export type RangoEdad = z.infer<typeof zRangoEdad>;
 
+/**
+ * GPS del DISPOSITIVO al momento de capturar la nota — distinto de
+ * `cliente.ciudad`/`cliente.pais` (lo que el testimonio DICE sobre el
+ * sitio) y sirve para corroborarlo o detectar un desvío. Opcional a
+ * propósito: sin permiso, sin señal (adentro de un hospital) o en el
+ * desktop de `apps/server` (sin GPS de dispositivo) la nota se sigue
+ * guardando igual — nunca bloquea ni descarta la captura.
+ */
+export const zUbicacionCaptura = z.object({
+  latitud: z.number().min(-90).max(90),
+  longitud: z.number().min(-180).max(180),
+  precisionMetros: z.number().nonnegative().optional(),
+});
+export type UbicacionCaptura = z.infer<typeof zUbicacionCaptura>;
+
 export const zObservacion = z.object({
   id: z.string().min(10),
   sesionId: z.string().min(10),            // H-02: agrupa los lotes de una misma captura
@@ -55,6 +70,7 @@ export const zObservacion = z.object({
   dispositivoId: z.string().min(1),        // clave pública del peer
   visitadoEn: z.string().datetime(),       // H-05: fecha de la VISITA — requerido, no opcional (corrección #14)
   capturadaEn: z.string().datetime(),      // cuándo se dictó
+  ubicacionCaptura: zUbicacionCaptura.optional(), // dónde estaba el dispositivo al dictar/escribir, si hubo GPS
   fuente: z.enum(['voz', 'texto', 'foto']),// H-04
   naturaleza: z.enum(NATURALEZAS),         // H-01
   origen: z.enum(['local', 'peer']),       // determina si es untrusted
