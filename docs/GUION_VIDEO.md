@@ -62,6 +62,27 @@ bash scripts/verify-no-cloud.sh      # → RESULTADO: 7/7 controles en verde
 
 **Ventana del navegador:** 1440×900. Medido: a ese tamaño ninguna pantalla tiene scroll horizontal ni vertical y la de captura reparte el aire (97 px arriba, 113 abajo). Más angosto y la barra de navegación se convierte en fila desplazable — se ve peor en cámara.
 
+### Herramientas de grabación, ya probadas — `docs/video/`
+
+Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no son teoría): el de escritorio grabó 35 s con `ffprobe` confirmando duración real, el de celular grabó 5 s de la app QUÓRUM abierta en Capturar y se verificó extrayendo un frame.
+
+| Script | Superficie | Cómo se usa |
+|---|---|---|
+| `docs/video/grabar-bloques.sh` | Escritorio (navegador) | `source` → `iniciar <nombre>` (arranca `screencapture -v -k -C -D1`, pantalla completa) → hacer los clicks del bloque → `detener` (para con `kill -INT`, nunca `-9`, y verifica el archivo con `ffprobe`). |
+| `docs/video/grabar-celular.sh` | Mobile (Pixel 7 por USB) | `source` → `grabar_celular <nombre> <segundos>` — usa `adb shell screenrecord` nativo, sin instalar nada. Bloqueante: no hace falta parar nada, corta sola a los segundos pedidos y baja el archivo. |
+
+**Antes de grabar escritorio — importante, no es opcional:** `grabar-bloques.sh` graba el **display completo** (`-D1`), no solo la ventana del navegador. Probado una vez sin aislar: salieron en cuadro el editor de código y otra sesión de trabajo con cambios sin confirmar — nada de eso puede quedar en el video. **Poner el navegador en pantalla completa (o cerrar/minimizar todo lo demás) antes de correr `iniciar`.**
+
+**Límite real del celular:** `screenrecord` corta a los 3 minutos (límite de Android, no del script) y **no graba el micrófono**. Si el bloque tiene dictado en voz, el audio se graba aparte y se mezcla en edición — mismo tratamiento que las tomas humanas de abajo.
+
+**Qué bloques quedan para cada script**, cruzado con la tabla de la sección 0b:
+
+- `grabar-bloques.sh`: bloque 2, bloque 4, bloque 7, la parte de terminal del bloque 6.
+- `grabar-celular.sh`: si se decide filmar mobile (ver la decisión pendiente, arriba), los bloques 2 y 5 en esa superficie.
+- Ninguno de los dos graba los bloques humanos (1, 3, 5, la parte de apagar WiFi del 6, cierre) — esos se graban aparte, con cámara/mic reales.
+
+**Cómo se une todo al final:** una lista de orden para `ffmpeg -f concat` (un `.mov`/`.mp4` por línea, en el orden del guion) y un solo comando los concatena. Si los codecs no coinciden entre clips (es probable: escritorio en `.mov`, celular en `.mp4`), reencodear parejo con `-c:v libx264 -c:a aac` en vez de `-c copy`.
+
 ---
 
 ## 1 · 0:00–0:25 · El problema, con una escena
