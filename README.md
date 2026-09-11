@@ -1,12 +1,53 @@
-# Q-U-R-U-M
+# QUÓRUM
 
 > **La verdad tiene quórum.**
 
 Un testigo no es la verdad. La verdad es lo que varios testigos independientes sostienen.
-**El modelo entiende lo que vio cada persona. El sistema decide qué podemos creer.**
+**El modelo entiende lo que vio cada persona. El sistema decide qué podemos creer. El humano confirma.**
 
-Reto corporativo *Customer Installed Base Intelligence* (Philips) · Decentralized AI Hackathon · ISD Summit, Ciudad de Panamá.
-Requisito duro: inferencia on-device o delegada P2P con QVAC. **Nube prohibida en inferencia.**
+Reto corporativo *Customer Installed Base Intelligence* (Philips) · Decentralized AI Hackathon · ISD Summit, Ciudad de Panamá · Equipo **Syzygy**.
+
+Requisito duro del reto: inferencia on-device o delegada P2P con QVAC. **Ninguna inferencia en la nube.** QUÓRUM lo cumple y lo verifica con un script automático (`7/7 controles en verde`).
+
+---
+
+## La respuesta al challenge, en una frase
+
+**QUÓRUM convierte lo que una persona observa durante una visita en evidencia estructurada y sincronizable; después reúne testimonios independientes para construir una visión viva de la base instalada, sin presentar incertidumbre o contradicciones como hechos.**
+
+El reto pregunta cómo transformar observaciones de campo en visibilidad estructurada, confiable y accionable. Nuestra respuesta separa deliberadamente tres responsabilidades:
+
+- **El móvil captura:** funciona en campo, acepta texto o voz, ejecuta tres modelos QVAC dentro del teléfono, permite corregir el borrador y conserva una cola offline.
+- **La red sincroniza:** Hyperswarm transporta observaciones confirmadas con allowlist, ACK, reintentos e idempotencia.
+- **El centro de control convierte evidencia en inteligencia:** conserva procedencia, detecta conflictos y posibles duplicados, calcula quórum y frescura, y explica oportunidades en Cliente 360.
+
+```mermaid
+flowchart LR
+    A[Visita de campo] --> B[Texto o voz]
+    B --> C[QVAC local<br/>entiende y estructura]
+    C --> D[Confirmación humana]
+    D --> E[Cola offline]
+    E --> F[Sync P2P<br/>ACK + reintentos]
+    F --> G[Revisión central]
+    G --> H[Evidencia y procedencia]
+    H --> I[Quórum · conflicto<br/>confianza · frescura]
+    I --> J[Cliente 360]
+    I --> K[Panorama y analytics]
+    I --> L[Oportunidades explicables]
+```
+
+---
+
+## Demo
+
+| Recurso | Dónde |
+|---|---|
+| **Video demo** (español, < 5 min) | _pendiente de publicar — URL se agrega al enviar_ |
+| **APK Android de release** | [`mobile-v0.5.0`](https://github.com/RaulEfdz/Q-U-R-U-M/releases/tag/mobile-v0.5.0) — bundle embebido, no depende de Metro. Android 12+, arm64, dispositivo físico. |
+| **Guion del video** | [`docs/GUION_VIDEO.md`](docs/GUION_VIDEO.md) |
+| **Capturas de pantalla** | [`docs/capturas/`](docs/capturas/) |
+| **Documento maestro** (reglas de negocio, RD-0 a RD-7) | [`docs/QUORUM_documento_unico.md`](docs/QUORUM_documento_unico.md) · [PDF](docs/QUORUM_documento_maestro.pdf) |
+| **Pipeline Android** (Anexo D) | [`docs/QUORUM_pipeline_android.md`](docs/QUORUM_pipeline_android.md) · [PDF](docs/QUORUM_pipeline_android.pdf) |
 
 ---
 
@@ -29,83 +70,144 @@ QUÓRUM convierte una conversación de campo en una base instalada que conserva 
 | Los datos sensibles no deberían salir del entorno | Inferencia QVAC local; P2P permitido solo por allowlist y con revisión humana | El conocimiento no depende de enviar notas a un proveedor cloud |
 | Es difícil actuar sobre muchas visitas aisladas | Cliente 360, Panorama, frescura, oportunidades, filtros y exportación | Una observación se transforma en inteligencia accionable entre clientes |
 
-### La idea que va más allá del prototipo
+### Cobertura del prototipo solicitado
 
-Queremos que la base instalada deje de ser una fotografía incierta que alguien reconstruye antes de una reunión. QUÓRUM plantea una **memoria operativa compartida y verificable**: cada visita aporta evidencia, la evidencia madura con el tiempo y la organización puede actuar sin borrar el desacuerdo ni esconder la incertidumbre.
+| Capacidad del challenge | Evidencia en QUÓRUM |
+|---|---|
+| Captura natural | Nota libre y dictado; no obliga a completar un formulario largo |
+| Extracción con IA | QVAC local extrae cliente, ubicación, modalidad, marca, modelo, cantidad, edad y cita original |
+| Información incompleta | Lo desconocido conserva estado `UNKNOWN`; no se rellena ni se descarta |
+| Validación | Borrador editable y confirmación humana obligatoria antes de persistir |
+| Dataset estructurado | Observaciones con autor, fecha, fuente, confianza, estado, evidencia y trazabilidad |
+| Customer 360 | Base instalada por cliente con desglose hasta cada testimonio |
+| Agregación geográfica | País → ciudad → cliente → equipos observados |
+| Dashboard y analytics | Modalidad, geografía, antigüedad, calidad, conflictos, frescura y prioridades |
+| Duplicados y conflictos | Señala candidatos; conserva versiones incompatibles y nunca fusiona en silencio |
+| Lenguaje natural | Convierte preguntas a filtros deterministas y devuelve resultados con evidencia |
+| Oportunidades | Explica motivo, score, frescura, evidencia y siguiente acción recomendada |
+| Export al esquema Philips | CSV con las 19 columnas exactas del workbook de referencia |
+| Datos de demostración seguros | Clientes, fabricantes y modelos ficticios; controles automáticos evitan marcas competitivas reales |
 
-Eso permite que ventas, servicio y especialistas compartan una misma vista de cada entorno tecnológico, sin exigir que el personal de campo se vuelva digitador ni que datos sensibles viajen a la nube. La ambición no es reemplazar el criterio humano: es hacer que ese criterio, cuando está respaldado por evidencia, sobreviva a la conversación y se vuelva útil para todos.
+El mínimo viable pedido por el challenge está cubierto. Además, QUÓRUM implementa siete objetivos extendidos: voz, posibles duplicados, confidence scoring, data freshness, preguntas de seguimiento, analytics en lenguaje natural y oportunidades.
 
-### Qué se puede demostrar hoy
+### Por qué esta propuesta destaca
 
-El flujo de producto está implementado: **capturar → interpretar → revisar → confirmar → sincronizar P2P → reconciliar → consultar/visualizar/exportar**. La conexión física Pixel 8 Pro ↔ servidor fue verificada con Hyperswarm y un `hello_ack` real en 83 ms. El servidor tiene pruebas automatizadas de sus reglas de confianza, persistencia, política, seguridad y transporte; `npm run test:ci` valida typecheck, **117 tests** y ausencia de egress de inferencia cloud. Mobile suma **17 tests** de cola offline, protocolo, ACK, reintentos e idempotencia.
+1. **No confunde extracción con verdad.** Una salida del modelo es un borrador; una observación confirmada sigue siendo evidencia, no necesariamente un hecho consolidado.
+2. **La confianza se resuelve por campo.** Dos personas pueden coincidir en modalidad y cantidad, pero discrepar en edad; QUÓRUM conserva ambas conclusiones con precisión.
+3. **Cada decisión tiene un "por qué".** Un KPI, conflicto u oportunidad permite volver a sus observaciones, autores, fechas y citas originales.
+4. **La arquitectura refleja el trabajo de campo real.** El móvil captura offline y sincroniza después; la plataforma central concentra validación, cobertura y decisiones.
+5. **La privacidad es demostrable.** QVAC corre localmente y `verify:no-cloud` busca activamente proveedores, egress y APIs prohibidas.
 
-Hay trabajo de demostración y validación real que no debe maquillarse como terminado: la lista priorizada, los criterios de cierre y la evidencia esperada están en [FALTANTES_PARA_DEMO.md](docs/FALTANTES_PARA_DEMO.md).
-
-### Estado de entrega del hackathon
-
-| Condición | Estado comprobado | Qué falta |
-|---|---|---|
-| QVAC e inferencia local | ✅ Cumple | Mostrar una corrida inequívoca en el video. |
-| Cero inferencia cloud | ✅ Cumple | Conservar en cámara el resultado `7/7` de `verify:no-cloud`. |
-| Sincronización P2P | ✅ Cumple | Fue probada por DHT; no afirmar que funciona en una LAN totalmente aislada. |
-| Código entregable | ✅ En `rf/dev` y `main` | No agregar cambios sin volver a correr los controles. |
-| Demo móvil autónoma | ⚠️ Incompleta | Construir/probar APK release; debug todavía depende de Metro al reiniciar. |
-| Recorrido integral | ⚠️ Pendiente | Ensayar voz → IA local → confirmación → sync → revisión → Cliente 360. |
-| Acceso del jurado | ❌ Acción externa | Dar acceso al repositorio privado o hacerlo público y probarlo sin sesión. |
-| Video final | ❌ Acción externa | Publicar video en español, de máximo 5:00, y probar la URL en incógnito. |
-| Envío TryDojo | ❌ Acción externa | Enviar repo y video antes de las **08:00 de Panamá del 11/09/2026**. |
-
-El veredicto trazable contra las reglas oficiales está en [AUDITORIA_REGLAS_HACKATHON_2026-09-11.md](docs/AUDITORIA_REGLAS_HACKATHON_2026-09-11.md).
-
-### Declaración de trabajo previo
-
-Exigida por las reglas del hackathon (*Decentralized AI Hackathon*, ISD Summit Panamá): toda base preexistente debe declararse acá; omitirla descalifica la entrega.
-
-**Todo el código de este repositorio se escribió durante las 48 horas del hackathon** (9–11 de septiembre de 2026). Verificable en el historial de git: el primer commit es del **2026-09-10 00:16:46**, dentro de la ventana de construcción (arranca el 9/09 08:00, cierra el 11/09 08:00).
-
-**Lo único externo son dependencias públicas de propósito general, todas declaradas:**
-
-| Paquete | Dónde | Por qué no es "base preexistente" |
-|---|---|---|
-| `@qvac/sdk` | `apps/server`, `apps/mobile` | Stack **obligatorio** del reto (`qvac.tether.io`) — no es una elección del equipo |
-| `hyperswarm`, `zod` | `apps/server` | Librerías de propósito general (transporte P2P, validación de esquemas), sin lógica de producto |
-| Expo / React Native | `apps/mobile` | Framework de plataforma, no un starter con funcionalidad de negocio ya escrita |
-
-Ningún boilerplate, plantilla ni proyecto de arranque con lógica de producto propia se usó como punto de partida. Los contratos de datos, el motor de reconciliación de confianza, la política de seguridad, y las dos interfaces (escritorio y mobile) se escribieron enteros durante el hackathon.
+La ventaja competitiva no es tener más gráficas: es convertir conocimiento informal en una memoria organizacional que sabe **qué conoce, por qué lo cree y qué todavía necesita verificar**.
 
 ---
 
-## Versión
+## Modelo de confianza: dos ejes
 
-| Componente | Versión | Fecha |
-|---|---|---|
-| Monorepo | **v0.5.0** | 2026-09-11 |
-| `apps/server` | v0.5.0 | 2026-09-11 |
-| `apps/mobile` | v0.4.1 | 2026-09-10 |
+QUÓRUM nunca colapsa la confianza en un solo número. Trabaja con dos ejes independientes:
 
-Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las rutas de la API y **seis** pantallas de escritorio en 127.0.0.1 (sumó Conexiones); `apps/mobile` arranca en un Pixel 8 Pro con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`. Técnicas propias que valen como punto de pitch, no solo como fix: `docs/FUNCIONALIDADES_RESCATABLES.md`.
+1. **Naturaleza** de cada observación — `Directo` / `Referido` / `Estimado` / `Desconocido`. Es lo que la persona declara sobre cómo obtuvo el dato, y mapea al `Status` del esquema Philips.
+2. **Quórum** de cada campo — `Sin datos` → `Estimado` → `Reportado` → `Quórum`, o `Sin quórum` cuando las versiones son incompatibles. Un campo alcanza **Quórum** solo con ≥ 2 testimonios `Directo` e independientes que coincidan (reglas duras RD-0 a RD-7 del documento maestro).
 
-**Lo que todavía no está probado:** el build de release de mobile, que es lo que hace falta para la demo sin WiFi, nunca llegó a compilar. Ver `CONTINUAR.md`. El dictado de escritorio sí quedó probado con voz real esta sesión (no solo silencio): ver v0.5.0 abajo.
-
-Esquema de versionado: `MAJOR.MINOR.PATCH`. Mientras no exista código, `MINOR` sube con cada revisión de diseño que cambia decisiones; `PATCH` con correcciones puntuales de documentación. La versión de cada app vive en la cabecera de su `CLAUDE.md`.
+Cuando hay `Sin quórum`, la interfaz muestra **todas** las versiones en conflicto y quién sostiene cada una. Nunca un promedio. La **frescura** (cuándo se observó por última vez) es un tercer eje visual separado, para que un dato viejo con quórum no se confunda con uno reciente sin corroborar.
 
 ---
 
-## Estructura
+## Arquitectura
 
 ```
 apps/
-├── server/   # app central — motor de reconciliación, store, QVAC, UI en 127.0.0.1
-└── mobile/   # app celular Android/Expo — pipeline de 3 modelos on-device
-docs/
-├── QUORUM_documento_unico.md      # documento maestro (fuente de verdad)
-├── QUORUM_documento_maestro.pdf
-├── QUORUM_pipeline_android.md     # Anexo D — pipeline mobile
-├── QUORUM_pipeline_android.pdf
-└── AUDITORIA.md                   # hallazgos de la revisión del 2026-09-10
+├── server/   # centro de control — motor de reconciliación, store, QVAC, UI en 127.0.0.1
+└── mobile/   # app de campo Android/Expo — pipeline de 3 modelos on-device
+docs/         # documento maestro, anexo del pipeline Android, guion, capturas
 ```
 
-Cada carpeta tiene `CLAUDE.md` (reglas), `ARCHITECTURE.md` (diseño y diagrama), `TRAZABILIDAD.md` (auditoría) y `ORQUESTACION.md` (reparto de tareas entre agentes Haiku/Sonnet).
+El núcleo compartido (contratos Zod, motor de quórum, puntaje, política de seguridad, spotlighting de contenido no confiable, export Philips) es **idéntico byte a byte entre las dos apps**.
+
+### Tres modelos, todos dentro del dispositivo
+
+| Rol | Modelo (`@qvac/sdk`) | Tamaño | Qué hace |
+|---|---|---|---|
+| ASR (voz → texto) | `WHISPER_TINY` | 78 MB | Transcribe el dictado en fragmentos de 20 s mientras la persona sigue hablando |
+| Portero | `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M` | 533 MB | Decide en milisegundos si la nota habla de equipos médicos; filtra ruido antes de gastar el modelo grande |
+| Extractor | `QWEN3_1_7B_INST_Q4` | 1 057 MB | Produce la estructura (cliente, sitio, modalidad, marca, edad, cantidad, cita textual) vía tool call validado con Zod |
+
+Ningún modelo se descarga a mano: el SDK los resuelve al arrancar y los baja la primera vez que se pide inferencia. Después de eso, el pipeline corre **sin red**.
+
+### Centro de control (escritorio, `127.0.0.1:3000`)
+
+Seis pantallas sin framework, sin build y sin ningún recurso externo:
+
+| Pantalla | Qué se ve |
+|---|---|
+| **Capturar** | Nota libre, `Dictar` (WebAudio → WAV 16 kHz → whisper local, por fragmentos) e `Interpretar`. El borrador aparece como «Revisá antes de guardar», editable, con confirmar / volver a editar / descartar. Nada toca el disco hasta confirmar. |
+| **Cliente 360** | Reconciliación agrupada por cliente: confianza **por campo**, `Sin quórum` con todas las versiones y quién sostiene cada una, cohortes de edad, frescura como eje aparte. |
+| **Inteligencia** | KPIs, Intelligence Layer (posible renovación, requiere verificación, base instalada en disputa, información crítica faltante — cada una con puntaje desglosado y evidencia), distribución por país y modalidad, candidatos a duplicado, consulta en lenguaje natural y `Exportar CSV`. |
+| **Auditoría** | Cadena de hashes con `Verificar integridad`, cada llamada de inferencia con su delegado, y la cola de revisión de testimonios P2P. |
+| **Conexiones** | Detalle por dispositivo P2P: conectado o no, ids, primer y último contacto. |
+| **Cómo funciona** | Estados y flujo del motor, con diagramas propios. |
+
+En la consulta en lenguaje natural el modelo **solo traduce la pregunta a un filtro**; el filtro lo ejecuta código determinista y el resultado trae testigos y frescura. El LLM entiende, el código decide.
+
+### App de campo (Android)
+
+Dos pestañas: **Capturar** (texto o dictado, panel de progreso en vivo de los tres modelos, borrador editable, confirmación) y **Clientes** (Cliente 360 con la misma semántica de confianza que el escritorio). Verificada en Pixel 7 y Pixel 8 Pro reales.
+
+### Sincronización P2P y despliegue distribuido
+
+La captura no exige conexión permanente. Un trabajador visita un cliente en Panamá, dicta o escribe en el celular y confirma la observación sin señal. La evidencia queda en la cola offline. Cuando el teléfono recupera Internet, se encuentra por Hyperswarm con el peer central y envía las observaciones pendientes.
+
+```text
+Celular en campo · offline
+  → QVAC local + confirmación humana
+  → cola offline
+  → Internet pública / DHT / VPN / LAN
+  → Hyperswarm P2P + Noise
+  → servidor central (laptop, VM en Azure o GCP, host propio)
+  → ACK por observación
+```
+
+- **Deny-by-default:** sin `QUORUM_PEERS` ningún peer entra. La allowlist son claves públicas explícitas.
+- **Un peer transporta, no decide:** lo que llega por P2P entra a un inbox de revisión; solo una confirmación humana lo convierte en evidencia local.
+- **Idempotente:** ACK por observación, reintentos y dedup por `id`. Sin ACK, el móvil conserva el dato y reintenta.
+- La UI HTTP puede seguir privada en `127.0.0.1`; el celular sincroniza por P2P, no por una API web abierta.
+
+Conexión física Pixel 8 Pro ↔ servidor verificada con Hyperswarm y `hello_ack` real en 83 ms.
+
+### Seguridad
+
+- Política determinista deny-overrides / deny-by-default para toda acción del modelo (`policy/engine.ts`).
+- Contenido no confiable (notas, testimonios remotos) se empaqueta con **spotlighting** y delimitador aleatorio por sesión; los tests de inyección reproducen el intento de un peer de forzar un export y verifican que se deniega.
+- Cadena de auditoría hash-encadenada de cada inferencia y cada persistencia.
+- `ignore-scripts=true` en ambos `.npmrc`; dependencias ancladas a versión exacta.
+
+---
+
+## Cumplimiento verificable
+
+```bash
+cd apps/server
+npm run verify:no-cloud
+```
+
+Siete controles, cada uno con su `OK` o `FALLO`:
+
+1. Proveedores de inferencia cloud en el código (OpenAI, Anthropic, Gemini, Groq, Together, Replicate, HF Inference, Bedrock…).
+2. Vercel y el Vercel AI SDK, incluido `@qvac/ai-sdk-provider`.
+3. Web Speech API — busca el *uso*, no la mención.
+4. Marcas reales: ninguna marca de competencia en datos ni código; toda `marca` de `data/` pertenece al conjunto ficticio.
+5. Dependencias con script de instalación e `ignore-scripts=true`.
+6. `npm audit --audit-level=high`.
+7. Egress: ninguna URL absoluta fuera de localhost.
+
+Resultado esperado: `RESULTADO: 7/7 controles en verde`.
+
+```bash
+cd apps/server && npm run test:ci                  # typecheck + 117 tests + verify:no-cloud
+cd ../mobile   && npm run typecheck && npm test    # typecheck + 17 tests
+```
+
+Los 117 tests del servidor cubren reglas de confianza (RD-0 a RD-7), puntaje, cohortes, reconciliación multidispositivo, política, inyección, delegación, protocolo peer, integridad del store y rutas HTTP. Los 17 de mobile cubren cola offline, protocolo, ACK, reintentos e idempotencia.
 
 ---
 
@@ -117,353 +219,99 @@ Todo corre local. No hay servicio en la nube que levantar ni ninguna variable de
 
 | Qué | Versión | Para qué |
 |---|---|---|
-| Node | **≥ 22.17** (`engines` de `apps/server/package.json`; probado con 25.2.1) | las dos apps |
-| JDK | **17** — `brew install openjdk@17` | build nativo de Android |
-| Android SDK + platform-tools | con `adb` en el `PATH` | `expo run:android`, sembrar datos en el teléfono |
-| Teléfono Android **físico** | Android 12+ (`minSdkVersion: 31`), arm64 | `apps/mobile` |
-
-**El móvil necesita un dispositivo real: los emuladores no corren llama.cpp** (`apps/mobile/CLAUDE.md`). El dispositivo de prueba es un Pixel 8 Pro; el paquete de la app es `io.qurum.mobile`.
-
-`apps/mobile/package.json` no declara `engines`; su requisito de Node ≥22.17 sale de `apps/mobile/CLAUDE.md`.
+| Node | ≥ 22.17 | las dos apps |
+| JDK | 17 | build nativo de Android (solo si se compila el APK) |
+| Android SDK + `adb` | — | instalar / compilar la app móvil |
+| Teléfono Android **físico** | Android 12+, arm64 | `apps/mobile` — los emuladores no corren llama.cpp |
 
 ```bash
-git clone <url-del-repo> && cd QURUM
+git clone https://github.com/RaulEfdz/Q-U-R-U-M.git && cd Q-U-R-U-M
 cd apps/server && npm ci
 cd ../mobile  && npm ci
 ```
 
-Los dos `.npmrc` tienen `ignore-scripts=true` — no lo saques. Si algún día un addon nativo necesita rebuild, hacelo selectivo (`npm rebuild <pkg> --ignore-scripts=false`), nunca global.
+Los modelos ocupan ~1.7 GB en disco (y hasta el doble durante la descarga inicial). Reservar varios GB libres antes de la primera inferencia, especialmente en el teléfono.
 
-### Los modelos: se bajan solos, pero ocupan el doble de lo que dicen
-
-Nadie descarga GGUF a mano. Las constantes se resuelven contra el SDK **al arrancar** (así un nombre mal escrito falla en el `listen`, no en la primera nota) y el peso se baja la **primera vez que se pide inferencia** — `loadModel()` en `apps/server/src/qvac/gateway.ts` y `apps/mobile/src/qvac/pool.ts`. O sea: `npm start` arranca sin modelos y sin red; la primera nota que interpretes sí necesita red, una única vez.
-
-| Rol | Constante del SDK | Archivo en disco | Tamaño |
-|---|---|---|---|
-| ASR (voz → texto) | `WHISPER_TINY` | `ggml-tiny.bin` | 78 MB |
-| Portero | `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M` | `Qwen3.5-0.8B-Q4_K_M.gguf` | 533 MB |
-| Extractor | `QWEN3_1_7B_INST_Q4` | `Qwen3-1.7B-Q4_0.gguf` | 1057 MB |
-
-Dónde caen: `~/.qvac/models` en la máquina de escritorio, `files/.qvac/models` dentro del sandbox de la app en el teléfono.
-
-★ **Presupuestá el doble de esa tabla en el teléfono.** Al lado de `models` hay un `registry-corestore`, y el peso pasa por ahí antes de materializarse en `models`: un modelo de 533 MB pide del orden de **1 GB** durante la descarga. Quedarse sin espacio a mitad de bajada ya nos pasó una vez. La tabla de `apps/mobile/CLAUDE.md` (~2.1 GB) es de **RAM**, no de disco, y como presupuesto de disco subestima a la mitad. Tené **varios GB libres** antes de la primera corrida.
-
-Para mirar cuánto ocupa hoy en el teléfono:
-
-```bash
-adb shell 'run-as io.qurum.mobile sh -c "du -sh files/.qvac/*"'
-adb shell df -h /data
-```
-
-### Arrancar el server (escritorio)
+### Centro de control
 
 ```bash
 cd apps/server
-npm start          # node --experimental-strip-types src/index.ts
+npm start          # → http://127.0.0.1:3000
 ```
 
-Queda en **http://127.0.0.1:3000**. El host está hardcodeado y deliberadamente **no** se lee de env: un env var es exactamente la forma en que ese invariante se pierde sin que nadie lo note. El puerto sí se puede cambiar.
+El host está fijado en `127.0.0.1` a propósito y no se lee de variables de entorno. La consola muestra `sync P2P apagado: QUORUM_PEERS vacío` — es el estado esperado, no un error.
 
-En consola vas a ver dos líneas:
+Variables opcionales: `QUORUM_PUERTO`, `QUORUM_MODELO`, `QUORUM_ASR`, `QUORUM_OBSERVADOR`, `QUORUM_DISPOSITIVO`, `QUORUM_PEERS` (allowlist de claves públicas), `QUORUM_PEER_PUBKEY` (peer al que delegar inferencia), `BOOTSTRAP` (nodos DHT).
 
-```
-QUÓRUM en http://127.0.0.1:3000
-sync P2P apagado: QUORUM_PEERS vacío (deny-by-default en el transporte).
-```
-
-La segunda es lo esperado, no un error: el sync P2P es opt-in por allowlist.
-
-Variables de entorno, **todas opcionales** (`apps/server/src/index.ts`):
-
-| Variable | Default | Qué hace |
-|---|---|---|
-| `QUORUM_PUERTO` | `3000` | puerto de escucha |
-| `QUORUM_MODELO` | `QWEN3_1_7B_INST_Q4` | extractor |
-| `QUORUM_ASR` | `WHISPER_TINY` | transcripción |
-| `QUORUM_OBSERVADOR` | `Field User 01` | quién firma las observaciones que se capturen |
-| `QUORUM_DISPOSITIVO` | `dispositivo-a` | id de dispositivo |
-| `QUORUM_PEERS` | vacío | allowlist de claves públicas hex de peers. **Vacía = ningún peer entra** |
-| `QUORUM_PEER_PUBKEY` | — | peer al que delegar inferencia |
-| `BOOTSTRAP` | — | nodos DHT `host:puerto`, separados por coma |
-
-Las seis pantallas, en la barra de navegación (los módulos que las pintan viven en `apps/server/ui/`, nombrados en inglés — `capture.js`, `client.js`, `overview.js`, `audit.js`, `connections.js`, `how-it-works.js`):
-
-| Pantalla | Módulo | Qué se ve |
-|---|---|---|
-| **Capturar** | `capture.js` | un campo de texto grande, `Dictar` (WebAudio graba WAV 16 kHz; transcribe whisper local vía `/api/transcribir`, **por fragmentos de 20 s mientras se sigue grabando** — no espera a que termines de hablar) e `Interpretar`, que solo aparece con nota real. Lo extraído aparece abajo como «Revisá antes de guardar», **editable** con validación visible, con `Sí, es correcto — guardar`, `Volver a editar` y `Descartar`. Nada toca el disco hasta confirmar. |
-| **Cliente 360** | `client.js` | la reconciliación agrupada por cliente: confianza **por campo**, `Sin quórum` mostrando todas las versiones en conflicto y quién sostiene cada una (nunca un promedio), cohortes de edad como composición y frescura como eje aparte. |
-| **Inteligencia** | `overview.js` | KPIs, la Intelligence Layer (posible renovación, requiere verificación, base instalada en disputa, información crítica faltante — cada una con puntaje desglosado y evidencia), distribución por país y modalidad, candidatos a duplicado, la consulta en lenguaje natural (`/api/consultar` — el modelo solo traduce a un filtro; el filtro lo corre código determinista, con testigos y frescura en el resultado) y `Exportar CSV`. |
-| **Auditoría** | `audit.js` | la cadena de hashes con `Verificar integridad` (ya no pierde el scroll al reclickear), cada llamada de inferencia con su `delegado` a la vista, y la cola de revisión de testimonios P2P. |
-| **Conexiones** | `connections.js` | detalle por dispositivo P2P — conectado o no, `dispositivoId`/`observadorId`, primer y último contacto — no solo el conteo del sidebar. |
-| **Cómo funciona** | `how-it-works.js` | los estados y el flujo del motor, con diagramas SVG propios. |
-
-### Sembrar los datos de demo (server)
-
-`apps/server/data/seed.json` tiene las **23 observaciones** que producen los cuatro estados de quórum, y es el único archivo de `data/` que se versiona.
-
-**No hay script que lo cargue.** `apps/server/CLAUDE.md` lista un `scripts/seed.ts` en la estructura *prevista*, pero no existe: en `scripts/` solo está `verify-no-cloud.sh`. Y el store no lee el seed: lee **`data/observaciones.jsonl`**, un JSON por línea, no un array (`apps/server/src/store/observations.ts`, `RUTA = 'data/observaciones.jsonl'`). Hay que convertirlo una vez, desde `apps/server`:
+**Datos de demo.** `apps/server/data/seed.json` trae 23 observaciones que producen los cuatro estados de quórum. Cargarlas **antes** del primer `npm start` (el store cachea el archivo al primer request):
 
 ```bash
 cd apps/server
+jq -c '.[]' data/seed.json > data/observaciones.jsonl
+# o sin jq:
 node -e "const s=require('./data/seed.json');require('node:fs').writeFileSync('data/observaciones.jsonl',s.map(o=>JSON.stringify(o)).join('\n')+'\n')"
 ```
 
-Con `jq`, lo mismo en una línea: `jq -c '.[]' data/seed.json > data/observaciones.jsonl`.
+### App de campo
 
-Dos cosas a tener en cuenta:
+Opción A — instalar el APK de release: descargar [`mobile-v0.5.0`](https://github.com/RaulEfdz/Q-U-R-U-M/releases/tag/mobile-v0.5.0) y `adb install app-release.apk` (o transferir al teléfono e instalar directo).
 
-- El store es **append-only con dedup por `id`**, pero el comando de arriba **sobrescribe** el archivo. Si ya tenés observaciones capturadas y querés sumar el seed en vez de reemplazarlo, usá `>>`.
-- `data/` es ruta **relativa al cwd**: tanto el comando como `npm start` tienen que correrse desde `apps/server`.
-
-Con el server arriba, para comprobar que el motor las está leyendo:
-
-```bash
-curl -s http://127.0.0.1:3000/api/base-instalada | head -c 200
-```
-
-### Arrancar la app móvil (Android)
-
-Teléfono conectado por USB con depuración activada — `adb devices` lo tiene que listar. Después:
+Opción B — compilar:
 
 ```bash
 cd apps/mobile
-JAVA_HOME=/opt/homebrew/opt/openjdk@17 \
-ANDROID_HOME=$HOME/Library/Android/sdk \
-npx expo run:android
+JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=$HOME/Library/Android/sdk \
+npx expo run:android --variant release
 ```
 
-**`JAVA_HOME` hay que pasarlo siempre**: el JDK quedó keg-only, sin symlink al sistema. `android/` no se versiona, así que la primera corrida hace el prebuild sola y se toma su tiempo (Gradle, NDK, CMake). Dejá el proceso abierto: sirve el bundle de Metro.
-
-Dos pestañas: **Capturar** y **Clientes** (Cliente 360).
-
-Para sembrar la demo en el teléfono está `dev/sembrar-demo.ts`, que genera 9 observaciones cubriendo `Quórum`, `Sin quórum`, cohortes y `Estimado`. No es una vía para saltarse la confirmación humana: escribe el archivo del store **por fuera** de la app, y el código de la app sigue teniendo un único punto de escritura.
-
-```bash
-cd apps/mobile
-# 1. el observadorId de ESTE teléfono, para que la UI te etiquete como "Vos"
-adb shell run-as io.qurum.mobile cat files/identidad.json
-# 2. pegalo en la constante VOS de dev/sembrar-demo.ts
-# 3. generar y empujar
-node --experimental-strip-types dev/sembrar-demo.ts /tmp/obs.jsonl
-adb push /tmp/obs.jsonl /data/local/tmp/obs.jsonl
-adb shell "run-as io.qurum.mobile sh -c 'cat /data/local/tmp/obs.jsonl > files/observaciones.jsonl'"
-adb shell am force-stop io.qurum.mobile && adb shell am start -n io.qurum.mobile/.MainActivity
-```
-
-Para capturar la pantalla — sin colapsar la barra de estado, la captura sale negra:
-
-```bash
-adb shell cmd statusbar collapse
-adb exec-out screencap -p > /tmp/x.png
-```
-
-### Verificar cumplimiento
-
-```bash
-cd apps/server
-npm run verify:no-cloud     # bash scripts/verify-no-cloud.sh
-```
-
-Siete controles, cada uno con su `OK` o `FALLO` en pantalla:
-
-1. **Proveedores de inferencia cloud** en el código (OpenAI, Anthropic, Gemini, Groq, Together, Replicate, HF Inference, Bedrock…).
-2. **Vercel** y el Vercel AI SDK, incluido `@qvac/ai-sdk-provider` y el paquete `ai`.
-3. **Web Speech API** — busca el *uso* (constructor, acceso por `window`), no la mención.
-4. **Marcas reales**: (4a) competencia y modelos reales; (4b) `philips` en `data/`, sin excepciones; (4c) `philips` en el código solo como identificador, ruta de módulo o esquema de export; (4d) verificación **positiva** con Node — toda `marca` de `data/` tiene que estar en `MARCAS_DUMMY`.
-5. **Dependencias con script de instalación** (`hasInstallScript`) y `ignore-scripts=true` en `.npmrc`.
-6. **`npm audit --audit-level=high`**.
-7. **Egress**: ninguna URL absoluta fuera de localhost.
-
-Esperado: `RESULTADO: 7/7 controles en verde` y exit 0. Sin red, el control 6 no puede consultar el registro y sale como **AVISO**, no como fallo: el script termina en 0 igual. Correrlo con red antes de entregar.
-
-### Correr los tests y el typecheck
-
-```bash
-cd apps/server && npm run test:ci                  # typecheck + 117 tests + verify:no-cloud
-cd ../mobile   && npm run typecheck && npm test    # typecheck + 17 tests
-```
-
-★ **Nunca leas un exit code a través de un pipe.** `npx tsc --noEmit | head` devuelve el exit de `head`, que es **siempre 0**: el build se rompió una vez justo así, sin que nadie se enterara. Corré el comando solo y después `echo $?`.
-
-El typecheck verde tampoco es evidencia de que la app funcione: no ve un `import` de `node:crypto` que Metro sí rechaza, ni un render roto. Después de tocar UI, mirá la pantalla.
-
-Para chequear que los diez archivos del núcleo compartido siguen idénticos entre las dos apps, el bucle de `CONTINUAR.md` §Arrancá por acá.
-
-### Problemas conocidos al arrancar
-
-- **Cambiaste una dependencia nativa → hay que volver a correr el prebuild.** `expo run:android` **no** lo vuelve a correr si `android/` ya existe, y el worker bundle de QVAC queda atado a la versión anterior: «Could not load bundle». `npx expo prebuild` ya recrea las carpetas nativas por defecto en esta versión del CLI (`--clean` se acepta pero es un no-op; lo que cambia el comportamiento es `--no-clean`).
-- **`react-native-bare-kit` está pineado en `0.14.5` y no se puede subir.** La 0.15.0 linkea `libbare-kit.so` contra `libnativehelper.so`, interno de la ART APEX y bloqueado para apps desde Android 10: tumba el registro entero de TurboModules y RN muere con `PlatformConstants could not be found`, que es colateral y no la causa. Issue upstream `holepunchto/react-native-bare-kit#48`, cerrado *not planned*. Un `npm update` sin `--save-exact` reintroduce el crash.
-- **La app corre hoy en *debug*, con el JS servido por Metro.** Si apagás el WiFi y la app se reinicia, **no arranca** — y eso **no** es porque dependa de la nube, sino porque no encuentra el bundle en la máquina de desarrollo. Para una demo sin red hace falta un build de release (`npx expo run:android --variant release`), que todavía **no se probó**.
-- **El extractor entiende la nota pero no emite el tool call** (ver §Versión arriba). El server responde «El modelo no produjo una extracción utilizable» y el teléfono muestra «Sin equipo estructurado». Las pantallas de consulta sí se pueden recorrer completas con los datos del seed.
-- **Sin `QUORUM_PEERS`, el sync P2P no arranca.** Es deny-by-default en el transporte, no una falla.
+La primera corrida hace el prebuild nativo (Gradle, NDK, CMake) y toma tiempo. Para sembrar un escenario de demo en el teléfono sin depender del pipeline, `apps/mobile/dev/sembrar-demo.ts` genera observaciones y las empuja por `adb` — escribe el store por fuera de la app, así el código de la app conserva un único punto de escritura, siempre detrás de la confirmación humana.
 
 ---
 
-## Historial de cambios
+## Declaración de trabajo previo
 
-### v0.5.0 — 2026-09-11
+Exigida por las reglas del hackathon: toda base preexistente debe declararse.
 
-Bug del dictado resuelto, procesamiento continuo en vez de esperar al final, Intelligence Layer, y el sync P2P deja de ser una promesa para volverse observable.
+**Todo el código de este repositorio se escribió durante las 48 horas del hackathon** (9–11 de septiembre de 2026). Verificable en el historial de git: el primer commit es del **2026-09-10 00:16:46**, dentro de la ventana de construcción.
 
-**El dictado no transcribía nada.** `CONFIG_ASR` mandaba `no_speech_thold`, una clave que no existe en `whisperConfigSchema` de `@qvac/sdk` 0.18.2 (`modelConfig` valida con `z.core.$strict`) — cada intento de dictar terminaba en 500. Corregido en las dos apps (server y mobile comparten el mismo bloque a propósito).
+Lo único externo son dependencias públicas de propósito general:
 
-**Dictado por fragmentos.** Antes: grabar todo, después esperar todo. Ahora el audio se corta cada 20 s mientras se sigue grabando, cada fragmento se transcribe apenas se corta, y el texto entra a la nota en cuanto vuelve — con chips visibles por fragmento (`transcribiendo…`/`transcrito`/`sin voz`/`no se pudo`). Para cuando se toca «Detener» después de dictar varios minutos, casi toda la nota ya está transcrita. Documentado como técnica propia de pitch, con guía de portado a mobile, en `docs/FUNCIONALIDADES_RESCATABLES.md`.
+| Paquete | Dónde | Por qué no es "base preexistente" |
+|---|---|---|
+| `@qvac/sdk` | `apps/server`, `apps/mobile` | Stack **obligatorio** del reto (`qvac.tether.io`) |
+| `hyperswarm`, `zod` | `apps/server`, `apps/mobile` | Librerías de propósito general (transporte P2P, validación de esquemas), sin lógica de producto |
+| `@noble/hashes` | `apps/mobile` | SHA-256 puro en JS (React Native no trae `node:crypto`), sin lógica de producto |
+| Expo / React Native | `apps/mobile` | Framework de plataforma, no un starter con funcionalidad de negocio |
 
-**Intelligence Layer** (`src/intelligence/central.ts`): proyecciones recalculables sobre los testimonios confirmados — posible renovación por antigüedad, dato que requiere verificación por frescura, base instalada en disputa, información crítica faltante — cada una con puntaje desglosado y evidencia. No reescribe evidencia ni persiste conclusiones.
-
-**El sync P2P se puede ver, no solo declarar.** Antes el conteo de peers conectados (`pares()`) existía en el transporte y nada lo mostraba. Ahora: chip «● N dispositivos sincronizando» en vivo en el sidebar, y una pantalla nueva, **Conexiones**, con el detalle por dispositivo (conectado o no, `dispositivoId`/`observadorId`, primer y último contacto). El inbox de revisiones P2P pasó de efímero a persistente en disco. Documentado en `apps/server/SYNC_P2P.md` y `SYNC_P2P_MOBILE_CONTRACT.md` (protocolo `hello`/lote/ACK, idempotencia, checklist exacto para portar a mobile).
-
-**Bug real en Cliente 360, no solo ajuste visual.** Un `<td>` con `class="quienes"` tenía `display: flex` puesto directo en la celda — eso rompe `table-layout: fixed` en varios navegadores y hacía que «Quién lo sostiene» apareciera comprimido y superpuesto con la columna vecina en el layout de dos columnas. El flex ahora vive en un `<div>` adentro del `<td>`, nunca en el `<td>` mismo.
-
-**Ocho arreglos de usabilidad** (heurísticas de Nielsen Norman Group + Apple HIG): Interpretar y su atajo solo aparecen con nota real; el panel de revisión oculta el composer y suma «Volver a editar»; el foco se mueve al panel al abrir (antes un lector de pantalla no se enteraba); la consulta en lenguaje natural bloquea/cancela en vez de permitir requests concurrentes; «Verificar integridad» ya no pierde el scroll; hash y detalle expandibles por teclado; un conflicto nuevo se anima igual que el ascenso a quórum; sidebar `sticky`.
-
-**Los 8 módulos de `apps/server/ui/` se renombraron a inglés**: `capturar.js→capture.js`, `cliente.js→client.js`, `panorama.js→overview.js`, `auditoria.js→audit.js`, `comofunciona.js→how-it-works.js`, `estados.js→states.js`, `errores.js→errors.js`, `ayuda.js→help.js`. `app.js`/`dom.js` ya eran inglés.
-
-**102 → 113 tests en este hito; 117 en la suite actual.** Typecheck limpio en todo momento durante la sesión.
-
-### v0.4.1 — 2026-09-10
-
-Cierre de la sesión: el bloqueante del proyecto resuelto, dictado por voz en las dos superficies, y los tests de seguridad que faltaban.
-
-**El extractor extrae.** Qwen3 arrancaba en modo *thinking* y gastaba el presupuesto de tokens razonando en prosa sin llegar a emitir el tool call — la única vía por la que devuelve estructura. `reasoning_budget: 0`, más subir `predict` de 80 a 512 en el extractor de mobile (80 es el valor del portero, que responde un sí/no). Verificado: dos lotes correctos en 7-14 s.
-
-**Dictado por voz (Fase 11)** en móvil con `expo-audio` + whisper on-device, y reescrito en escritorio con WebAudio a WAV PCM 16 kHz — `MediaRecorder` produce webm/opus y whisper devolvía `" you"` con eso. Nunca Web Speech API.
-
-**Whisper alucinaba en inglés** sobre audio sin voz: quince repeticiones de una frase inventada en el campo que la persona confirma como propio. Ahora lleva `prompt` inicial en castellano con el vocabulario del dominio, y un filtro determinista de repetición que descarta la salida y avisa.
-
-**El momento del ataque ya se puede reproducir.** `TOOL_EXPORTAR` estaba definida y no se le ofrecía al modelo, así que la inyección del peer no tenía forma de intentar el export y el banner de denegación era código muerto.
-
-**31 → 50 tests.** `test/policy.test.ts` e `injection.test.ts`, que cubren la defensa en capas y el spotlighting. Destaparon que `SecurityContext.principal` no se consultaba en ninguna regla: lo único que separaba el export legítimo del inyectado era un string.
-
-**La cadena de auditoría se bifurcaba sola** con dos escritores sobre el mismo `data/`, y reportaba integridad rota sin que nadie alterara nada.
-
-**Diccionario de errores en la UI**: cada falla dice qué pasó y qué hacer, con el comando exacto. Distingue estado esperado de falla real.
-
-**Iconografía propia** de 15 iconos SVG compartida entre las dos superficies, sin emojis ni librerías, y neutros tintados hacia el hue de marca en vez del crema por defecto.
-
-### v0.4.0 — 2026-09-10
-
-Las dos apps pasan de "compila" a "corre en su plataforma real". Fases 8 y 9 del server, Cliente 360 en mobile, cumplimiento automatizado, y una pasada de diseño sobre las dos superficies. Cinco bugs bloqueantes encontrados por ejecutar, no por leer.
-
-**Añadido — `apps/server`**
-- `src/index.ts` (Fase 8) — servidor HTTP local con las nueve rutas de la API, cero dependencias nuevas. Escucha en `127.0.0.1` hardcodeado y deliberadamente no leído de env. `/api/observar` produce solo un borrador; `/api/confirmar` es el único punto que escribe.
-- `ui/` (Fase 9) — las cuatro pantallas de escritorio: Capturar, Cliente 360, Panorama y Auditoría. `index.html` + `style.css` + seis módulos ES nativos. Sin framework, sin build, cero dependencias y ningún recurso externo.
-- `scripts/verify-no-cloud.sh` — los siete controles de cumplimiento, **7/7 en verde**. Se corre en vivo durante el video.
-- `data/seed.json` — 23 observaciones (las 20 del workbook más los tres testimonios diseñados), que producen los cuatro estados de quórum.
-
-**Añadido — `apps/mobile`**
-- Pantalla **Cliente 360** con la vista de reconciliación, verificada en un Pixel 8 Pro: confianza por campo, `Sin quórum` con todas las versiones y quién sostiene cada una, cohortes de edad, y frescura como eje separado.
-- Navegación de dos pestañas y barra de marca con los insets reales del dispositivo.
-- `dev/sembrar-demo.ts` — escenario de demo para ver la pantalla con datos sin depender del pipeline.
-
-**Corregido — bloqueantes que el typecheck no podía ver**
-- **La app móvil no arrancaba.** Cuatro archivos importaban `node:crypto`, que no existe en React Native. La aleatoriedad pasa a Web Crypto resuelto en runtime (con polyfill de `expo-crypto` en el entrypoint) y los hashes a `@noble/hashes`, verificado idéntico al SHA-256 de `node:crypto`.
-- **El server no arrancaba.** `core/errors.ts` usaba *parameter properties*, sintaxis que `--experimental-strip-types` rechaza.
-- **Los modelos se pasaban como string** en vez de los objetos descriptores del SDK, así que `loadModel` buscaba un `modelId` inexistente. Afectaba al extractor y a whisper.
-- **Path traversal en el server de estáticos**: `GET /../../../etc/passwd` servía cualquier archivo del disco. No estaba en la lista de bugs conocidos del doc.
-- **`seed.json` no se versionaba** (`data/` entero estaba en `.gitignore`), así que un `git clone` en máquina virgen arrancaba sin los escenarios de demo.
-- **`verify-no-cloud.sh` no verificaba nada.** Además del bug #2 documentado, los controles 2 y 3 tenían el mismo defecto de automatcheo, y una carpeta ausente hacía pasar un control sin mirar: `grep -r` sobre un directorio inexistente devuelve 2, y bajo `if grep` eso se lee igual que "no hubo match".
-
-**Corregido — diseño y accesibilidad**
-- **La rampa de confianza de §II.20 fallaba WCAG AA usada como texto**: `reportado` daba 2.76:1 y es el estado más frecuente; `sinDatos` 2.85:1. Se derivó una tinta por estado — mismo hue y croma en OKLCH, solo menos luminosidad — dejando el color original para glifo y borde. La rampa no cambió.
-- La **frescura** se pintaba con el color de `Reportado` en mobile: cruzaba los dos ejes de confianza, que es el error de diseño que el propio proyecto marca como el más fácil de cometer.
-- **Iconografía propia**: 15 iconos dibujados a medida como sprite SVG inline. Cero peticiones y ninguna librería. Los cinco glifos de estado siguen tipográficos a propósito.
-- Cliente 360 de escritorio **agrupa por cliente** en vez de repetir su nombre en cada tarjeta.
-- **Auditoría se rompía con un solo registro**: un error del SDK con 17.603 caracteres empujaba los otros 49 fuera de la vista.
-
-**Añadido — documentación**
-- `PRODUCT.md` — registro de producto: usuarios, posicionamiento, restricciones duras, y qué evidencia existe y cuál no (las métricas del pitch son hipótesis; no hay corrida sobre las 300 notas ciegas).
-
-### v0.3.0 — 2026-09-10
-
-Primer código del proyecto. Núcleo compartido escrito y congelado, `apps/mobile` inicializada como app Expo con el SDK de QVAC. Desarrollo repartido entre agentes Haiku/Sonnet según `ORQUESTACION.md`.
-
-**Añadido — núcleo compartido** (idéntico byte a byte en `apps/server/src/` y `apps/mobile/src/`)
-- `core/contracts.ts` — contratos Zod, **congelado**. Dos campos agregados sobre el doc maestro: `estadoRevision` en `Borrador` (la regla "máximo 1 pregunta por nota, nunca se descarta" estaba declarada pero no modelada) y `campos.edad` en `GrupoEquipo` (bug #12).
-- `core/ids.ts`, `core/errors.ts` — ULID ordenable por tiempo y jerarquía de errores fail-closed.
-- `trust/{normalize,similarity,entity}.ts` — normalización con tabla de sinónimos, Jaro-Winkler, clave de grupo y detección de candidatos a fusión.
-- `trust/reconcile.ts` — el motor de quórum, RD-0 a RD-7. Con corrección **#12**: la edad ahora se resuelve como campo (`resolverEdad`) además de generar cohortes, y entra en el cálculo de `estadoGeneral` — antes `Sin quórum` por discrepancia de edad era inalcanzable.
-- `trust/score.ts` — puntaje de tres factores. Con corrección **#11**: la corroboración solo cuenta el clúster mayoritario, no todos los testigos a ciegas (antes un grupo en `Sin quórum` con 3 testigos contradictorios sacaba 30/30, premiando el estado menos confiable).
-- `policy/engine.ts` — PDP determinista, deny-overrides, deny-by-default. Con corrección **#1**: excepción quirúrgica en `critico-requiere-aprobacion` para el export local iniciado por humano, que antes quedaba bloqueado siempre (la regla `allow` era inalcanzable). El predicado de la excepción es idéntico al de la regla `allow` para no dejar huecos hacia `deny-by-default`.
-- `context/spotlight.ts` — empaquetado de contenido untrusted con delimitador aleatorio por sesión.
-- `export/philips.ts` — CSV en el esquema exacto de 19 columnas del workbook.
-
-**Añadido — `apps/mobile`**
-- Proyecto Expo inicializado (SDK ~57, React Native 0.86.3, TypeScript estricto), `.npmrc` con `ignore-scripts=true` **antes** de la primera instalación.
-- `src/qvac/pool.ts` — pool de los tres modelos on-device. Módulo nuevo, no existe en el doc maestro. Con correcciones **#5** (aserción `isDelegated !== false`, fail-closed: la versión original era fail-open y dejaba pasar la delegación si el SDK omitía el campo) y **#7** (presupuesto de RAM con eviction bajo presión, y mapa de promesas en vuelo para que dos `obtener()` concurrentes no carguen 1.1 GB dos veces).
-- Identificadores de modelo corregidos: son objetos descriptores importados del SDK (`WHISPER_TINY`, `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M`, `QWEN3_1_7B_INST_Q4`), no strings. El `QWEN3_5_0_8B_INST_Q4` que usaba la fuente no existe en el registro.
-- `App.tsx` — "hola mundo" del paso 3 del orden de construcción: carga el portero real y reporta resultado.
-- Dependencias ancladas: `@qvac/sdk@0.18.2` exacto, `zod@3.25.76` exacto.
-
-**Corregido (encontrado durante la escritura)**
-- `trust/reconcile.ts`: predicado de tipo `(x): x is number` sobre un genérico `T` no compila bajo `strict`; cambiado a `(x): x is T & number`.
-- Config plugin de QVAC: se declara como `@qvac/sdk/expo-plugin` (el nombre corto `@qvac/sdk` no resuelve), y requiere `expo-build-properties` como dependencia.
-
-**Añadido — documentación**
-- `BITACORA.md` — bitácora cronológica de avance, decisiones y pendientes.
-- `VALIDACION.md` — verificación automatizada de las reglas duras (sin nube, sin Vercel, sin Web Speech API, `ignore-scripts`, marcas ficticias, contratos congelados, paridad server↔mobile).
-- Sección de estado en `apps/server/ORQUESTACION.md` con las fases completadas.
-
-**Pendiente conocido**
-- El "hola mundo" en el Pixel 7 todavía no se completó: el build nativo requirió instalar JDK 17 y declarar `sdk.dir`, y está descargando NDK 29 + CMake.
-- 10 vulnerabilidades npm moderadas aceptadas sin forzar fix (`uuid` vía `xcode` → `@expo/config-plugins`): es tooling de build iOS y el proyecto es Android-only. Revisar si se agrega iOS.
-- Falta `qvac.config.json` con `bareRuntimeVersion` para que el chequeo de ABI del runtime Bare sea determinista.
-
-### v0.2.1 — 2026-09-10
-
-**Añadido**
-- `apps/server/ARCHITECTURE.md` — diagrama de flujo, tabla de dónde ocurre la inferencia, modelo de confianza, decisiones cerradas y estructura de carpetas (paridad con `apps/mobile/ARCHITECTURE.md`, que ya existía).
-- `apps/server/TRAZABILIDAD.md` — extiende el Anexo C del doc maestro con los HIGH VALUE 9-11 (sync, delegación, PEP) que no tenían fila, más diseño de `AuditRecord` hash-encadenado y qué responde ante un auditor.
-- `apps/server/ORQUESTACION.md` y `apps/mobile/ORQUESTACION.md` — reparto del trabajo de desarrollo entre agentes **Haiku** (tareas mecánicas) y **Sonnet** (motor, políticas, seguridad), por fases con dependencias explícitas y gate previo.
-
-### v0.2.0 — 2026-09-10
-
-Auditoría completa de los dos documentos fuente (3630 + 843 líneas) y verificación en vivo contra el `@qvac/sdk` instalado. **56 hallazgos**, de los cuales 7 bloquean la demo y 11 tocan el cumplimiento del reto. Reporte completo en `docs/AUDITORIA.md`.
-
-**Añadido**
-- `docs/AUDITORIA.md` — hallazgos agrupados en 8 secciones (bloqueantes, cumplimiento, bugs del motor, modelos y SDK, diagramas, runbook, huecos de estructura, errores propios).
-- `README.md` — este archivo, con versionado e historial.
-- Sección de correcciones obligatorias en `apps/server/CLAUDE.md` (16 bugs) y `apps/mobile/CLAUDE.md` (14 bugs).
-- Identificadores reales de modelo, verificados contra el SDK, en `apps/mobile/CLAUDE.md`.
-
-**Corregido**
-- **Modelos.** `QWEN3_5_0_8B_INST_Q4` no existe: la constante real del portero es `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M` (533 MB). Las constantes del SDK son objetos, no strings. El `query` de `modelRegistrySearch` no filtra.
-- **Presupuesto de RAM** recalculado con los tamaños reales: 2.1 GB, no 2.3 GB.
-- **El atajo del pipeline ya no es rama terminal** — vuelve al enrutador y termina en el borrador. Dibujarlo como "se GUARDA" contradecía "nada se persiste sin confirmación humana".
-- **`procesarNota()`**, no `cruzar()`: la función tenía otro nombre en los tres documentos derivados.
-- **Ocho módulos nuevos en mobile**, no dos. Se decía "solo cambia el store y la UI".
-- **`isDelegated !== false`** en vez de la comparación truthy: la original es fail-open sobre la restricción que descalifica.
-- **`expo-audio`** en vez de `expo-av`, removido en Expo SDK 54.
-- Recuperadas tres reglas de dominio que se habían perdido al resumir: la definición de **lote** (evita el conflicto falso 2-vs-1 del bug H-02), que **`hedging` lo detecta el código** y no el modelo, y la **regla exacta de tolerancia del verificador** de evidencia.
-- Añadida la prohibición de `@qvac/ai-sdk-provider` y el Vercel AI SDK, que faltaba en los tres `CLAUDE.md`.
-- `TRAZABILIDAD.md` marcado como extensión propia: no está en la fuente.
-
-**Verificado y descartado**
-- La sospecha de que zod 4.3.6 rompería los contratos escritos para zod 3: se corrieron los esquemas y todos pasan. No hay que tocar nada.
-
-**Encontrado, sin resolver**
-- Faltan `WHISPER_TINY` y `Qwen3.5-0.8B` en `~/.qvac/models`: hoy no corre ni la voz del server ni el pipeline mobile.
-- El export humano queda denegado siempre por el orden de efectos del policy engine.
-- `verify-no-cloud.sh` sale `exit 1` siempre por su propio control nº4.
-- El pitch afirma cosas que el sistema no hace ("la IA corriendo dentro del teléfono", "sin que el dato salga del dispositivo").
-
-### v0.1.0 — 2026-09-10
-
-- Monorepo inicial: `apps/server`, `apps/mobile`, `docs/`.
-- `CLAUDE.md` en la raíz y por app con las restricciones duras del reto.
-- `apps/mobile/ARCHITECTURE.md` y `apps/mobile/TRAZABILIDAD.md`.
-- Documentos fuente incorporados a `docs/`.
+Ningún boilerplate, plantilla ni proyecto de arranque con lógica de producto se usó como punto de partida. Contratos de datos, motor de reconciliación, política de seguridad, pipeline de tres modelos y las dos interfaces se escribieron enteros durante el hackathon.
 
 ---
 
-## Restricciones duras
+## Restricciones duras que respeta el proyecto
 
-- **Cero inferencia en la nube.** Ninguna API de OpenAI, Anthropic, Gemini, Groq, Together, Replicate ni HuggingFace Inference. ISD lo verifica antes de pasar las entregas a Philips.
-- **Nada de Vercel** — deploy, previews, CI/CD, ni el Vercel AI SDK. Política de la organización.
+- **Cero inferencia en la nube.** Ninguna API de OpenAI, Anthropic, Gemini, Groq, Together, Replicate ni HuggingFace Inference.
+- **Nada de Vercel** — ni deploy, ni previews, ni el Vercel AI SDK (`@qvac/ai-sdk-provider` incluido).
 - **Web Speech API prohibida**: envía el audio a servidores del proveedor. Es inferencia en la nube.
 - **Nada se persiste sin confirmación humana.**
-- Dependencias npm: verificar antes de instalar, ojo con `postinstall`/`preinstall`/`binding.gyp`, versiones ancladas, `ignore-scripts=true`.
-- Solo marcas ficticias: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.
+- Dependencias npm verificadas antes de instalar, versiones ancladas, `ignore-scripts=true`.
+- Solo marcas ficticias en datos de demo: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.
+
+---
+
+## Versión y documentación adicional
+
+| Componente | Versión |
+|---|---|
+| Monorepo / `apps/server` | v0.5.0 · 2026-09-11 |
+| `apps/mobile` (APK release) | `mobile-v0.5.0` · 2026-09-11 |
+
+- Historial detallado de cambios y decisiones: [`BITACORA.md`](BITACORA.md).
+- Estado por fase y punto de retome: [`CONTINUAR.md`](CONTINUAR.md).
+- Validación automatizada de reglas duras: [`VALIDACION.md`](VALIDACION.md).
+- Arquitectura por app: [`apps/server/ARCHITECTURE.md`](apps/server/ARCHITECTURE.md) · [`apps/mobile/ARCHITECTURE.md`](apps/mobile/ARCHITECTURE.md).
+- Protocolo de sincronización: [`apps/server/SYNC_P2P.md`](apps/server/SYNC_P2P.md).
+
+---
 
 ## Principio rector
 
