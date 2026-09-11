@@ -15,16 +15,19 @@
  * detrás de un click.
  */
 import { h, pintar, formatearValor, testigos, testimonios, vacio, error, iconoModalidad } from './dom.js';
-import { claseEstado, insignia, insigniaFrescura, esAscensoAQuorum } from './estados.js';
+import { claseEstado, insignia, insigniaFrescura, esAscensoAQuorum, esNuevoConflicto } from './estados.js';
 
-/** Estados de la pasada anterior, para detectar el ascenso a quórum.
- *  Clave: `${grupo.clave}|${nombreCampo}`. */
+/** Estados de la pasada anterior, para detectar el ascenso a quórum y la
+ *  aparición de un conflicto nuevo. Clave: `${grupo.clave}|${nombreCampo}`. */
 const estadoPrevio = new Map();
 
 function marcarAscenso(fila, clave, estado) {
   const anterior = estadoPrevio.get(clave);
   estadoPrevio.set(clave, estado);
   if (esAscensoAQuorum(anterior, estado)) fila.classList.add('ascenso');
+  // La mala noticia recibe la misma cortesía que la buena: RD-2 existe para
+  // que un conflicto nuevo se note, no para que se filtre entre repintados.
+  else if (esNuevoConflicto(anterior, estado)) fila.classList.add('conflicto-nuevo');
 }
 
 /**
@@ -218,7 +221,7 @@ export function pintarCliente(seccion, datos) {
           ubicacion ? h('p', { clase: 'ubicacion', texto: ubicacion }) : null,
           h('p', { clase: 'small', texto: suyos.length === 1
             ? '1 grupo de equipo' : `${suyos.length} grupos de equipo` })),
-        suyos.map((g) => pintarGrupo(g, d.meta ?? {})));
+        suyos.map((g) => pintarGrupo(g, datos.meta ?? {})));
     }));
 }
 
