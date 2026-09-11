@@ -251,6 +251,24 @@ Las seis pantallas, en la barra de navegación (los módulos que las pintan vive
 | **Conexiones** | `connections.js` | detalle por dispositivo P2P — conectado o no, `dispositivoId`/`observadorId`, primer y último contacto — no solo el conteo del sidebar. |
 | **Cómo funciona** | `how-it-works.js` | los estados y el flujo del motor, con diagramas SVG propios. |
 
+### Despliegue distribuido: trabajador en Panamá, servidor central remoto
+
+La captura no exige conexión permanente. Un trabajador puede visitar un cliente en Panamá, dictar o escribir en el celular y confirmar la observación sin señal. La evidencia queda en la cola offline. Cuando el teléfono recupera Internet, se encuentra por Hyperswarm con el peer central —por ejemplo, un servidor QUÓRUM ejecutándose en Azure— y envía las observaciones pendientes.
+
+```text
+Celular en Panamá · offline
+  → QVAC local + confirmación humana
+  → cola offline
+  → Internet pública / DHT / VPN / LAN
+  → Hyperswarm P2P + Noise
+  → servidor central en Azure
+  → ACK por observación
+```
+
+Este canal no usa la ruta HTTP de la UI. El servidor web de la configuración actual sigue en `127.0.0.1:3000`; el teléfono se conecta al servidor central como peer Hyperswarm. Para aceptar ese celular, su clave pública debe estar en `QUORUM_PEERS`. Sin ACK, el móvil conserva el dato y lo reintenta; con ACK, marca cada observación como recibida, duplicada o rechazada.
+
+El protocolo es independiente del proveedor: el peer central puede ejecutarse en una laptop, una VM de Azure, Google Compute Engine, AWS EC2 u otro host persistente. El host necesita Node 22, un proceso de larga duración, salida de red para Hyperswarm/DHT, almacenamiento persistente de `data/` y secretos fuera del repositorio. La UI HTTP puede seguir privada en `127.0.0.1`; el celular sincroniza por P2P, no por una API web abierta. La arquitectura es compatible con despliegue cloud, pero la prueba física disponible sigue siendo Pixel 8 Pro ↔ servidor local, no Azure o Google Cloud en vivo. Serverless con disco efímero no es el destino recomendado para este peer.
+
 ### Sembrar los datos de demo (server)
 
 `apps/server/data/seed.json` tiene las **23 observaciones** que producen los cuatro estados de quórum, y es el único archivo de `data/` que se versiona.
