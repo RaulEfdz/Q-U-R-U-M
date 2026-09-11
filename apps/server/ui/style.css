@@ -1109,14 +1109,24 @@ td { padding: 11px 12px; }
   background: var(--superficie);
 }
 
-/* Dictar es secundario en jerarquía pero central en el producto: se queda
- * visible, sin competir con el primario. */
+/*
+ * Dictar es secundario en jerarquía (no compite con «Interpretar», el
+ * único botón de RELLENO sólido de la barra) pero central en el producto
+ * — es la otra forma, junto con escribir, de cargar la nota. El azul de
+ * borde y texto lo marca como una acción con peso sin llenarlo de color:
+ * dos botones sólidos uno al lado del otro competirían por cuál es «el»
+ * primario.
+ */
 .composer-boton {
   border-radius: 999px;
   padding: 7px var(--md);
   font-size: var(--t-chico);
+  border-color: var(--primario);
+  color: var(--primario);
 }
+.composer-boton:hover:not(:disabled) { background: var(--nav-activo); }
 .composer-boton.grabando { border-color: var(--sinquorum); color: var(--sinquorum-ink); }
+.composer-boton.grabando:hover:not(:disabled) { background: var(--sinquorum-fondo); }
 
 .composer-der .primario { border-radius: 999px; padding: 8px var(--lg); }
 .composer-der .pista { white-space: nowrap; }
