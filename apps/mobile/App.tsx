@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import CapturarScreen from './src/app/CapturarScreen.tsx';
 import Cliente360Screen from './src/app/Cliente360Screen.tsx';
 import { BarraSuperior } from './src/app/components/BarraSuperior.tsx';
 import { Icono, type NombreIcono } from './src/app/components/Icono.tsx';
+import { precargarModelos } from './src/qvac/pool.ts';
 import { color, espacio, tap, tipografia } from './src/app/theme.ts';
 
 type Pestana = 'capturar' | 'clientes';
@@ -27,6 +28,14 @@ type Pestana = 'capturar' | 'clientes';
  * no pasa. Cliente 360 relee el store vía `recargarToken`.
  */
 export default function App() {
+  // Precarga portero + extractor apenas abre la app, en segundo plano, para
+  // que la primera nota no espere los ~25 s de carga. Fire-and-forget: si
+  // falla, `obtener()` reintenta cuando el pipeline lo pide. Ver
+  // `qvac/pool.ts` → `precargarModelos`.
+  useEffect(() => {
+    void precargarModelos();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <Marco />
@@ -55,6 +64,22 @@ function Marco() {
     if (destino === 'clientes') setRecargarToken((n) => n + 1);
     setPestana(destino);
   }
+
+  // El botón/gesto Atrás del sistema en la pestaña Clientes vuelve a
+  // Capturar en vez de cerrar la app. En Capturar lo maneja `CapturarScreen`
+  // (sus sub-pantallas) y, más adentro, `ConfirmacionBorrador`; cuando esos
+  // dejan pasar el evento, Atrás cierra la app como corresponde. Los tres
+  // handlers componen porque `BackHandler` los evalúa en orden LIFO.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pestana === 'clientes') {
+        setPestana('capturar');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [pestana]);
 
   return (
     <View style={estilos.contenedor}>
@@ -97,9 +122,15 @@ function Pestania({
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: activa }}
+      accessibilityLabel={etiqueta}
     >
       <Icono nombre={icono} tamano={21} color={activa ? color.primario : color.textoTenue} />
-      <Text style={[estilos.textoPestana, activa && estilos.textoPestanaActiva]}>{etiqueta}</Text>
+      <Text
+        style={[estilos.textoPestana, activa && estilos.textoPestanaActiva]}
+        numberOfLines={1}
+      >
+        {etiqueta}
+      </Text>
     </Pressable>
   );
 }
@@ -114,6 +145,9 @@ const estilos = StyleSheet.create({
     flexDirection: 'row', borderTopWidth: 1, borderTopColor: color.borde,
     backgroundColor: color.superficie,
   },
+  // `minHeight` = objetivo táctil a escala de fuente 1.0; con la fuente del
+  // sistema grande la barra crece (el contenido, `flex: 1`, cede) en vez de
+  // recortar el glifo o la etiqueta.
   pestana: {
     flex: 1, minHeight: tap.normal, alignItems: 'center', justifyContent: 'center',
     paddingVertical: espacio.sm, gap: 2, borderTopWidth: 3, borderTopColor: 'transparent',

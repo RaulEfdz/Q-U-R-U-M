@@ -18,10 +18,26 @@ export type Rol = keyof typeof MODELOS;
 const ROLES: readonly Rol[] = ['asr', 'portero', 'extractor'] as const;
 
 /** ctx_size pequeño a propósito: una nota de campo son 2 o 3 frases.
- *  Un contexto grande gasta RAM que en un teléfono no sobra. */
+ *  Un contexto grande gasta RAM que en un teléfono no sobra.
+ *
+ *  `device: 'gpu'` + `gpu_layers: 99`: OBLIGATORIO. Sin esto la inferencia
+ *  corre en CPU (`dev=cpu` en `diagModelo`) a 0.5-1.4 tok/s → ~4 min por
+ *  nota. El plugin LLM de QVAC NO aplica los defaults de `LLM_CONFIG_DEFAULTS`
+ *  (`gpu_layers: 99, device: 'gpu'`) — su `loadConfigSchema` es
+ *  `llmConfigBaseSchema` (sin `.transform`), así que si no lo pasás explícito
+ *  el addon arranca en CPU. Con esto, el backend Vulkan
+ *  (`libqvac-ggml-vulkan.so`, está en el APK) engancha en el Immortalis-G715
+ *  del Pixel 8 Pro: `dev=gpu`, portero 17 tok/s, extractor 11 tok/s (verificado
+ *  2026-09-10). El doc dice "Adreno 800+" pero el Mali/Immortalis funciona
+ *  forzándolo.
+ *
+ *  NOTA: NO poner `reasoning_budget` acá — en el config de LOAD tira
+ *  `Cannot read property 'reload' of undefined` (el addon Bare intenta un
+ *  `model.reload()` con el handle sin crear). El apagado de razonamiento va
+ *  por request en `generationParams` + `/no_think` en el prompt. */
 const CONFIG: Partial<Record<Rol, Record<string, unknown>>> = {
-  portero: { ctx_size: 1024 },
-  extractor: { tools: true, ctx_size: 2048 },
+  portero: { ctx_size: 1024, device: 'gpu', gpu_layers: 99 },
+  extractor: { tools: true, ctx_size: 2048, device: 'gpu', gpu_layers: 99 },
 };
 
 /**
@@ -98,12 +114,20 @@ async function liberarBajoPresion(
  *                                     segmentos sin habla
  *   `temperature: 0`                   determinismo, igual que en el resto
  *                                     del pipeline
- *   `no_speech_thold`                  umbral por encima del cual un segmento
- *                                     se considera sin voz
  *
  * `initial_prompt` se queda igual: además del idioma, mete el vocabulario del
  * dominio (siglas de modalidad y las marcas del vocabulario ficticio), que es
  * lo que un modelo tiny no conoce.
+ *
+ * ★ `no_speech_thold` (el umbral de whisper.cpp para "segmento sin voz") NO
+ * va acá: `whisperConfigSchema` de este SDK (0.18.2) no lo declara —
+ * verificado contra `node_modules/@qvac/sdk/dist/schemas/transcription-config.js`,
+ * que expone `thold_pt`/`thold_ptsum`/`entropy_thold`/`logprob_thold` pero no
+ * `no_speech_thold`. Pasarlo tira "Unrecognized key" al cargar el modelo y
+ * `loadModel` falla ANTES de grabar nada — el dictado queda roto de punta a
+ * punta. La defensa contra alucinación sobre silencio ya la hacen, en código
+ * y de forma determinista, `pareceAlucinacion()`/`esFraseBasura()` en
+ * `pipeline/dictar.ts`; no hace falta el parámetro del modelo.
  */
 const CONFIG_ASR = {
   /*
@@ -125,7 +149,6 @@ const CONFIG_ASR = {
   suppress_blank: true,
   suppress_nst: true,
   temperature: 0,
-  no_speech_thold: 0.6,
   initial_prompt:
     'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
     'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
@@ -199,4 +222,43 @@ export function estado(): { rol: Rol; modelId: string; expectedSize: number }[] 
   return ROLES
     .filter((r) => cargados.has(r))
     .map((r) => ({ rol: r, modelId: cargados.get(r)!.modelId, expectedSize: MODELOS[r].expectedSize }));
+}
+
+/** ¿Está el rol listo para procesar YA (cargado, no solo en vuelo)? */
+export function estaListo(rol: Rol): boolean {
+  return cargados.has(rol);
+}
+
+/**
+ * Precarga portero + extractor a memoria/GPU en segundo plano, para que la
+ * primera nota no pague los ~25 s de carga (portero ~11 s + extractor ~13 s
+ * en el Pixel 8 Pro). Se llama una vez al montar la app (`App.tsx`).
+ *
+ * - **Fire-and-forget:** los errores se loguean y no rompen nada. Si un
+ *   modelo falla acá, `obtener()` lo reintenta cuando el pipeline lo pida
+ *   de verdad, y `CapturarScreen` muestra el error ahí si persiste.
+ * - **Idempotente:** el cache y el mapa `enVuelo` de `obtener()` hacen que
+ *   llamarla dos veces, o llamarla mientras el usuario ya tocó "Interpretar",
+ *   no dispare cargas duplicadas — la segunda espera a la primera.
+ * - **Secuencial** (portero y después extractor): es el mismo orden que usa
+ *   `procesarNota`, deja el portero (el que se usa primero) listo antes, y
+ *   evita crear dos contextos Vulkan a la vez en el Mali.
+ * - No precarga `asr` (whisper): el dictado todavía no está integrado.
+ */
+export async function precargarModelos(): Promise<void> {
+  for (const rol of ['portero', 'extractor'] as const) {
+    if (cargados.has(rol)) continue;
+    try {
+      const t = Date.now();
+      await obtener(rol);
+      // eslint-disable-next-line no-console
+      console.log(`[QUÓRUM·precarga] ${rol} listo en ${Date.now() - t} ms`);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[QUÓRUM·precarga] ${rol} falló (se reintenta al usarlo): ` +
+        (e instanceof Error ? e.message : String(e)),
+      );
+    }
+  }
 }

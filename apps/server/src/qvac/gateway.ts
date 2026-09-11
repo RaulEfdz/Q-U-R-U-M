@@ -267,18 +267,20 @@ export async function completar(params: {
     /*
      * temp 0 + seed fijo = reproducibilidad de la demo.
      *
-     * ★ `reasoning_budget: 0` apaga el modo *thinking* de Qwen3, y es lo que
-     * hacía que el extractor NO extrajera nada. El modelo entendía la nota
-     * perfectamente pero gastaba todo el presupuesto de tokens razonando en
-     * prosa dentro de un bloque `<think>`, y nunca llegaba a emitir el tool
-     * call: `toolCalls` volvía vacío y el pipeline respondía "El modelo no
-     * produjo una extracción utilizable".
+     * ★ `reasoning_budget: 0` apaga el modo *thinking* de Qwen3 (portero y
+     * extractor), y es lo que hacía que el extractor NO extrajera nada: sin
+     * esto el modelo entiende la nota perfectamente pero gasta todo el
+     * presupuesto de `predict` razonando en prosa dentro de un bloque
+     * `<think>` y nunca llega a emitir el tool call — `toolCalls` vuelve
+     * vacío y el pipeline responde "El modelo no produjo una extracción
+     * utilizable" con todo lo demás corriendo bien (CONTINUAR.md §El
+     * extractor). Sin esto no hay captura ni consulta — el tool calling es
+     * la única vía por la que el modelo devuelve estructura.
      *
-     * Sin esto no hay captura ni consulta — el tool calling es la única vía
-     * por la que el modelo devuelve estructura. El parámetro lo acepta el
-     * SDK dentro de `generationParams` (ver
-     * `@qvac/sdk/dist/schemas/completion-stream.d.ts`; el schema es
-     * `$strict`, así que solo entran las claves que declara).
+     * El schema de `generationParams` es `$strict` (verificado contra
+     * `@qvac/sdk/dist/schemas/completion-stream.d.ts`): solo entran temp,
+     * top_p, top_k, predict, seed, las penalties, reasoning_budget y
+     * remove_thinking_from_context.
      */
     generationParams: { temp: 0, seed: 42, predict: params.maxTokens ?? 512, reasoning_budget: 0 },
   });

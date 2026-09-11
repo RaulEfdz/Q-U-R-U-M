@@ -33,7 +33,8 @@ done
 - `apps/server`: Fases 1-9 completas. El servidor **arranca y responde** en `127.0.0.1:3000` con las nueve rutas, y sirve las cuatro pantallas de escritorio (Capturar, Cliente 360, Panorama, Auditoría). Verificado en un navegador real con los 23 registros del seed.
 - **`npm run verify:no-cloud` → 7/7 controles en verde.** Es la prueba de cumplimiento que se corre en vivo en el video.
 - `data/seed.json` con 23 observaciones válidas que producen los cuatro estados de quórum.
-- **El pipeline de tres modelos corrió de punta a punta en el Pixel 7** (2026-09-10 11:37): precheck → portero → extractor → verificador → borrador → pantalla de confirmación humana. Degradó como promete el diseño cuando el extractor no produjo lotes: mostró la nota completa con una pregunta, sin perder el dato.
+- **El pipeline de tres modelos corre de punta a punta en el Pixel 8 Pro y EL EXTRACTOR EXTRAE** (2026-09-10 16:47): precheck → portero → extractor → verificador → `ACUERDO` con 2 lotes y citas válidas. `think=0` (sin razonamiento), `dev=gpu` (Vulkan en el Immortalis), ~90 s total. Fixes: `reasoning_budget: 0` por request + `/no_think` + `predict: 512` + `device:'gpu'`. Ver §El extractor.
+- El dispositivo de pruebas real es un **Pixel 8 Pro** (`husky`, GPU Immortalis-G715), no un Pixel 7 — varias notas viejas dicen "Pixel 7".
 - 31 tests, todos verdes. Typecheck verde en las dos apps.
 - Contraste WCAG AA verificado en la rampa de confianza de las dos superficies.
 - **El extractor extrae.** Dos lotes correctos de una nota real, en 7-14 s.
@@ -48,86 +49,55 @@ done
 
 | Qué | Dónde | Notas |
 |---|---|---|
-| **Dictado con voz REAL** | las dos apps | Lo más importante que queda. El flujo funciona de punta a punta y transcribe en menos de 8 s, pero solo se probó grabando SILENCIO — y ahí whisper alucinaba (ver §El dictado abajo). Falta que una persona dicte una nota de verdad y comprobar que el texto sirve. |
-| **Build de release de mobile** | `apps/mobile` | Nunca funcionó. El primer intento falló por disco lleno en la Mac. Es lo que hace falta para la demo sin WiFi: hoy corre en debug con el JS servido por Metro. |
-| **Build de release de mobile** | `apps/mobile` | Nunca se probó. Hoy corre en debug con el JS servido por Metro: si se apaga el WiFi y la app se reinicia, NO arranca — y no por la nube, sino porque no encuentra el bundle. La demo con WiFi apagado lo necesita: `expo run:android --variant release`. |
+| ~~★ EXTRACTOR NO EXTRAE~~ **RESUELTO** (2026-09-10) | las dos apps | `reasoning_budget: 0` por request + `/no_think` en el prompt + `predict` 80→512 + `device:'gpu'`/`gpu_layers:99`. Verificado por DOS canales independientes: server (`POST /api/observar`, `delegado:false`) y móvil en Pixel 8 Pro (`think=0`, `dev=gpu`, `ACUERDO`, ~90 s). Ver §El extractor. |
+| **Portero (0.8B) no hace tool-calling** | `apps/mobile` | `diagModelo`: `toolCalls=0`, `stop=length`, escribe prosa markdown ("**false** **Razonamiento:**…") y alucina detalle. Se fail-openea a `hayEquipo:true` y el pipeline sigue, pero el portero hoy no aporta. El prompt de few-shot nuevo (`SYSTEM_PORTERO`) no ayudó. Tuning de prompt/modelo, o subir `predict` del portero. |
+| Probar la UI de escritorio contra QVAC real | `apps/server/ui/` | Las cuatro pantallas se recorrieron con datos del seed; `/api/observar` ya tiene evidencia real (ver arriba), falta lo mismo para `/api/transcribir` con los modelos cargados. |
+| **Dictado con voz REAL de una persona** | las dos apps | El flujo funciona de punta a punta y transcribe en menos de 8 s, pero solo se probó grabando SILENCIO — y ahí whisper alucinaba (ver §El dictado). Falta que alguien dicte una nota de verdad y comprobar que el texto sirve. |
+| **Build de release de mobile** | `apps/mobile` | Nunca se probó (el primer intento falló por disco lleno en la Mac). Hoy corre en debug con el JS servido por Metro: si se apaga el WiFi y la app se reinicia, NO arranca — y no por la nube, sino porque no encuentra el bundle. La demo con WiFi apagado lo necesita: `expo run:android --variant release`. |
 | **Audio** | `apps/mobile` | Fase 11. `expo-audio`, NUNCA `expo-av` (removido en SDK 54). |
-| Medir tiempos reales de inferencia | las dos | En la Mac, cargar el extractor y responder tardó del orden de quince minutos. Hay que medirlo en el teléfono antes de grabar, y decidir si la demo se graba sobre móvil o escritorio. |
+| ~~Medir tiempos reales de inferencia~~ **hecho** | `apps/mobile` | Pixel 8 Pro con GPU: portero carga 11 s + infer 10 s (17 tok/s); extractor carga 13 s + infer 40 s (11 tok/s, `ttft` 27 s = prefill de 798 tok); pipeline total ~90 s. Sin GPU (`device` no forzado): ~4.5 min. Instrumentado en `procesarNota` + `diagModelo`. Optimización pendiente: recortar el prompt del `TOOL_EXTRACTOR` para bajar el `ttft`. |
 
-## ✅ El extractor — RESUELTO
+## ★ El extractor — RESUELTO (2026-09-10)
 
-Era el bloqueante del proyecto y ya no lo es. **Causa:** Qwen3 arrancaba en
-modo *thinking* y gastaba el presupuesto de tokens razonando en prosa, sin
-llegar a emitir el tool call — que con tool calling nativo es la única vía por
-la que el modelo devuelve estructura.
+Era el bloqueante del proyecto y ya no lo es.
 
-**Fix:** `reasoning_budget: 0` en `generationParams`. Y en mobile hacía falta
-una segunda corrección: `predict: 80` es el valor del PORTERO (responde un
-sí/no); el extractor necesita devolver un array de lotes con cita literal, así
-que pasa a 512.
+**Era:** el pipeline corría completo pero no producía ni un lote. `toolCalls: []`, texto `"<think>\nOkay, let me try to figure out…"`. Qwen3 arrancaba en *thinking mode*, quemaba el `predict` razonando y nunca emitía el tool call.
 
-**Verificado:** `POST /api/observar` devuelve dos lotes correctos
-(`{MR, NovaMed, NM-MR 700, cantidad 3, edad 8}` y `{CT, HelixCare}`) con
-`delegado: false`. Y la inferencia en la Mac tarda **7 a 14 segundos**, no los
-quince minutos que decía este archivo: esos quince minutos eran el síntoma de
-tener el disco al 100%.
+**El modelo:** `QWEN3_1_7B_INST_Q4` → registro `Qwen3-1.7B-Q4_0` (base, 2025-08-21). Es el **Qwen3 híbrido**, razona por defecto — NO la variante `-2507` non-thinking. El nombre "INST" del constante del SDK engaña.
 
-## ★ El dictado — dónde quedó
+**Verificado por dos canales independientes:**
+- **Server:** `POST /api/observar` devuelve dos lotes correctos (`{MR, NovaMed, NM-MR 700, cantidad 3, edad 8}` y `{CT, HelixCare}`) con `delegado: false`. La inferencia tarda **7 a 14 segundos**, no los quince minutos que este archivo decía antes — esos quince minutos eran el síntoma de tener el disco de la Mac al 100%, no del modelo (ver §Riesgos abiertos).
+- **Móvil, Pixel 8 Pro** (2026-09-10 16:47): nota "hospital … 3 equipos de resonancia … 5 años" → extractor emite tool call, `think=0`, 2 lotes, verificador OK, `ACUERDO`. Log en `[QUÓRUM·modelo]`:
+  `extractor toolCalls=1 think=0 dev=gpu tok/s=11.2 genTok=140 ttft=26693ms` → 39 s de inferencia.
 
-**Funciona, pero solo se probó con silencio.** El flujo completo corre:
-permiso, grabación, whisper on-device, texto en el campo de la nota, en menos
-de 8 segundos (la primera vez tarda más porque descarga el modelo de 78 MB).
+**Fix — cuatro cosas (el SDK no expone `enable_thinking`):**
+1. `reasoning_budget: 0` en `generationParams` de `portero.ts` y `extractor.ts` (por request). Doc del schema `$strict`: `0` desactiva el canal de razonamiento.
+2. `/no_think` (tag exacto de Qwen3) al final del system prompt de portero y extractor — switch suave a nivel plantilla.
+3. **`predict` del extractor 80 → 512.** El 80 era copy-paste del portero; un tool call con cliente + N lotes + citas `evidencia` no entra en 80 tokens → JSON cortado → `safeParse` tira todo → 0 lotes. Este era el bug que quedaba DESPUÉS de apagar el thinking.
+4. **`device: 'gpu'` + `gpu_layers: 99` en `modelConfig`** (`qvac/pool.ts`). Sin esto `dev=cpu`, 0.5 tok/s, 3 min de inferencia. El plugin LLM de QVAC no aplica sus propios defaults de GPU. Con esto, Vulkan engancha en el Immortalis del Pixel 8 Pro.
 
-**El problema que apareció:** grabando sin hablar, whisper devolvió
-*"You remind me of the one who is on the other side."* quince veces, en
-inglés, dentro del campo que la persona después confirma como propio.
+**NO poner `reasoning_budget` en `modelConfig`** (load-time) → `Cannot read property 'reload' of undefined`. Va solo por request.
 
-Dos defensas ya aplicadas en las dos superficies:
+`apps/server/src/qvac/gateway.ts` tiene `reasoning_budget: 0` (ya usa `predict 512`) — confirmado, más la verificación de `/api/observar` de arriba. **Falta revisar** si `/no_think` hace falta también en `qvac/extract.ts` (el gateway ya alcanza para que el server extraiga, así que es refuerzo, no bloqueante). Typecheck y los 88 tests del server pasan (`npm install --ignore-scripts && npx tsc --noEmit && npm test`).
 
-1. **`prompt` inicial en castellano** con el vocabulario del dominio. El SDK no
-   expone parámetro de idioma (`transcribeParamsSchema` solo acepta `modelId`,
-   `prompt`, `metadata`, `audioChunk`), y sin pista whisper autodetecta.
-2. **Filtro de alucinación determinista**: si una misma frase ocupa la mayor
-   parte de la salida, no es una transcripción. Se descarta y se avisa que no
-   se escuchó voz.
+**Diagnóstico:** `diagModelo()` (`apps/mobile/src/pipeline/_diag.ts`) loguea al canal `[QUÓRUM·modelo]` por cada llamada: `think=N` (`>0` = razonó igual), `stop=length` (truncado), `dev=cpu|gpu`, `tok/s`, `promptTok`, `genTok`, `ttft`, y el texto crudo si no hubo tool call.
 
-**Lo que falta:** que alguien dicte de verdad. Yo no pude hablarle al teléfono,
-así que la calidad de la transcripción con voz real sigue sin medir. Es lo
-primero que hay que hacer antes de grabar el video.
+## ★ El dictado — funciona, falta probarlo con voz real
 
-## Notas de diagnóstico que costaron tiempo hoy
+**El flujo completo corre** en las dos superficies (Fase 11): permiso, grabación, whisper on-device, texto en el campo de la nota, en menos de 8 segundos (la primera vez tarda más porque descarga el modelo de 78 MB). Móvil con `expo-audio` (nunca `expo-av`, removido en SDK 54); escritorio reescrito con WebAudio → WAV PCM 16 kHz (`MediaRecorder` da webm/opus a 48 kHz y whisper espera PCM 16 kHz mono — medido, el mismo audio dio `" you"` como webm y la frase completa, 60 veces más rápido, como WAV).
 
-- **El APK instalado no es debuggable**, así que `run-as` falla y todo lo que
-  se consulte del sandbox de la app devuelve datos falsos (un listado de
-  modelos vacío me hizo creer que whisper no estaba descargado). Si hace falta
-  inspeccionar el sandbox, reinstalar un build debug.
-- **Los bounds de los controles se mueven** cuando crece el campo de texto: el
-  botón de dictado pasó de y=2041 a y=1900. Hay que leerlos del `uiautomator
-  dump` en cada paso, nunca reusar una coordenada.
-- **Una demora larga en el primer uso de un modelo es una DESCARGA**, no un
-  cuelgue. Se confirma en el log de la app:
-  `[QVACRegistryClient] Blob download complete`.
+**El problema que apareció, grabando SILENCIO:** whisper devolvió *"You remind me of the one who is on the other side."* quince veces, en inglés, dentro del campo que la persona después confirma como propio. Dos defensas ya aplicadas en las dos superficies:
 
-## (histórico) El extractor — el diagnóstico
+1. **`prompt` inicial en castellano** con el vocabulario del dominio. El SDK no expone parámetro de idioma (`transcribeParamsSchema` solo acepta `modelId`, `prompt`, `metadata`, `audioChunk`), y sin pista whisper autodetecta.
+2. **Filtro de alucinación determinista**: si una misma frase ocupa la mayor parte de la salida, no es una transcripción. Se descarta y se avisa que no se escuchó voz.
 
-**Síntoma:** el pipeline corre completo pero no produce ni un lote.
+**Lo que falta:** que alguien dicte de verdad. La calidad de la transcripción con voz real sigue sin medir — es lo primero que hay que hacer antes de grabar el video.
 
-**Causa, ya diagnosticada** instrumentando la respuesta cruda del modelo:
+## Notas de diagnóstico que costaron tiempo
 
-```
-toolCalls: []
-texto: "<think>\nOkay, let me try to figure out how to approach this..."
-```
-
-**Qwen3 arranca en modo *thinking*.** Gasta el presupuesto de tokens razonando en prosa y nunca llega a emitir el tool call. El modelo entiende la nota perfectamente: su razonamiento identifica el hospital, los dos MR NovaMed de siete años y el CT HelixCare nuevo. No es un problema del pipeline, ni del prompt, ni de la declaración de la tool (el bug #4 ya estaba corregido: se declara como JSON-schema plano, no como Zod).
-
-**Fix en verificación:** el SDK acepta `reasoning_budget` dentro de `generationParams`, junto a `temp`, `seed` y `predict` (ver `node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts`; el schema es `$strict`, así que solo entran esas claves). Con `reasoning_budget: 0` debería no razonar y emitir la llamada directo.
-
-Si funciona, aplicarlo en **los dos** lados:
-- `apps/server/src/qvac/gateway.ts:178` — `generationParams: { temp: 0, seed: 42, predict: ... }`
-- el equivalente en el pipeline de `apps/mobile`
-
-Y después volver a correr el end-to-end en el teléfono, que es lo que cierra el argumento del proyecto.
+- **El APK instalado no es debuggable**, así que `run-as` falla y todo lo que se consulte del sandbox de la app devuelve datos falsos (un listado de modelos vacío hizo creer que whisper no estaba descargado). Si hace falta inspeccionar el sandbox, reinstalar un build debug.
+- **Los bounds de los controles se mueven** cuando crece el campo de texto: el botón de dictado pasó de y=2041 a y=1900. Hay que leerlos del `uiautomator dump` en cada paso, nunca reusar una coordenada — lo mismo vale para coordenadas de `adb shell input tap`.
+- **Una demora larga en el primer uso de un modelo es una DESCARGA**, no un cuelgue. Se confirma en el log de la app: `[QVACRegistryClient] Blob download complete`.
 
 ## Cómo levantar la app en el teléfono
 

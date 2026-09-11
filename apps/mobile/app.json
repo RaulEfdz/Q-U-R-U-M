@@ -2,12 +2,13 @@
   "expo": {
     "name": "QUÓRUM",
     "slug": "qurum-mobile",
-    "version": "0.1.0",
+    "version": "0.4.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#f7f6f3",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false
     },
     "android": {
       "package": "io.qurum.mobile",
@@ -17,7 +18,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
+      "predictiveBackGestureEnabled": true,
       "versionCode": 1
     },
     "web": {

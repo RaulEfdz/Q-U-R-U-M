@@ -6,6 +6,7 @@ import { obtener, MODELOS } from '../qvac/pool.ts';
 import { nuevoId } from '../core/ids.ts';
 import { zObservacion, zRangoEdad, type Observacion } from '../core/contracts.ts';
 import { normalizarModalidad, detectarHedging, inferirNaturaleza } from '../trust/normalize.ts';
+import { diagModelo } from './_diag.ts';
 
 /* ═══════════════════════════════════════════════════════════════════════
  * Forma que devuelve el MODELO (validada con zExtraccion, nuestro zod).
@@ -259,25 +260,37 @@ export async function extraer(
     const run = completion({
       modelId,
       history: [
-        { role: 'system', content: SISTEMA },
+        // `/no_think`: switch suave entrenado de Qwen3 (el tag exacto). Hace
+        // que NO emita bloque `<think>…</think>`. Va junto a
+        // `reasoning_budget: 0` de abajo — dos mecanismos independientes (uno
+        // a nivel plantilla, el otro a nivel addon Bare); la fuente ya se
+        // quemó una vez con Qwen3 razonando en vez de llamar la tool.
+        { role: 'system', content: `${SISTEMA}\n\n/no_think` },
         { role: 'user', content: nota },
       ],
       stream: false,
       tools: [TOOL_EXTRACTOR],
       /*
-       * ★ Dos correcciones sobre el valor del doc maestro, y las dos hacen
-       * falta para que el extractor extraiga:
+       * ★ Dos correcciones, y las dos hacen falta para que el extractor
+       * extraiga — era EL bloqueante del proyecto:
        *
-       * 1. `reasoning_budget: 0` apaga el modo *thinking* de Qwen3. Con el
-       *    thinking activo el modelo razonaba en prosa dentro de un `<think>`
-       *    y nunca emitía el tool call — `toolCalls` volvía vacío y la nota
-       *    terminaba como `POSIBLE_OMISION_EXTRACTOR` con una pregunta al
-       *    usuario, en vez de con los lotes que el modelo SÍ había entendido.
+       * 1. `reasoning_budget: 0` apaga el modo *thinking* de Qwen3 1.7B. Con
+       *    el thinking activo el modelo razona en prosa dentro de un
+       *    `<think>` (`"Okay, let me try to figure out…"`) y nunca emite el
+       *    tool call — `toolCalls` vuelve vacío y la nota termina como
+       *    `POSIBLE_OMISION_EXTRACTOR` con una pregunta al usuario, en vez de
+       *    con los lotes que el modelo SÍ había entendido. Doc del schema:
+       *    `0` desactiva el canal de razonamiento por request; `$strict`,
+       *    verificado contra
+       *    node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts.
        *
-       * 2. `predict: 80` era el valor del doc y es para el PORTERO, que
-       *    responde un sí/no. El extractor tiene que devolver un array de
-       *    lotes con `evidencia` literal por cada uno: 80 tokens se agotan a
-       *    mitad del primer lote y el JSON llega truncado.
+       * 2. `predict: 512` (no 80): el 80 es el valor del PORTERO, que
+       *    responde un sí/no y le sobra — copiado acá por error. El
+       *    extractor emite un tool call con cliente + N lotes, cada uno con
+       *    su cita `evidencia` literal: 80 tokens se agotan a mitad del
+       *    primer lote, el JSON llega truncado y `safeParse` tira TODO. 512
+       *    iguala el default del server (`gateway.ts`); `ctx_size` del
+       *    extractor es 2048, así que entra con el prompt.
        */
       generationParams: { temp: 0, seed: 42, predict: 512, reasoning_budget: 0 },
     });
@@ -292,6 +305,7 @@ export async function extraer(
 
   const call = final.toolCalls?.find((c) => c.name === 'extraer');
   const p = zExtraccion.safeParse(call?.arguments);
+  diagModelo('extractor', final, !p.success);
   if (!p.success) return [];
 
   return aObservaciones(p.data, nota, ctx);

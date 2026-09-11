@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { CampoResuelto, EstadoCampo } from '../../core/contracts.ts';
 import { color, espacio, radio, tipografia } from '../theme.ts';
@@ -39,7 +40,7 @@ function textoFrescura(campo: CampoResuelto<unknown>): string | null {
  * del proyecto — el sistema no promedia ni elige, muestra ambas y quién
  * dijo cada una. Esconderla la convertiría en un detalle.
  */
-export function FilaCampo({
+export const FilaCampo = memo(function FilaCampo({
   nombre, campo, testigos, sangrada = false,
 }: {
   nombre: string;
@@ -61,8 +62,12 @@ export function FilaCampo({
       esConflicto && estilos.filaConflicto,
     ]}>
       <View style={estilos.cabecera}>
-        <Text style={[estilos.nombre, sangrada && estilos.nombreSangrado]}>{nombre}</Text>
-        <Text style={estilos.valor}>{esConflicto ? 'en disputa' : valor}</Text>
+        <Text style={[estilos.nombre, sangrada && estilos.nombreSangrado]} numberOfLines={1}>
+          {nombre}
+        </Text>
+        <Text style={estilos.valor} numberOfLines={2}>
+          {esConflicto ? 'en disputa' : valor}
+        </Text>
       </View>
 
       <View style={estilos.meta}>
@@ -94,11 +99,11 @@ export function FilaCampo({
       )}
     </View>
   );
-}
+});
 
 /** Igual que `FilaCampo` pero para una cohorte (H-02): el valor lo compone
  *  la pantalla (`2 uds · 7–8 años`), no sale de un `CampoResuelto`. */
-export function FilaCohorte({
+export const FilaCohorte = memo(function FilaCohorte({
   valor, estado, cantidadObservadores, anioInstalacion,
 }: {
   valor: string;
@@ -109,8 +114,8 @@ export function FilaCohorte({
   return (
     <View style={[estilos.fila, estilos.filaSangrada, { borderLeftColor: colorEstado(estado) }]}>
       <View style={estilos.cabecera}>
-        <Text style={[estilos.nombre, estilos.nombreSangrado]}>— cohorte</Text>
-        <Text style={estilos.valor}>{valor}</Text>
+        <Text style={[estilos.nombre, estilos.nombreSangrado]} numberOfLines={1}>— cohorte</Text>
+        <Text style={estilos.valor} numberOfLines={2}>{valor}</Text>
       </View>
       <View style={estilos.meta}>
         <InsigniaQuorum estado={estado} />
@@ -121,7 +126,7 @@ export function FilaCohorte({
       </View>
     </View>
   );
-}
+});
 
 const estilos = StyleSheet.create({
   fila: {
@@ -133,7 +138,9 @@ const estilos = StyleSheet.create({
   filaSangrada: { backgroundColor: color.superficieHundida },
   filaConflicto: { backgroundColor: color.sinQuorumFondo },
   cabecera: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: espacio.sm },
-  nombre: { ...tipografia.etiqueta, color: color.texto },
+  // El nombre del campo no se achica: si algo tiene que truncar es el valor
+  // (que además se puede editar en la pantalla de confirmación).
+  nombre: { ...tipografia.etiqueta, color: color.texto, flexShrink: 0 },
   nombreSangrado: { color: color.textoTenue },
   // `fontVariant` tabular: las columnas de cifras se alinean entre filas.
   valor: {
