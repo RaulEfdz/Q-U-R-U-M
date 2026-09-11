@@ -47,13 +47,13 @@ Hay trabajo de demostración y validación real que no debe maquillarse como ter
 
 | Componente | Versión | Fecha |
 |---|---|---|
-| Monorepo | **v0.4.1** | 2026-09-10 |
-| `apps/server` | v0.4.1 | 2026-09-10 |
+| Monorepo | **v0.5.0** | 2026-09-11 |
+| `apps/server` | v0.5.0 | 2026-09-11 |
 | `apps/mobile` | v0.4.1 | 2026-09-10 |
 
-Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las nueve rutas de la API y las cuatro pantallas de escritorio en 127.0.0.1; `apps/mobile` arranca en un Pixel 7 con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`.
+Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las rutas de la API y **seis** pantallas de escritorio en 127.0.0.1 (sumó Conexiones); `apps/mobile` arranca en un Pixel 7 con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`. Técnicas propias que valen como punto de pitch, no solo como fix: `docs/FUNCIONALIDADES_RESCATABLES.md`.
 
-**Lo que todavía no está probado:** el dictado por voz funciona de punta a punta y transcribe en menos de 8 segundos, pero solo se verificó grabando silencio. Falta que una persona dicte una nota real. Y el build de release, que es lo que hace falta para la demo sin WiFi, nunca llegó a compilar. Ver `CONTINUAR.md`.
+**Lo que todavía no está probado:** el build de release de mobile, que es lo que hace falta para la demo sin WiFi, nunca llegó a compilar. Ver `CONTINUAR.md`. El dictado de escritorio sí quedó probado con voz real esta sesión (no solo silencio): ver v0.5.0 abajo.
 
 Esquema de versionado: `MAJOR.MINOR.PATCH`. Mientras no exista código, `MINOR` sube con cada revisión de diseño que cambia decisiones; `PATCH` con correcciones puntuales de documentación. La versión de cada app vive en la cabecera de su `CLAUDE.md`.
 
@@ -154,14 +154,16 @@ Variables de entorno, **todas opcionales** (`apps/server/src/index.ts`):
 | `QUORUM_PEER_PUBKEY` | — | peer al que delegar inferencia |
 | `BOOTSTRAP` | — | nodos DHT `host:puerto`, separados por coma |
 
-Las cuatro pantallas, en la barra de navegación:
+Las seis pantallas, en la barra de navegación (los módulos que las pintan viven en `apps/server/ui/`, nombrados en inglés — `capture.js`, `client.js`, `overview.js`, `audit.js`, `connections.js`, `how-it-works.js`):
 
-| Pantalla | Qué se ve |
-|---|---|
-| **Capturar** | un campo de texto grande, `Dictar` (el navegador solo **graba** con `MediaRecorder`; transcribe whisper local vía `/api/transcribir`) e `Interpretar`. Lo extraído aparece abajo como «Revisá antes de guardar», **editable**, con `Sí, es correcto — guardar` y `Descartar`. Nada toca el disco hasta ese botón. |
-| **Cliente 360** | la reconciliación agrupada por cliente: confianza **por campo**, `Sin quórum` mostrando todas las versiones en conflicto y quién sostiene cada una (nunca un promedio), cohortes de edad como composición y frescura como eje aparte. |
-| **Panorama** | KPIs, distribución por país y modalidad en barras, candidatos a duplicado con su nota de revisión humana, la consulta en lenguaje natural (`/api/consultar` — el modelo solo traduce la pregunta a un filtro; el filtro lo corre código determinista) y `Exportar CSV (esquema del workbook, 19 columnas)`. |
-| **Auditoría** | la cadena de hashes con su botón `Verificar integridad`, y cada llamada de inferencia con su `delegado` a la vista. |
+| Pantalla | Módulo | Qué se ve |
+|---|---|---|
+| **Capturar** | `capture.js` | un campo de texto grande, `Dictar` (WebAudio graba WAV 16 kHz; transcribe whisper local vía `/api/transcribir`, **por fragmentos de 20 s mientras se sigue grabando** — no espera a que termines de hablar) e `Interpretar`, que solo aparece con nota real. Lo extraído aparece abajo como «Revisá antes de guardar», **editable** con validación visible, con `Sí, es correcto — guardar`, `Volver a editar` y `Descartar`. Nada toca el disco hasta confirmar. |
+| **Cliente 360** | `client.js` | la reconciliación agrupada por cliente: confianza **por campo**, `Sin quórum` mostrando todas las versiones en conflicto y quién sostiene cada una (nunca un promedio), cohortes de edad como composición y frescura como eje aparte. |
+| **Inteligencia** | `overview.js` | KPIs, la Intelligence Layer (posible renovación, requiere verificación, base instalada en disputa, información crítica faltante — cada una con puntaje desglosado y evidencia), distribución por país y modalidad, candidatos a duplicado, la consulta en lenguaje natural (`/api/consultar` — el modelo solo traduce a un filtro; el filtro lo corre código determinista, con testigos y frescura en el resultado) y `Exportar CSV`. |
+| **Auditoría** | `audit.js` | la cadena de hashes con `Verificar integridad` (ya no pierde el scroll al reclickear), cada llamada de inferencia con su `delegado` a la vista, y la cola de revisión de testimonios P2P. |
+| **Conexiones** | `connections.js` | detalle por dispositivo P2P — conectado o no, `dispositivoId`/`observadorId`, primer y último contacto — no solo el conteo del sidebar. |
+| **Cómo funciona** | `how-it-works.js` | los estados y el flujo del motor, con diagramas SVG propios. |
 
 ### Sembrar los datos de demo (server)
 
@@ -245,7 +247,7 @@ Esperado: `RESULTADO: 7/7 controles en verde` y exit 0. Sin red, el control 6 no
 ### Correr los tests y el typecheck
 
 ```bash
-cd apps/server && npm run test:ci                  # typecheck + 102 tests + verify:no-cloud
+cd apps/server && npm run test:ci                  # typecheck + 113 tests + verify:no-cloud
 cd ../mobile   && npx tsc --noEmit                 # esperado: exit 0
 ```
 
@@ -266,6 +268,26 @@ Para chequear que los diez archivos del núcleo compartido siguen idénticos ent
 ---
 
 ## Historial de cambios
+
+### v0.5.0 — 2026-09-11
+
+Bug del dictado resuelto, procesamiento continuo en vez de esperar al final, Intelligence Layer, y el sync P2P deja de ser una promesa para volverse observable.
+
+**El dictado no transcribía nada.** `CONFIG_ASR` mandaba `no_speech_thold`, una clave que no existe en `whisperConfigSchema` de `@qvac/sdk` 0.18.2 (`modelConfig` valida con `z.core.$strict`) — cada intento de dictar terminaba en 500. Corregido en las dos apps (server y mobile comparten el mismo bloque a propósito).
+
+**Dictado por fragmentos.** Antes: grabar todo, después esperar todo. Ahora el audio se corta cada 20 s mientras se sigue grabando, cada fragmento se transcribe apenas se corta, y el texto entra a la nota en cuanto vuelve — con chips visibles por fragmento (`transcribiendo…`/`transcrito`/`sin voz`/`no se pudo`). Para cuando se toca «Detener» después de dictar varios minutos, casi toda la nota ya está transcrita. Documentado como técnica propia de pitch, con guía de portado a mobile, en `docs/FUNCIONALIDADES_RESCATABLES.md`.
+
+**Intelligence Layer** (`src/intelligence/central.ts`): proyecciones recalculables sobre los testimonios confirmados — posible renovación por antigüedad, dato que requiere verificación por frescura, base instalada en disputa, información crítica faltante — cada una con puntaje desglosado y evidencia. No reescribe evidencia ni persiste conclusiones.
+
+**El sync P2P se puede ver, no solo declarar.** Antes el conteo de peers conectados (`pares()`) existía en el transporte y nada lo mostraba. Ahora: chip «● N dispositivos sincronizando» en vivo en el sidebar, y una pantalla nueva, **Conexiones**, con el detalle por dispositivo (conectado o no, `dispositivoId`/`observadorId`, primer y último contacto). El inbox de revisiones P2P pasó de efímero a persistente en disco. Documentado en `apps/server/SYNC_P2P.md` y `SYNC_P2P_MOBILE_CONTRACT.md` (protocolo `hello`/lote/ACK, idempotencia, checklist exacto para portar a mobile).
+
+**Bug real en Cliente 360, no solo ajuste visual.** Un `<td>` con `class="quienes"` tenía `display: flex` puesto directo en la celda — eso rompe `table-layout: fixed` en varios navegadores y hacía que «Quién lo sostiene» apareciera comprimido y superpuesto con la columna vecina en el layout de dos columnas. El flex ahora vive en un `<div>` adentro del `<td>`, nunca en el `<td>` mismo.
+
+**Ocho arreglos de usabilidad** (heurísticas de Nielsen Norman Group + Apple HIG): Interpretar y su atajo solo aparecen con nota real; el panel de revisión oculta el composer y suma «Volver a editar»; el foco se mueve al panel al abrir (antes un lector de pantalla no se enteraba); la consulta en lenguaje natural bloquea/cancela en vez de permitir requests concurrentes; «Verificar integridad» ya no pierde el scroll; hash y detalle expandibles por teclado; un conflicto nuevo se anima igual que el ascenso a quórum; sidebar `sticky`.
+
+**Los 8 módulos de `apps/server/ui/` se renombraron a inglés**: `capturar.js→capture.js`, `cliente.js→client.js`, `panorama.js→overview.js`, `auditoria.js→audit.js`, `comofunciona.js→how-it-works.js`, `estados.js→states.js`, `errores.js→errors.js`, `ayuda.js→help.js`. `app.js`/`dom.js` ya eran inglés.
+
+**102 → 113 tests.** Typecheck limpio en todo momento durante la sesión.
 
 ### v0.4.1 — 2026-09-10
 

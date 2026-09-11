@@ -5,6 +5,24 @@
 > El arco narrativo y la estrategia de pitch están en `QUORUM_documento_unico.md` §IV.3 y §VI. Este archivo no los repite: los baja a acciones concretas sobre el producto que existe hoy, y marca lo que **no** se puede afirmar en cámara.
 >
 > Verificado el 2026-09-10 contra el sistema corriendo. Las cifras de abajo son medidas, no estimadas.
+>
+> **Actualización 2026-09-11**, sin re-verificar los tiempos del guion: hay features nuevas que no estaban cuando se escribió esto abajo. Ver la sección 0b inmediatamente siguiente para decidir qué entra y qué se deja para la ronda de preguntas.
+
+---
+
+## 0b · Qué cambió desde que se escribió este guion — mapeado al criterio del jurado
+
+Rúbrica real (`QUORUM_documento_unico.md` §III.3-III.4): **Technical 35% · Innovation 25% · Impact 20% · Design 10% · Completion 10%**. Nada de esto obliga a regrabar — es una lista de qué vale la pena mencionar o mostrar si hay aire, ordenada por el peso del criterio al que suma. Detalle completo en `docs/FUNCIONALIDADES_RESCATABLES.md`.
+
+| Qué es nuevo | Suma a | Dónde mencionarlo sin romper el ritmo |
+|---|---|---|
+| **Dictado por fragmentos**: transcribe cada 20 s mientras seguís grabando, no espera a que termines de hablar. Chips visibles por fragmento. | Technical + Design | Bloque 3: en vez de «Transcribiendo on-device con whisper…» una sola vez, se ven los chips aparecer en fila mientras seguís hablando. Frase lista: *"No espera a que termine de hablar para empezar a pensar."* |
+| **Intelligence Layer**: prioridades explicables (renovación, verificación, disputa, información faltante) con puntaje desglosado y evidencia — no un dashboard de conteos. | Innovation + Impact | Bloque 7 (adopción): reemplaza o complementa la mención de «Oportunidad de renovación» — ahora es una pantalla entera, no una insignia suelta. |
+| **Conexiones**: pantalla nueva con el detalle por dispositivo P2P (no solo un conteo). | Technical + Completion | Bloque 6 (por qué esto es local): si el sync P2P funciona en la sala, mostrar esta pantalla es más fuerte que el chip solo — es prueba de QUIÉN está sincronizando, no solo cuántos. |
+| **Bug real corregido en Cliente 360** (`display:flex` en un `<td>` rompía el ancho de columna — no un ajuste cosmético). | Design | No mencionar en el video — es trabajo de calidad, no una demo. Vale para responder si el jurado pregunta por el proceso de QA. |
+| **8 arreglos de usabilidad** (Nielsen/HIG): foco al abrir revisión, validación visible, «Volver a editar», etc. | Design | Se nota solo si el jurado interactúa con el producto después — no hace falta narrarlo en los 5 minutos. |
+
+**Nada de esto reemplaza el bloque 4 (el quórum).** Sigue siendo el que más pesa: Technical + Innovation + Impact = 80% del puntaje, y es el único bloque del que no se recorta un segundo (§10 de este documento).
 
 ---
 
@@ -101,6 +119,8 @@ bash scripts/verify-no-cloud.sh      # → RESULTADO: 7/7 controles en verde
 
 **Contingencia:** si whisper devuelve vacío o alucina (modo de falla conocido del modelo con audio corto), el sistema muestra «La transcripción vino vacía» y **no** inventa texto. Si pasa en la toma: escribir la nota a mano y decir *«también se puede escribir»*. No regrabar por esto — el pipeline es el mismo.
 
+**Nota 2026-09-11 — dictado por fragmentos:** si la nota se dicta de un tirón sin pausas largas (>20 s), esto se ve igual que el guion de arriba. Si se dicta más largo, van a aparecer chips «Fragmento 1 · transcrito», «Fragmento 2 · transcrito»… mientras se sigue hablando, antes de tocar «Detener» — es la prueba visual de que no se espera a que termine de hablar para empezar a procesar (ver §0b). Opcional: señalarlo con una frase corta si entra en el tiempo, no vale regrabar el bloque solo por esto.
+
 ---
 
 ## 4 · 1:40–2:45 · ★ El quórum. El bloque que decide el video
@@ -135,7 +155,7 @@ bash scripts/verify-no-cloud.sh      # → RESULTADO: 7/7 controles en verde
 
 **Acciones:**
 
-1. Ir a **Panorama**, bloque «Consultar en lenguaje natural».
+1. Ir a **Inteligencia** (antes «Panorama», mismo bloque), «Consultar en lenguaje natural».
 2. Escribir una pregunta inocente: `clientes en Panamá con resonadores de más de siete años`.
 3. Enter. Aparece la **banda roja: ACCIÓN DENEGADA POR POLÍTICA**, con herramienta, `policyId@versión`, razón y `traceId`.
 4. Ir a **Auditoría** y mostrar la entrada `policy:deny` en la cadena, encadenada por hash.
@@ -184,7 +204,7 @@ bash scripts/verify-no-cloud.sh      # → RESULTADO: 7/7 controles en verde
 
 **Acciones:**
 
-1. **Panorama**: los KPIs, las barras por país y por modalidad, y el bloque de **posibles duplicados de cliente** con su nota de «revisión humana requerida».
+1. **Inteligencia** (antes «Panorama»): los KPIs, y ahora la Intelligence Layer — prioridades explicables con puntaje desglosado y evidencia (posible renovación, requiere verificación, disputa, información faltante), más las barras por país/modalidad y el bloque de **posibles duplicados de cliente** con su nota de «revisión humana requerida».
 2. **Cliente 360**: una ficha con **↻ Oportunidad de renovación**.
 3. Clic en **Exportar CSV** y abrir el archivo: el esquema exacto de 19 columnas, con `Observation ID`, `Confidence` y `Status`.
 
@@ -213,6 +233,8 @@ bash scripts/verify-no-cloud.sh      # → RESULTADO: 7/7 controles en verde
 | La pantalla de Auditoría con la cadena larga | Prueba de integridad sin depender del tiempo |
 | Captura escrita a mano (sin dictado) | Si el micrófono o whisper falla en la sala |
 | Cómo funciona, los 5 diagramas | Relleno de valor si sobra tiempo en algún bloque |
+| Pantalla **Conexiones**, con el sync P2P activo en la sala | Prueba de Completion: no solo un chip de conteo, el detalle por dispositivo |
+| Dictado largo (>20 s) mostrando los chips de fragmento aparecer en vivo | Prueba de Technical: procesamiento continuo, no solo transcripción on-device |
 
 ---
 
