@@ -229,6 +229,20 @@ Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no 
 2. **Cliente 360**: una ficha con **↻ Oportunidad de renovación**.
 3. Clic en **Exportar CSV** y abrir el archivo: el esquema exacto de 19 columnas, con `Observation ID`, `Confidence` y `Status`.
 
+**Punto importante para decir y mostrar (despliegue distribuido):**
+
+**Acciones:**
+
+1. Volver a **Cómo funciona → Conexión offline: cuándo viaja la información**.
+2. Señalar el diagrama: celular offline → cola local → Internet/VPN/LAN → Hyperswarm + Noise → servidor central → ACK.
+3. Señalar la nota de despliegue: el peer central puede vivir en una laptop, Azure, Google Cloud, AWS u otro host persistente.
+
+**Se dice:**
+
+> El teléfono no necesita estar conectado todo el tiempo. El trabajador puede capturar en Panamá sin señal; el modelo local estructura la nota, la persona confirma y el celular la conserva. Cuando vuelve Internet, el dispositivo encuentra por P2P al servidor central, aunque esté desplegado en Azure, Google Cloud o cualquier host persistente compatible con Node. Envía solo la observación estructurada confirmada, recibe un ACK por cada resultado y conserva lo que deba reintentar.
+>
+> Esta es una arquitectura preparada para un servidor central remoto, no una promesa de que cualquier proveedor cloud ya fue probado en vivo. Nuestra evidencia comprobada es el flujo Pixel 8 Pro ↔ servidor local; para producción todavía hay que configurar red, volumen persistente, allowlist y operación de la instancia cloud.
+
 **Se dice:**
 
 > El vendedor abre QUÓRUM **antes** de su próxima visita: qué hay instalado, qué tan viejo es, qué falta confirmar y dónde hay una oportunidad de renovación.
