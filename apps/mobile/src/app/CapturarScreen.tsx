@@ -161,7 +161,13 @@ export default function CapturarScreen() {
       <ConfirmacionBorrador
         salida={vista.salida}
         nota={vista.nota}
-        onVolver={() => setVista({ paso: 'capturar' })}
+        // Volver a editar la nota: se limpia la traza del pipeline. Sin esto,
+        // Capturar mostraba el panel con la corrida ANTERIOR (que terminó bien,
+        // llegó a la revisión) titulado "Se cortó a mitad" — el título de la
+        // rama de error. La traza vieja además es de una nota que estás por
+        // cambiar. El panel de "Se cortó a mitad" sigue apareciendo cuando la
+        // interpretación falla de verdad (el `catch` de `interpretar`).
+        onVolver={() => { setPasos([]); setVista({ paso: 'capturar' }); }}
         onConfirmado={(r) => setVista({ paso: 'confirmado', ...r })}
       />
     );
