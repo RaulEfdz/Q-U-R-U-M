@@ -268,6 +268,7 @@ Dos cosas a tener en cuenta:
 
 - El store es **append-only con dedup por `id`**, pero el comando de arriba **sobrescribe** el archivo. Si ya tenés observaciones capturadas y querés sumar el seed en vez de reemplazarlo, usá `>>`.
 - `data/` es ruta **relativa al cwd**: tanto el comando como `npm start` tienen que correrse desde `apps/server`.
+- `cargar()` (`src/store/observations.ts`) cachea el JSONL en memoria en la primera lectura y no lo vuelve a releer — a propósito, para no releer disco en cada request. **Si el server ya estaba arriba y ya abriste el navegador antes de correr el comando de arriba, ese primer request dejó la caché en vacío y el seed recién escrito no va a aparecer.** Reiniciá el server (`Ctrl+C`, `npm start`) después de sembrar, o sembrá antes del primer `npm start`.
 
 Con el server arriba, para comprobar que el motor las está leyendo:
 
