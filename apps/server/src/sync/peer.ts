@@ -17,8 +17,11 @@ import Hyperswarm from 'hyperswarm';
 import type { PeerSocket } from 'hyperswarm';
 import { createHash } from 'node:crypto';
 import { zObservacion, type Observacion } from '../core/contracts.ts';
-import { agregar, cargar } from '../store/observations.ts';
+import { cargar } from '../store/observations.ts';
 import { registrarAuditoria } from '../store/audit.ts';
+import { encolarRevisionPeer, idsObservacionesPendientes } from '../store/revisiones-peer.ts';
+import { registrarConexion, registrarDesconexion, registrarActividad } from '../store/dispositivos.ts';
+import { nuevoId } from '../core/ids.ts';
 
 const TOPIC = createHash('sha256').update('quorum/base-instalada/v1').digest();
 
@@ -106,6 +109,15 @@ export interface IniciarSyncOptions {
   allowlist: string[];
   bootstrap?: Array<{ host: string; port: number }>;
   onCambio?: (n: number) => void;
+  /**
+   * Se dispara cada vez que cambia la cantidad de peers CONECTADOS ahora
+   * mismo (no el tamaño de la allowlist, que es estático). Es lo que le
+   * faltaba al pendiente #5 de `SYNC_P2P.md` ("estado de sync visible en la
+   * UI"): antes `pares()` existía pero nada lo leía ni lo empujaba afuera de
+   * este módulo — un dispositivo se conectaba o se caía y la interfaz nunca
+   * se enteraba.
+   */
+  onParesCambio?: (n: number) => void;
 }
 
 export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle> {
@@ -129,14 +141,15 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
     }
 
     pares++;
+    opts.onParesCambio?.(pares);
+    registrarConexion(clave.slice(0, 16));
     void registrarAuditoria({
       traceId: 'sync', accion: 'sync:peer-aceptado',
       detalle: { clave: clave.slice(0, 16) },
     });
 
-    void enviarPropias(socket);
-
     const acumulador = crearAcumuladorLineas();
+    const sesion: SesionSync = {};
     socket.on('data', (chunk: Buffer) => {
       const { lineas, excedido } = acumulador.alRecibir(chunk);
 
@@ -156,11 +169,15 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
         return;
       }
 
-      void procesarLineas(lineas, clave, opts.onCambio);
+      void procesarLineas(lineas, clave, opts.onCambio, (mensaje) => {
+        socket.write(JSON.stringify(mensaje) + '\n');
+      }, sesion);
     });
 
     socket.on('close', () => {
       pares--;
+      opts.onParesCambio?.(pares);
+      registrarDesconexion(clave.slice(0, 16));
     });
     socket.on('error', () => {
       // conexión ruidosa de un peer no debe tumbar el proceso de sync.
@@ -177,9 +194,9 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
   };
 }
 
-async function enviarPropias(socket: PeerSocket): Promise<void> {
-  const propias = await cargar();
-  socket.write(JSON.stringify({ tipo: 'observaciones', datos: propias }) + '\n');
+export interface SesionSync {
+  dispositivoId?: string;
+  observadorId?: string;
 }
 
 /**
@@ -190,35 +207,131 @@ async function enviarPropias(socket: PeerSocket): Promise<void> {
  * y saltarse el spotlighting (`context/spotlight.ts`) antes de llegar a
  * cualquier modelo.
  */
-async function procesarLineas(
+export async function procesarLineas(
   lineas: string[], clave: string, onCambio?: (n: number) => void,
+  responder?: (mensaje: MensajeSalidaSync) => void,
+  sesion?: SesionSync,
 ): Promise<void> {
   for (const linea of lineas) {
     if (!linea.trim()) continue;
 
-    let mensaje: { tipo?: string; datos?: unknown[] };
+    let mensaje: MensajeEntradaSync;
     try {
-      mensaje = JSON.parse(linea) as { tipo?: string; datos?: unknown[] };
+      mensaje = JSON.parse(linea) as MensajeEntradaSync;
     } catch {
       continue; // línea corrupta o hostil: se descarta, no rompe el socket
     }
+    if (mensaje.tipo === 'hello') {
+      if (mensaje.versionProtocolo !== 1 || !mensaje.dispositivoId || !mensaje.observadorId) continue;
+      if (sesion) {
+        sesion.dispositivoId = mensaje.dispositivoId;
+        sesion.observadorId = mensaje.observadorId;
+      }
+      registrarActividad(clave.slice(0, 16), {
+        dispositivoId: mensaje.dispositivoId, observadorId: mensaje.observadorId,
+      });
+      responder?.({
+        tipo: 'hello_ack', versionProtocolo: 1,
+        servidorId: 'quorum-central', sesionId: nuevoId(),
+      });
+      continue;
+    }
     if (mensaje.tipo !== 'observaciones' || !Array.isArray(mensaje.datos)) continue;
 
+    const loteV1 = mensaje.versionProtocolo === 1 && typeof mensaje.loteId === 'string';
+    const loteId = loteV1 ? mensaje.loteId! : undefined;
+    if (loteV1 && sesion && (
+      !sesion.dispositivoId || !sesion.observadorId ||
+      mensaje.dispositivoId !== sesion.dispositivoId
+    )) {
+      responder?.({
+        tipo: 'ack', versionProtocolo: 1, loteId: loteId!,
+        recibidas: [], duplicadas: [],
+        rechazadas: mensaje.datos.map((d) => ({
+          id: typeof d === 'object' && d !== null && 'id' in d && typeof d.id === 'string' ? d.id : 'sin-id',
+          motivo: 'IDENTIDAD_DE_SESION_INVALIDA',
+        })),
+      });
+      continue;
+    }
+    const almacenadas = new Set((await cargar()).map((o) => o.id));
+    const pendientes = idsObservacionesPendientes();
+
     const validas: Observacion[] = [];
+    const duplicadas: string[] = [];
+    const rechazadas: Array<{ id: string; motivo: string }> = [];
     for (const d of mensaje.datos) {
       const p = zObservacion.safeParse(d);
-      if (!p.success) continue; // input hostil que no matchea el contrato: fuera
+      if (!p.success) {
+        const id = typeof d === 'object' && d !== null && 'id' in d && typeof d.id === 'string'
+          ? d.id : 'sin-id';
+        rechazadas.push({ id, motivo: 'CONTRATO_INVALIDO' });
+        continue;
+      }
+      if (loteV1 && sesion && (
+        p.data.dispositivoId !== sesion.dispositivoId ||
+        p.data.observadorId !== sesion.observadorId
+      )) {
+        rechazadas.push({ id: p.data.id, motivo: 'IDENTIDAD_DE_SESION_INVALIDA' });
+        continue;
+      }
+      if (almacenadas.has(p.data.id) || pendientes.has(p.data.id)) {
+        duplicadas.push(p.data.id);
+        continue;
+      }
       validas.push({ ...p.data, origen: 'peer' }); // ★ marcado untrusted, siempre
     }
-    if (!validas.length) continue;
-
-    const n = await agregar(validas);
-    if (n > 0) {
-      await registrarAuditoria({
-        traceId: 'sync', accion: 'sync:observaciones-recibidas',
-        detalle: { clave: clave.slice(0, 16), nuevas: n },
+    if (!validas.length) {
+      if (loteId) responder?.({
+        tipo: 'ack', versionProtocolo: 1, loteId,
+        recibidas: [], duplicadas, rechazadas,
       });
-      onCambio?.(n);
+      continue;
     }
+
+    // Primera vez que se sabe QUIÉN es este peer más allá de su clave: el
+    // registro de dispositivos se enriquece con lo que trae la propia
+    // observación (dato de peer, por eso solo se guarda para mostrar en la
+    // UI — nunca decide confianza ni quórum, eso es trabajo exclusivo de
+    // `trust/reconcile.ts` sobre la Observacion ya persistida).
+    registrarActividad(clave.slice(0, 16), {
+      dispositivoId: validas[0]!.dispositivoId, observadorId: validas[0]!.observadorId,
+    });
+
+    // Un peer puede entregar testimonios, pero ni su allowlist ni Zod son una
+    // confirmación humana. Se mantienen fuera de observations.jsonl hasta que
+    // una persona los revise desde la interfaz local.
+    const revisionId = nuevoId();
+    encolarRevisionPeer({
+      id: revisionId, clavePeer: clave.slice(0, 16), observaciones: validas,
+      recibidoEn: new Date().toISOString(),
+    });
+    await registrarAuditoria({
+      traceId: revisionId, accion: 'sync:revision-pendiente',
+      detalle: { clave: clave.slice(0, 16), testimonios: validas.length },
+    });
+    if (loteId) responder?.({
+      tipo: 'ack', versionProtocolo: 1, loteId,
+      recibidas: validas.map((o) => o.id), duplicadas, rechazadas, revisionId,
+    });
+    onCambio?.(0);
   }
 }
+
+type MensajeEntradaSync = {
+  tipo?: string;
+  versionProtocolo?: number;
+  dispositivoId?: string;
+  observadorId?: string;
+  loteId?: string;
+  datos?: unknown[];
+};
+
+export type MensajeSalidaSync =
+  | { tipo: 'hello_ack'; versionProtocolo: 1; servidorId: string; sesionId: string }
+  | {
+    tipo: 'ack'; versionProtocolo: 1; loteId: string;
+    recibidas: string[]; duplicadas: string[];
+    rechazadas: Array<{ id: string; motivo: string }>;
+    revisionId?: string;
+  };

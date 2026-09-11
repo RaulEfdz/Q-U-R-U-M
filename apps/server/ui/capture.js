@@ -1,5 +1,5 @@
 /**
- * capturar.js — pantalla 1. Debe transmitir VELOCIDAD (§B.2): un campo
+ * capture.js — pantalla 1. Debe transmitir VELOCIDAD (§B.2): un campo
  * grande, cero formularios. Los campos extraídos aparecen como
  * CONFIRMACIÓN, no como formulario a rellenar — pero son EDITABLES, porque
  * H-03 promete «confirma, corrige o descarta» (corrección obligatoria #14
@@ -19,7 +19,7 @@
  * el control de cumplimiento es un grep automatizado.
  */
 import { $, h, api, pintar, formatearValor, icono, error, testimonios } from './dom.js';
-import { explicar } from './errores.js';
+import { explicar } from './errors.js';
 
 /*
  * VOCABULARIO CONTROLADO de modalidad — copia literal de `MODALIDADES` en
@@ -104,6 +104,25 @@ function selectorVocabulario(obs, def, original) {
   return select;
 }
 
+/**
+ * ¿Hay algún campo marcado inválido en el panel de revisión ahora mismo?
+ *
+ * Antes de este cambio, un valor fuera de rango solo ponía un borde rojo:
+ * sin texto, sin `aria-invalid`, y la corrección NO se mandaba — nada le
+ * avisaba al usuario que su edición se había ignorado y que «Sí, es
+ * correcto — guardar» iba a persistir el valor original del modelo, no el
+ * que escribió. Ahora ese botón se bloquea mientras quede algo inválido.
+ */
+function hayCamposInvalidos() {
+  return !!$('#campos')?.querySelector('.invalido');
+}
+
+function actualizarBotonGuardar() {
+  const boton = $('#confirmar');
+  if (!boton) return;
+  boton.disabled = hayCamposInvalidos();
+}
+
 function campoEditable(obs, def) {
   const original = obs.lote?.[def.llave];
 
@@ -117,6 +136,14 @@ function campoEditable(obs, def) {
   // input numérico, se muestra tal cual y se deja intacto.
   const esRango = Array.isArray(original);
 
+  const idError = `error-${obs.id}-${def.llave}`;
+  // Texto de la restricción, para el mensaje inline y para lectores de
+  // pantalla — no solo un borde rojo, que no dice nada de qué se espera ni
+  // se anuncia con teclado o táctil.
+  const restriccion = def.tipo === 'number'
+    ? `Tiene que ser un entero de ${def.min} a ${def.max}.`
+    : '';
+
   const input = h('input', {
     // `name` explícito: el `label` que lo envuelve ya lo asocia, pero sin
     // nombre el navegador lo reporta como campo no identificable.
@@ -126,6 +153,8 @@ function campoEditable(obs, def) {
     value: original === undefined || original === null ? '' : formatearValor(original),
     placeholder: '—',
     readonly: esRango || undefined,
+    'aria-invalid': 'false',
+    ...(restriccion ? { 'aria-describedby': idError } : {}),
     ...(def.min !== undefined ? { min: String(def.min) } : {}),
     ...(def.max !== undefined ? { max: String(def.max) } : {}),
     ...(def.paso !== undefined ? { step: String(def.paso) } : {}),
@@ -133,7 +162,13 @@ function campoEditable(obs, def) {
     oninput: (e) => {
       if (esRango) return;
       const crudo = e.target.value.trim();
-      if (crudo === '') { anotarCorreccion(obs.id, def.llave, undefined); e.target.classList.remove('editado'); return; }
+      if (crudo === '') {
+        anotarCorreccion(obs.id, def.llave, undefined);
+        e.target.classList.remove('editado', 'invalido');
+        e.target.setAttribute('aria-invalid', 'false');
+        actualizarBotonGuardar();
+        return;
+      }
       if (def.tipo === 'number') {
         const n = Number(crudo);
         // `zRangoEdad` y `lote.cantidad` exigen ENTEROS acotados
@@ -141,6 +176,8 @@ function campoEditable(obs, def) {
         // en el servidor por un "7.5".
         const ok = Number.isInteger(n) && n >= def.min && n <= def.max;
         e.target.classList.toggle('invalido', !ok);
+        e.target.setAttribute('aria-invalid', String(!ok));
+        actualizarBotonGuardar();
         if (!ok) return;
         anotarCorreccion(obs.id, def.llave, n === original ? undefined : n);
       } else {
@@ -151,7 +188,10 @@ function campoEditable(obs, def) {
   });
 
   return h('label', { clase: 'campo-editable' },
-    h('span', { clase: 'etiqueta', texto: def.etiqueta }), input);
+    h('span', { clase: 'etiqueta', texto: def.etiqueta }), input,
+    // Vive siempre en el DOM (para que `aria-describedby` no apunte a nada
+    // cuando está oculto) y solo se ve/anuncia mientras el campo es inválido.
+    restriccion ? h('span', { id: idError, clase: 'campo-restriccion', role: 'alert' }, restriccion) : null);
 }
 
 function tarjetaLote(obs) {
@@ -171,7 +211,30 @@ function pintarRevision(borrador) {
   borradorActual = borrador;
   correcciones = {};
   $('#resumen').textContent = borrador.resumen ?? '';
-  pintar($('#campos'), (borrador.observaciones ?? []).map(tarjetaLote));
+
+  /*
+   * Borrador SIN lotes: la nota existe y no describe ningún equipo.
+   *
+   * No es un error. «Fui y no vi equipo» es información sobre la base
+   * instalada, y la app móvil ya lo trata así. Antes esta pantalla ni llegaba
+   * a abrirse: el servidor abortaba la extracción y el cartel de error
+   * prometía «se puede guardar igual y quedar pendiente de revisión» sin que
+   * existiera forma de hacerlo. Ahora la promesa es real — se guarda como
+   * pendiente, con su texto, su fecha y su pregunta abierta.
+   *
+   * El botón cambia de etiqueta porque cambia lo que hace: no hay nada que
+   * confirmar como correcto, hay una nota que se archiva para revisar.
+   */
+  const sinLotes = !(borrador.observaciones ?? []).length;
+  pintar($('#campos'), sinLotes
+    ? h('div', { clase: 'vacio' },
+        h('p', { clase: 'vacio-titulo', texto: 'Ningún equipo reconocido en esta nota' }),
+        h('p', { clase: 'vacio-detalle', texto: 'No se va a registrar ningún equipo: un dato que nadie observó no se inventa. La nota se guarda con su fecha y su pregunta abierta, y queda en la lista de pendientes de revisión.' }))
+    : (borrador.observaciones ?? []).map(tarjetaLote));
+
+  $('#confirmar').textContent = sinLotes
+    ? 'Guardar la nota como pendiente'
+    : 'Sí, es correcto — guardar';
 
   const pregunta = borrador.siguientePregunta ?? '';
   const cajaPregunta = $('#pregunta');
@@ -192,6 +255,25 @@ function pintarRevision(borrador) {
   $('#pendiente').hidden = !pendiente;
   $('#corregido').hidden = true;
   $('#revision').hidden = false;
+  // Borrador nuevo: ningún campo está marcado inválido todavía.
+  actualizarBotonGuardar();
+
+  // El composer (dictado + texto + fecha) se oculta mientras hay algo para
+  // revisar: dos bloques grandes a la vez competían por el foco, y acá solo
+  // hay una decisión por vez — revisar el borrador o seguir dictando, nunca
+  // las dos. Vuelve con `cerrarRevision()`.
+  $('.capturar-centro').hidden = true;
+
+  /*
+   * El panel más importante de la pantalla acababa de reemplazar al
+   * composer, y nada lo anunciaba: `estado('', null)` vacía la región viva
+   * justo en el momento del cambio de estado más grande de la pantalla, y el
+   * foco se quedaba en el botón «Interpretar» que ya no está visible. Un
+   * lector de pantalla no se enteraba de que había algo nuevo para revisar.
+   * `tabindex="-1"` en el HTML lo hace enfocable por script sin sumarlo al
+   * orden de tabulación normal.
+   */
+  $('#revision').focus();
 }
 
 function cerrarRevision() {
@@ -204,12 +286,28 @@ function cerrarRevision() {
   pintar($('#ruta'));
   borradorActual = null;
   correcciones = {};
+  $('.capturar-centro').hidden = false;
+}
+
+/**
+ * «Volver a editar»: distinto de `descartar()`. Libera el borrador en el
+ * servidor (no queda flotando sin dueño) pero NO toca `#texto` — la nota
+ * sigue ahí para corregirla y volver a interpretar, y no se anuncia como
+ * pérdida de datos porque no la hay.
+ */
+async function volverAEditar() {
+  if (borradorActual) {
+    await api('/api/descartar', { borradorId: borradorActual.id }).catch(() => undefined);
+  }
+  cerrarRevision();
+  actualizarComposer();
+  $('#texto').focus();
 }
 
 /* ─────────────────────────── Interpretar ─────────────────────────── */
 
 /**
- * Muestra una falla con el texto accionable de `errores.js`: el titular en la
+ * Muestra una falla con el texto accionable de `errors.js`: el titular en la
  * región viva (se anuncia una vez) y la explicación con sus pasos en la caja
  * de abajo. Acá NO se redacta nada: si falta un caso, la entrada nueva va en
  * el diccionario, no en esta pantalla.
@@ -295,6 +393,12 @@ async function confirmar() {
     caja.value = '';
     delete caja.dataset.fuente;
     ajustarAlto(caja);          // sin esto el campo queda alto y vacío
+    actualizarComposer();       // con el texto vacío, Interpretar vuelve a ocultarse
+    // La nota que esos fragmentos ayudaron a armar ya se guardó: los chips
+    // de ESE dictado no tienen nada más que decir de la nota en blanco que
+    // sigue.
+    fragmentos = new Map();
+    pintarFragmentos();
     informarGuardado(r);
     alRefrescar();
   } catch (e) {
@@ -319,8 +423,21 @@ async function confirmar() {
 function informarGuardado(r) {
   const guardadas = r.persistidas ?? 0;
   const perdidas = Array.isArray(r.descartadas) ? r.descartadas.length : (r.descartadas ?? 0);
+
+  // Nota sin equipos: no se persistió ninguna observación y no es una falla.
+  // Decir «Guardado: 0 testimonios» sería técnicamente cierto y leerse como un
+  // error, justo en el caso que este cambio vino a dejar de tratar como error.
+  if (!perdidas && guardadas === 0 && r.pendiente) {
+    estado('Nota guardada como pendiente de revisión. No se registró ningún equipo.', 'bueno');
+    return;
+  }
+
   if (!perdidas) {
-    estado(`Guardado: ${testimonios(guardadas)}.`, 'bueno');
+    estado(
+      guardadas === 0
+        ? 'No se registró ningún equipo con esta nota.'
+        : `Guardado: ${testimonios(guardadas)}.`,
+      guardadas === 0 ? 'aviso' : 'bueno');
     return;
   }
   // Tono `malo`, no `bueno` ni `aviso`: hubo pérdida de datos, y el titular
@@ -412,14 +529,31 @@ function latido() {
  *
  * Los valores son deliberadamente ALTOS. La primera interpretación de la
  * sesión puede incluir la descarga del modelo (alrededor de 1 GB, como ya
- * documenta `errores.js`), así que un tope de pocos segundos convertiría el
+ * documenta `errors.js`), así que un tope de pocos segundos convertiría el
  * caso normal en un error y sería peor que no tener tope. Estos números no
  * están para acelerar nada: están para que exista un final. Quien mira la
  * pantalla no espera a ciegas — el contador de `latido()` le dice que sigue
  * viva.
  */
 const TOPE_INTERPRETAR = 300_000;   // 5 min: descarga del modelo + inferencia
-const TOPE_TRANSCRIBIR = 120_000;   // 2 min: whisper tiny sobre un dictado corto
+const TOPE_TRANSCRIBIR = 120_000;   // 2 min: whisper tiny sobre un fragmento corto
+
+/**
+ * DICTADO POR FRAGMENTOS (chunking), no todo al final.
+ *
+ * Antes, `stop()` recién armaba el WAV y llamaba a whisper cuando la persona
+ * terminaba de grabar — con una visita larga (varios equipos, 5-10 min
+ * hablando) eso significa: grabar TODO, después esperar TODO. Acá el audio
+ * se corta cada `DURACION_FRAGMENTO_MS` mientras se sigue grabando, cada
+ * trozo se transcribe apenas se corta, y el texto entra al campo en cuanto
+ * whisper lo devuelve — para cuando la persona toca «Detener» ya está
+ * transcrita casi toda la nota, y solo falta el último pedacito.
+ *
+ * Es rescatable como feature de pitch por sí sola: procesamiento continuo
+ * on-device sin bloquear al usuario, no solo transcripción on-device. Ver
+ * `docs/FUNCIONALIDADES_RESCATABLES.md`.
+ */
+const DURACION_FRAGMENTO_MS = 20_000;
 
 /**
  * `AbortController` con tope de tiempo. `traducir()` distingue el vencimiento
@@ -434,7 +568,7 @@ function conTope(ms, etiqueta) {
     senal: control.signal,
     fin: () => clearTimeout(t),
     traducir: (e) => (vencido
-      // El prefijo es la llave del diccionario de `errores.js`, donde vive el
+      // El prefijo es la llave del diccionario de `errors.js`, donde vive el
       // texto accionable. Acá no se redacta nada para el usuario.
       ? new Error(`Tope de tiempo · ${etiqueta}: no hubo respuesta en ${Math.round(ms / 1000)} s`)
       : e),
@@ -448,6 +582,35 @@ let grabadora = null;
 /** Reemplaza el contenido de un boton por icono + etiqueta, sin marcado crudo. */
 function etiquetarBoton(boton, nombreIcono, etiqueta) {
   boton.replaceChildren(icono(nombreIcono), document.createTextNode(etiqueta));
+}
+
+/*
+ * Estado visible de cada fragmento del dictado en curso — la prueba en
+ * pantalla de que el chunking realmente procesa mientras se sigue grabando,
+ * no solo una línea de `estado()` que la próxima línea pisa. Un `Map`
+ * ordenado por inserción: los chips salen en el orden en que se cortaron.
+ */
+const ETIQUETA_FRAGMENTO = {
+  subiendo: 'transcribiendo…',
+  transcrito: 'transcrito',
+  vacio: 'sin voz',
+  error: 'no se pudo',
+};
+let fragmentos = new Map();
+
+function pintarFragmentos() {
+  const lista = $('#fragmentos-dictado');
+  if (!lista) return;
+  if (!fragmentos.size) { pintar(lista); lista.hidden = true; return; }
+  lista.hidden = false;
+  pintar(lista, [...fragmentos.entries()].map(([numero, est]) => h('li', { clase: est },
+    est === 'subiendo' ? h('i', { clase: 'glifo', 'aria-hidden': 'true', texto: '◐' }) : null,
+    h('span', { texto: `Fragmento ${numero} · ${ETIQUETA_FRAGMENTO[est] ?? est}` }))));
+}
+
+function marcarFragmento(numero, est) {
+  fragmentos.set(numero, est);
+  pintarFragmentos();
 }
 
 async function alternarDictado() {
@@ -468,7 +631,7 @@ async function alternarDictado() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
-    // El diccionario de `errores.js` tiene la entrada del permiso, con los
+    // El diccionario de `errors.js` tiene la entrada del permiso, con los
     // pasos para darlo desde la barra de direcciones.
     fallar(new Error('Sin permiso de micrófono'));
     return;
@@ -492,7 +655,11 @@ async function alternarDictado() {
   // aparte para el worklet: `addModule` necesita una URL, y eso significaría
   // servir otro estático solo para esto.
   const nodo = ctx.createScriptProcessor(4096, 1, 1);
-  const trozos = [];
+  // `trozos`/`muestras` son el BUFFER DEL FRAGMENTO ACTUAL, no de toda la
+  // grabación: `cortarFragmento()` los vacía cada vez que arma un WAV para
+  // subir, y el `onaudioprocess` de abajo sigue llenándolos con lo que se
+  // graba mientras ese WAV viaja al servidor.
+  let trozos = [];
   let muestras = 0;
 
   nodo.onaudioprocess = (e) => {
@@ -543,55 +710,136 @@ async function alternarDictado() {
     return new Blob([cab, pcm], { type: 'audio/wav' });
   }
 
+  /** Saca el audio acumulado del buffer del fragmento actual y lo deja vacío
+   *  para lo próximo que grabe `onaudioprocess` mientras este WAV viaja. */
+  function cortarFragmento() {
+    if (!muestras) return null;
+    const wav = aWav(trozos, muestras, ctx.sampleRate);
+    trozos = [];
+    muestras = 0;
+    return wav;
+  }
+
+  let numeroFragmento = 0;
+  // Si un fragmento tarda más que el intervalo (whisper lento, o el modelo
+  // todavía cargando en el primer fragmento), el siguiente tick NO arranca
+  // una segunda subida en paralelo: solo sigue acumulando audio. El próximo
+  // fragmento sale más largo, pero nunca hay dos POST del mismo dictado
+  // pisándose la respuesta el uno al otro en el textarea.
+  let subiendoFragmento = false;
+
+  /**
+   * Transcribe UN fragmento y lo agrega al final de la nota, apenas vuelve.
+   *
+   * `silencioso`: los fragmentos intermedios no usan `fallar()` (esa caja es
+   * para un problema que necesita acción del usuario) — un fragmento que
+   * falla no para la grabación, así que se avisa con `estado()` y se sigue.
+   * El último, en `stop()`, si falla sí es la falla real de la sesión de
+   * dictado completa y se muestra con el diccionario de `errors.js`.
+   */
+  async function transcribirFragmento(wav, { silencioso }) {
+    subiendoFragmento = true;
+    numeroFragmento += 1;
+    const miNumero = numeroFragmento;
+    marcarFragmento(miNumero, 'subiendo');
+    const tope = conTope(TOPE_TRANSCRIBIR, 'transcripción');
+    try {
+      const res = await fetch('/api/transcribir', {
+        method: 'POST',
+        headers: { 'content-type': 'audio/wav' },
+        body: wav,
+        signal: tope.senal,
+      });
+      if (!res.ok) throw new Error(`/api/transcribir devolvió ${res.status}`);
+      const { texto } = await res.json();
+      if (texto?.trim()) {
+        const caja = $('#texto');
+        caja.value = [caja.value.trim(), texto.trim()].filter(Boolean).join(' ');
+        caja.dataset.fuente = 'voz';
+        ajustarAlto(caja);
+        actualizarComposer();
+        marcarFragmento(miNumero, 'transcrito');
+      } else {
+        marcarFragmento(miNumero, 'vacio');
+      }
+      if (grabadora) {
+        // Sigue grabando: no pisar «Grabando…» con un aviso que ya pasó. El
+        // detalle de CUÁL fragmento y en qué estado ya lo muestra el chip.
+        estado('Grabando… el audio no sale de este equipo.', 'trabajando');
+      }
+      return true;
+    } catch (e) {
+      marcarFragmento(miNumero, 'error');
+      if (silencioso) {
+        estado(`Fragmento ${miNumero} no se pudo transcribir (se sigue grabando).`, 'aviso');
+        return false;
+      }
+      fallar(tope.traducir(e));
+      return false;
+    } finally {
+      tope.fin();
+      subiendoFragmento = false;
+    }
+  }
+
+  // Corta y sube un fragmento cada `DURACION_FRAGMENTO_MS`, mientras se
+  // sigue grabando. Es la diferencia entera de esta técnica: para cuando la
+  // persona toca «Detener» después de dictar varios minutos, casi toda la
+  // nota ya está transcrita — solo falta el último pedacito.
+  const intervalo = setInterval(() => {
+    if (subiendoFragmento) return;
+    const wav = cortarFragmento();
+    if (wav) transcribirFragmento(wav, { silencioso: true });
+  }, DURACION_FRAGMENTO_MS);
+
   // Corrección obligatoria #3: el POST vive DENTRO del handler de detención, y
   // no hay ningún `location.reload()` — el reload inmediato del doc maestro
   // cancelaba la subida antes de que whisper devolviera el texto.
   grabadora = {
     async stop() {
       grabadora = null;
+      clearInterval(intervalo);
       nodo.disconnect(); fuente.disconnect(); silencio.disconnect();
       nodo.onaudioprocess = null;
-      const tasa = ctx.sampleRate;
       stream.getTracks().forEach((t) => t.stop());
       try { await ctx.close(); } catch { /* ya cerrado */ }
 
       etiquetarBoton(boton, 'microfono', 'Dictar');
       boton.classList.remove('grabando');
-      if (!muestras) { estado('No se grabó audio.', 'aviso'); return; }
+
+      const ultimoWav = cortarFragmento();
+      if (!ultimoWav && numeroFragmento === 0) { estado('No se grabó audio.', 'aviso'); return; }
+      if (!ultimoWav) {
+        // Ya se transcribió todo por fragmentos; no queda audio colgado.
+        estado('Transcrito en este equipo. Revisá antes de interpretar.', 'bueno');
+        $('#texto').focus();
+        return;
+      }
 
       limpiarFalla();
-      estado('Transcribiendo on-device con whisper…', 'trabajando');
-      // Mismo problema y mismo remedio que en `interpretar()`: sin tope, un
-      // whisper colgado deja «Transcribiendo…» eterno y el botón inservible.
+      // Si mientras tanto un fragmento intermedio sigue subiendo, esperar a
+      // que termine antes de mandar el último — dos POST del mismo dictado
+      // en vuelo a la vez es exactamente lo que `subiendoFragmento` evita
+      // en el `setInterval` de arriba, y acá aplica la misma regla.
+      while (subiendoFragmento) await new Promise((r) => setTimeout(r, 100));
+      estado('Transcribiendo el último fragmento…', 'trabajando');
       const detenerLatido = latido();
-      const tope = conTope(TOPE_TRANSCRIBIR, 'transcripción');
       boton.disabled = true;
-      try {
-        const res = await fetch('/api/transcribir', {
-          method: 'POST',
-          headers: { 'content-type': 'audio/wav' },
-          body: aWav(trozos, muestras, tasa),
-          signal: tope.senal,
-        });
-        if (!res.ok) throw new Error(`/api/transcribir devolvió ${res.status}`);
-        const { texto } = await res.json();
-        const caja = $('#texto');
-        caja.value = [caja.value.trim(), (texto ?? '').trim()].filter(Boolean).join(' ');
-        caja.dataset.fuente = 'voz';
-        ajustarAlto(caja);
-        caja.focus();
-        estado(texto ? 'Transcrito en este equipo. Revisá antes de interpretar.' : 'La transcripción vino vacía.', texto ? 'bueno' : 'aviso');
-      } catch (e) {
-        fallar(tope.traducir(e));
-      } finally {
-        tope.fin();
-        detenerLatido();
-        // El audio ya se fue del navegador, pero dictar de nuevo tiene que
-        // ser posible incluso si esta transcripción no volvió.
-        boton.disabled = false;
+      const ok = await transcribirFragmento(ultimoWav, { silencioso: false });
+      detenerLatido();
+      boton.disabled = false;
+      if (ok) {
+        estado('Transcrito en este equipo. Revisá antes de interpretar.', 'bueno');
+        $('#texto').focus();
       }
     },
   };
+
+  // Un dictado nuevo, chips nuevos: los de la grabación anterior ya
+  // cumplieron su función (avisar que ESE audio se procesó) y no describen
+  // nada de lo que está por grabarse ahora.
+  fragmentos = new Map();
+  pintarFragmentos();
 
   etiquetarBoton(boton, 'detener', 'Detener');
   boton.classList.add('grabando');
@@ -635,6 +883,22 @@ function ajustarAlto(caja) {
   caja.style.overflowY = caja.scrollHeight > TOPE ? 'auto' : 'hidden';
 }
 
+/**
+ * «Interpretar» y su atajo solo se muestran con nota escrita o dictada.
+ *
+ * Antes estaban siempre visibles, aunque con el campo vacío apretarlos no
+ * hacía nada más que devolver «Escribí o dictá una nota antes de
+ * interpretar» — un botón permanentemente activo para una acción que todavía
+ * no tiene sentido. Diseño minimalista (NN/g #8) y revelación progresiva
+ * (HIG): con la nota vacía la única acción posible es Dictar o escribir, y
+ * es lo único que queda a la vista.
+ */
+function actualizarComposer() {
+  const hayTexto = $('#texto').value.trim().length > 0;
+  $('#enviar').hidden = !hayTexto;
+  $('#pista-atajo').hidden = !hayTexto;
+}
+
 export function montarCapturar(refrescar) {
   alRefrescar = refrescar;
 
@@ -643,9 +907,11 @@ export function montarCapturar(refrescar) {
 
   const caja = $('#texto');
   ajustarAlto(caja);
-  caja.addEventListener('input', () => ajustarAlto(caja));
+  actualizarComposer();
+  caja.addEventListener('input', () => { ajustarAlto(caja); actualizarComposer(); });
   $('#enviar').onclick = interpretar;
   $('#confirmar').onclick = confirmar;
+  $('#volver').onclick = volverAEditar;
   $('#descartar').onclick = descartar;
   $('#dictar').onclick = alternarDictado;
   // Ctrl/Cmd + Enter interpreta: capturar debe tomar segundos, no minutos.

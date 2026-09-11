@@ -1,5 +1,6 @@
 import { File, Paths } from 'expo-file-system';
 import * as Device from 'expo-device';
+import { getRandomBytes } from 'expo-crypto';
 import { nuevoId } from '../core/ids.ts';
 
 /**
@@ -13,9 +14,11 @@ import { nuevoId } from '../core/ids.ts';
  */
 const ARCHIVO_IDENTIDAD = new File(Paths.document, 'identidad.json');
 
-interface Identidad {
+export interface Identidad {
   observadorId: string;
   dispositivoId: string;
+  /** Semilla privada del keypair Noise. Nunca se sincroniza ni se muestra. */
+  peerSeedHex: string;
 }
 
 let cache: Identidad | null = null;
@@ -30,7 +33,10 @@ export async function obtenerIdentidad(): Promise<Identidad> {
       if (ARCHIVO_IDENTIDAD.exists) {
         const json = JSON.parse(await ARCHIVO_IDENTIDAD.text()) as Partial<Identidad>;
         if (json.observadorId && json.dispositivoId) {
-          cache = { observadorId: json.observadorId, dispositivoId: json.dispositivoId };
+          const peerSeedHex = typeof json.peerSeedHex === 'string' && json.peerSeedHex.length === 64
+            ? json.peerSeedHex : [...getRandomBytes(32)].map((b) => b.toString(16).padStart(2, '0')).join('');
+          cache = { observadorId: json.observadorId, dispositivoId: json.dispositivoId, peerSeedHex };
+          if (json.peerSeedHex !== peerSeedHex) ARCHIVO_IDENTIDAD.write(JSON.stringify(cache));
           return cache;
         }
       }
@@ -42,6 +48,7 @@ export async function obtenerIdentidad(): Promise<Identidad> {
     const nueva: Identidad = {
       observadorId: nuevoId(),
       dispositivoId: `${Device.modelName ?? 'android'}-${nuevoId()}`,
+      peerSeedHex: [...getRandomBytes(32)].map((b) => b.toString(16).padStart(2, '0')).join(''),
     };
     try {
       if (!ARCHIVO_IDENTIDAD.exists) ARCHIVO_IDENTIDAD.create({ intermediates: true });

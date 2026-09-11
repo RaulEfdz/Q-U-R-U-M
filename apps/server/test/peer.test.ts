@@ -5,7 +5,9 @@
 // pueda probar sin dos peers reales conectados.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearAcumuladorLineas, MAX_BYTES_LINEA } from '../src/sync/peer.ts';
+import { crearAcumuladorLineas, MAX_BYTES_LINEA, procesarLineas, type MensajeSalidaSync, type SesionSync } from '../src/sync/peer.ts';
+import { armarObservacion } from './helpers.ts';
+import { descartarRevisionPeer, listarRevisionesPeer } from '../src/store/revisiones-peer.ts';
 
 test('peer.test: A-8 el caso normal — líneas completas salen enteras y en orden', () => {
   const a = crearAcumuladorLineas();
@@ -87,4 +89,80 @@ test('peer.test: A-8 después de excederse el acumulador queda limpio (el socket
   // Y si por lo que sea llegara otro chunk antes del destroy, no arrastra
   // basura de la línea abortada.
   assert.deepStrictEqual(a.alRecibir(Buffer.from('{"a":1}\n')).lineas, ['{"a":1}']);
+});
+
+test('sync v1: hello recibe hello_ack y no crea evidencia', async () => {
+  const respuestas: MensajeSalidaSync[] = [];
+  await procesarLineas([JSON.stringify({
+    tipo: 'hello', versionProtocolo: 1,
+    dispositivoId: 'pixel-prueba', observadorId: 'persona-prueba',
+  })], 'peer-prueba-hello', undefined, (m) => respuestas.push(m));
+  assert.strictEqual(respuestas.length, 1);
+  assert.strictEqual(respuestas[0]?.tipo, 'hello_ack');
+});
+
+test('sync v1: ACK separa recibidas, duplicadas y rechazadas por observación', async () => {
+  const loteId = `lote-${Date.now()}`;
+  const valida = armarObservacion({ id: `sync-${Date.now()}-a`, dispositivoId: 'pixel-prueba' });
+  const invalida = { ...armarObservacion(), id: `sync-${Date.now()}-b`, lote: { modalidad: 'INVALIDA' } };
+  const respuestas: MensajeSalidaSync[] = [];
+
+  await procesarLineas([JSON.stringify({
+    tipo: 'observaciones', versionProtocolo: 1, loteId,
+    dispositivoId: 'pixel-prueba', datos: [valida, invalida],
+  })], 'peer-prueba-ack', undefined, (m) => respuestas.push(m));
+
+  const ack = respuestas.find((m) => m.tipo === 'ack');
+  assert(ack && ack.tipo === 'ack');
+  assert.deepStrictEqual(ack.recibidas, [valida.id]);
+  assert.deepStrictEqual(ack.duplicadas, []);
+  assert.deepStrictEqual(ack.rechazadas, [{ id: invalida.id, motivo: 'CONTRATO_INVALIDO' }]);
+  assert(ack.revisionId);
+
+  const segunda: MensajeSalidaSync[] = [];
+  await procesarLineas([JSON.stringify({
+    tipo: 'observaciones', versionProtocolo: 1, loteId,
+    dispositivoId: 'pixel-prueba', datos: [valida],
+  })], 'peer-prueba-ack', undefined, (m) => segunda.push(m));
+  const ackReenvio = segunda.find((m) => m.tipo === 'ack');
+  assert(ackReenvio && ackReenvio.tipo === 'ack');
+  assert.deepStrictEqual(ackReenvio.recibidas, []);
+  assert.deepStrictEqual(ackReenvio.duplicadas, [valida.id]);
+
+  const revision = listarRevisionesPeer().find((r) => r.id === ack.revisionId);
+  assert(revision);
+  descartarRevisionPeer(revision.id);
+});
+
+test('sync v1: un lote sin hello se rechaza completo en una sesión real', async () => {
+  const observacion = armarObservacion({ id: `sync-${Date.now()}-sin-hello`, dispositivoId: 'pixel-a' });
+  const respuestas: MensajeSalidaSync[] = [];
+  const sesion: SesionSync = {};
+  await procesarLineas([JSON.stringify({
+    tipo: 'observaciones', versionProtocolo: 1, loteId: 'lote-sin-hello',
+    dispositivoId: 'pixel-a', datos: [observacion],
+  })], 'peer-identidad-a', undefined, (m) => respuestas.push(m), sesion);
+  const ack = respuestas[0];
+  assert(ack?.tipo === 'ack');
+  assert.deepStrictEqual(ack.rechazadas, [{ id: observacion.id, motivo: 'IDENTIDAD_DE_SESION_INVALIDA' }]);
+});
+
+test('sync v1: un peer no puede atribuir observaciones a otro dispositivo u observador', async () => {
+  const respuestas: MensajeSalidaSync[] = [];
+  const sesion: SesionSync = {};
+  const ajena = armarObservacion({
+    id: `sync-${Date.now()}-suplantada`, dispositivoId: 'pixel-b', observadorId: 'persona-b',
+  });
+  await procesarLineas([
+    JSON.stringify({ tipo: 'hello', versionProtocolo: 1, dispositivoId: 'pixel-a', observadorId: 'persona-a' }),
+    JSON.stringify({
+      tipo: 'observaciones', versionProtocolo: 1, loteId: 'lote-suplantado',
+      dispositivoId: 'pixel-a', datos: [ajena],
+    }),
+  ], 'peer-identidad-b', undefined, (m) => respuestas.push(m), sesion);
+  const ack = respuestas.find((m) => m.tipo === 'ack');
+  assert(ack?.tipo === 'ack');
+  assert.deepStrictEqual(ack.recibidas, []);
+  assert.deepStrictEqual(ack.rechazadas, [{ id: ajena.id, motivo: 'IDENTIDAD_DE_SESION_INVALIDA' }]);
+  assert.equal(listarRevisionesPeer().some((r) => r.observaciones.some((o) => o.id === ajena.id)), false);
 });

@@ -129,6 +129,70 @@ Reglas estrictas:
   literal que lo justifique, NO generes ese lote.
 - No respondas con texto. Solo llama a la herramienta.`;
 
+/**
+ * ¿Hay algún indicio de equipo en la nota? Determinista, sin modelo.
+ *
+ * Sirve para distinguir dos fracasos que se veían iguales y no lo son:
+ *
+ *  · «Hola» — no hay NADA que extraer. Culpar al modelo es mentirle al
+ *    usuario, y pedirle que reintente lo manda a repetir algo que va a fallar
+ *    igual. Es el caso de «visité y no vi equipo» llevado al extremo, y se
+ *    trata como tal: borrador vacío, que se puede guardar como pendiente.
+ *  · «dos MR de NovaMed» sin tool call — acá SÍ había qué extraer y el modelo
+ *    falló. Reintentar tiene sentido: con `temp 0` sigue sin ser determinista
+ *    en la primera carga, y el segundo intento suele salir.
+ *
+ * Mismo criterio que el portero de la app móvil (`pipeline/precheck.ts`), pero
+ * sin importar de la otra app: `src/` de cada superficie no cruza esa
+ * frontera. Se apoya en lo que ya existe acá — el vocabulario controlado y la
+ * tabla de sinónimos de `trust/normalize.ts`.
+ *
+ * Comparación por PALABRA COMPLETA, nunca por subcadena: fue el bug #11 del
+ * pipeline móvil, donde «eco» matcheaba «economía» y «monitor» matcheaba
+ * «monitorear». Un falso positivo acá no es cosmético — manda al usuario a
+ * reintentar una extracción que nunca va a producir nada.
+ */
+const NUMEROS_EN_LETRAS = [
+  'un', 'una', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete',
+  'ocho', 'nueve', 'diez', 'once', 'doce', 'quince', 'veinte', 'varios',
+  'varias',
+];
+
+export function hayIndiciosDeEquipo(texto: string): boolean {
+  const limpio = texto
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (/\d/.test(limpio)) return true;                    // cualquier cifra
+
+  const palabras = limpio.split(/[^a-z0-9]+/).filter(Boolean);
+  if (palabras.some((w) => NUMEROS_EN_LETRAS.includes(w))) return true;
+
+  /*
+   * Modalidad por sinónimo (MR, resonador, tomografo, eco…).
+   *
+   * Se prueban también los PARES y TRÍOS de palabras contiguas pegados, porque
+   * la tabla de sinónimos de `trust/normalize.ts` indexa sin espacios: «rayos
+   * x» vive ahí como `rayosx`, «resonancia magnetica» como
+   * `resonanciamagnetica`, «patient monitoring» como `patientmonitoring`.
+   * Comparando solo palabra por palabra, «sala de rayos x» no daba indicios —
+   * lo encontró el test, no la lectura.
+   *
+   * Sigue sin ser comparación por subcadena: los grupos se forman con palabras
+   * COMPLETAS y contiguas, así que «economia» nunca se convierte en «eco».
+   */
+  for (let i = 0; i < palabras.length; i++) {
+    for (let n = 1; n <= 3 && i + n <= palabras.length; n++) {
+      if (normalizarModalidad(palabras.slice(i, i + n).join('')) !== undefined) return true;
+    }
+  }
+
+  // Marca del vocabulario ficticio, que puede ser de varias palabras.
+  const marcas = MARCAS_DUMMY.map((m) =>
+    m.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase());
+  return marcas.some((m) => new RegExp(`\\b${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(limpio));
+}
+
 /** Trunca `evidencia` a 500 chars ANTES de validar — el tope real que exige
  *  `Observacion.evidencia` (contracts.ts). Igual que la corrección #13 con
  *  `edadAnios`: una cita de 501 caracteres no debe tirar el lote entero por
@@ -292,17 +356,35 @@ export async function extraerBorrador(opts: {
     tools: [TOOL_EXTRAER], maxTokens: 500,
   });
 
+  /*
+   * Sin tool call. Si la nota no tenía un solo indicio de equipo, el modelo no
+   * falló: no había nada que extraer. Se sigue con un borrador vacío —el mismo
+   * camino que una nota que dice explícitamente «no había equipo»— y la
+   * persona decide si la guarda como pendiente. Con indicios presentes sí es
+   * un fallo del modelo y se reporta como tal, porque ahí reintentar sirve.
+   */
   const call = toolCalls.find((c) => c.name === 'registrar_observacion');
-  if (!call) throw new ValidationError('El modelo no produjo una extracción utilizable');
+  if (!call && hayIndiciosDeEquipo(opts.texto)) {
+    throw new ValidationError('El modelo no produjo una extracción utilizable');
+  }
 
   // ── La salida del modelo es INPUT HOSTIL. Se valida o se rechaza. ──
   // El objeto exterior (cliente/ciudad/país/sitio/notas/lotes-como-array) se
   // valida con zExtraccion.omit — los lotes individuales se validan y
   // degradan uno por uno más abajo, no acá, por la corrección #13.
+  //
+  // Sin `call` (nota sin indicios) no hay nada que validar: el sobre queda
+  // vacío y el borrador sale sin lotes, con el texto original intacto.
   const zSobre = zExtraccion.omit({ lotes: true }).extend({ lotes: z.array(z.unknown()) });
-  const parsed = zSobre.safeParse(call.arguments);
-  if (!parsed.success) {
-    throw new ValidationError('Extracción inválida', { issues: parsed.error.issues });
+  type Sobre = z.infer<typeof zSobre>;
+
+  let sobre: Sobre = { cliente: '', lotes: [] };
+  if (call) {
+    const parsed = zSobre.safeParse(call.arguments);
+    if (!parsed.success) {
+      throw new ValidationError('Extracción inválida', { issues: parsed.error.issues });
+    }
+    sobre = parsed.data;
   }
 
   const hedging = detectarHedging(opts.texto);                 // código, no modelo
@@ -312,7 +394,7 @@ export async function extraerBorrador(opts: {
   const sesionId = nuevoId();                                  // H-02
   const out: Observacion[] = [];
 
-  for (const crudo of parsed.data.lotes) {
+  for (const crudo of sobre.lotes) {
     const l = parsearLote(crudo, opts.texto);
     if (!l) continue;                                          // lote inválido o evidencia no verificable → se degrada
 
@@ -328,7 +410,7 @@ export async function extraerBorrador(opts: {
     // recién agregado) compilaría igual y solo explotaría en runtime. Con
     // este tipo, un campo requerido faltante es un error de TypeScript acá
     // mismo, no una sorpresa en producción.
-    const ubic = normalizarCliente(parsed.data);
+    const ubic = normalizarCliente(sobre);
     const candidato: Observacion = {
       id: nuevoId(), sesionId,
       observadorId: opts.observadorId, dispositivoId: opts.dispositivoId,
@@ -337,7 +419,7 @@ export async function extraerBorrador(opts: {
         nombre: ubic.nombre,
         ...(ubic.ciudad ? { ciudad: ubic.ciudad } : {}),
         ...(ubic.pais ? { pais: ubic.pais } : {}),
-        ...(parsed.data.sitio ? { sitio: parsed.data.sitio } : {}),
+        ...(sobre.sitio ? { sitio: sobre.sitio } : {}),
       },
       lote: {
         modalidad,
@@ -348,7 +430,7 @@ export async function extraerBorrador(opts: {
       },
       evidencia: l.evidencia,
       hedging,
-      ...(parsed.data.notas ? { notas: parsed.data.notas } : {}),
+      ...(sobre.notas ? { notas: sobre.notas } : {}),
       seguimiento: [],
       textoOriginal: opts.texto,
       provenance: {
@@ -360,9 +442,37 @@ export async function extraerBorrador(opts: {
     out.push(zObservacion.parse(candidato));
   }
 
-  if (!out.length) throw new ValidationError('Ningún equipo reconocible en la observación');
-
-  const pregunta = siguientePregunta(out[0]!);
+  /**
+   * ★ Una nota SIN equipos reconocibles es un borrador válido, no un error.
+   *
+   * Antes esto lanzaba `ValidationError` y el pipeline moría ahí. La pantalla
+   * mostraba «El modelo no pudo estructurar la nota» y agregaba: «La nota NO
+   * se perdió: se puede guardar igual y quedar pendiente de revisión» — una
+   * promesa que el producto no podía cumplir, porque el borrador nunca se
+   * había creado y no existía ningún botón para guardar nada. Peor que un
+   * error: un mensaje que miente.
+   *
+   * Y era drift con la app móvil, que ya trata este caso como dato legítimo
+   * (`ConfirmacionBorrador.tsx`, estado `ACUERDO_VACIO`: «Visitaste el sitio y
+   * no se observó equipo. Es un dato válido — se guarda así, sin ningún
+   * lote»). Tiene sentido de producto: «fui y no vi equipo» es información
+   * sobre la base instalada, y descartar la nota de quien se tomó el trabajo
+   * de dictarla es fricción que enseña a no volver a dictar.
+   *
+   * Se devuelve entonces un borrador de CERO observaciones. `/api/confirmar`
+   * ya sabe qué hacer con eso sin ningún cambio: no persiste ninguna
+   * `Observacion` —no hay ninguna que persistir, y el contrato exige al menos
+   * una modalidad por lote— y como queda una pregunta abierta, encola el
+   * borrador completo en `store/pendientes.ts`. La nota sobrevive con su
+   * texto, su fecha y su pregunta sin responder, que es exactamente lo que la
+   * pantalla promete.
+   *
+   * Lo que este cambio NO hace: inventar un lote vacío para que «algo» entre
+   * al store. Un equipo que nadie observó no se registra (RD-0).
+   */
+  const pregunta = out.length
+    ? siguientePregunta(out[0]!)
+    : '¿Qué equipos viste? Si no viste ninguno, dejalo así: la nota se guarda igual.';
 
   return {
     id: nuevoId(), sesionId, observaciones: out,
@@ -379,6 +489,13 @@ export async function extraerBorrador(opts: {
 
 /** Paso 12 de su lógica: "I captured: 2 MR, NovaMed, approx. 7 years… Is that correct?" */
 export function resumir(obs: Observacion[]): string {
+  // Lista vacía: la nota existe y no describe ningún equipo. No es un error —
+  // ver el comentario de `extraerBorrador` — y el resumen tiene que decir eso
+  // sin sonar a falla, porque es lo primero que la persona lee.
+  if (!obs.length) {
+    return 'No reconocí ningún equipo en esta nota. Podés guardarla así: queda con la pregunta abierta y nadie pierde lo que dictaste.';
+  }
+
   const partes = obs.map((o) => {
     const p = [`${o.lote.cantidad ?? '?'} ${o.lote.modalidad}`];
     if (o.lote.marca) p.push(o.lote.marca);

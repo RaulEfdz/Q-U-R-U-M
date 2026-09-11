@@ -14,7 +14,7 @@
  * datos de la API, pasa por `h()`.
  */
 
-import { explicar } from './errores.js';
+import { explicar } from './errors.js';
 
 export const $ = (sel, raiz = document) => raiz.querySelector(sel);
 
@@ -24,7 +24,7 @@ export const $ = (sel, raiz = document) => raiz.querySelector(sel);
  * Acepta `señal` (un `AbortSignal`) porque las rutas que invocan al modelo
  * pueden tardar minutos la primera vez y necesitan tope de tiempo desde
  * quien llama: sin eso, un modelo colgado deja el botón deshabilitado para
- * siempre y el único camino es recargar la página. Ver `capturar.js`.
+ * siempre y el único camino es recargar la página. Ver `capture.js`.
  */
 export async function api(ruta, cuerpo, { senal } = {}) {
   const res = await fetch(ruta, cuerpo
@@ -154,7 +154,7 @@ export function vacio(titulo, detalle) {
  * Caja de error legible: qué pasó, por qué, y qué hacer.
  *
  * Acepta un `Error` o un texto y lo pasa por el diccionario de
- * `errores.js`. Antes mostraba «No se pudo leer del servidor» más el mensaje
+ * `errors.js`. Antes mostraba «No se pudo leer del servidor» más el mensaje
  * crudo (`TypeError: Failed to fetch`), que no le dice a nadie que lo único
  * que falta es levantar el servidor.
  *

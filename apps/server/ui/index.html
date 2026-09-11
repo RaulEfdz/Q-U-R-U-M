@@ -99,6 +99,14 @@
         <path d="M9.5 12a3.5 3.5 0 0 1 3.5-3.5h2a3.5 3.5 0 0 1 0 7h-1.2" />
         <path d="M14.5 12a3.5 3.5 0 0 1-3.5 3.5H9a3.5 3.5 0 0 1 0-7h1.2" />
       </symbol>
+      <!-- Tres nodos conectados: dispositivos P2P, no jerarquía. -->
+      <symbol id="ic-conexiones" viewBox="0 0 24 24">
+        <circle cx="5.5" cy="6.5" r="2.5" />
+        <circle cx="18.5" cy="6.5" r="2.5" />
+        <circle cx="12" cy="18" r="2.5" />
+        <path d="M7.6 7.9 9.9 16" />
+        <path d="M16.4 7.9 14.1 16" />
+      </symbol>
 
       <!-- ── Acciones y estado ── -->
       <symbol id="ic-microfono" viewBox="0 0 24 24">
@@ -123,6 +131,11 @@
         <circle cx="10.5" cy="10.5" r="6.5" />
         <path d="m15.2 15.2 4.3 4.3" />
       </symbol>
+      <symbol id="ic-ayuda" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M9.7 9.2a2.5 2.5 0 0 1 4.8.9c0 1.9-2.5 2.1-2.5 3.9" />
+        <path d="M12 17h.01" />
+      </symbol>
 
       <!-- ── `workflow`, de Lucide (https://lucide.dev) · licencia ISC ──
            Copiado como path, no cargado de un CDN: la restriccion dura del
@@ -143,29 +156,50 @@
         <img class="marca-logo" src="/assets/qorum-mark.png" alt="" aria-hidden="true" />
         <div><h1>QUÓRUM</h1><p class="tesis">La verdad tiene quórum.</p></div>
       </div>
-      <p class="sidebar-label">Workspace</p>
-      <nav aria-label="Pantallas">
-        <button type="button" data-vista="capturar" class="activo" aria-current="page"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-capturar" xlink:href="#ic-capturar" /></svg>Capturar</button>
+      <p class="sidebar-label">Menu</p>
+      <nav aria-label="Trabajo">
+        <button type="button" data-vista="panorama" class="activo" aria-current="page"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-panorama" xlink:href="#ic-panorama" /></svg>Inteligencia</button>
         <button type="button" data-vista="cliente"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-cliente" xlink:href="#ic-cliente" /></svg>Cliente 360</button>
-        <button type="button" data-vista="panorama"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-panorama" xlink:href="#ic-panorama" /></svg>Panorama</button>
+        <button type="button" data-vista="capturar"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-capturar" xlink:href="#ic-capturar" /></svg>Capturar</button>
+      </nav>
+      <p class="sidebar-label sidebar-label-secundario">General</p>
+      <nav aria-label="Sistema">
         <button type="button" data-vista="auditoria"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-auditoria" xlink:href="#ic-auditoria" /></svg>Auditoría</button>
+        <button type="button" data-vista="conexiones"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-conexiones" xlink:href="#ic-conexiones" /></svg>Conexiones</button>
         <button type="button" data-vista="comofunciona"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-flujo" xlink:href="#ic-flujo" /></svg>Cómo funciona</button>
       </nav>
       <div class="sidebar-bottom">
         <span class="sidebar-dot" aria-hidden="true"></span>
         <div><b>Procesamiento local</b><small>Sin inferencia en la nube</small></div>
       </div>
+      <!--
+        Estado de sync P2P, pendiente #5 de `SYNC_P2P.md`. Antes `pares()`
+        existía en el servidor y nada lo mostraba — un dispositivo se
+        conectaba o se caía y no había ninguna prueba visible en la UI.
+        Oculto cuando no hay peers conectados (que es el caso normal en la
+        demo de un solo dispositivo): no tiene sentido un chip permanente en
+        "0" para una función que la mayoría de las corridas no usa.
+      -->
+      <p id="sync-peers" class="sync-peers" role="status" hidden></p>
     </aside>
     <div class="app-frame">
       <header>
-        <div class="breadcrumb"><span>Workspace</span><span>/</span><b id="vista-titulo">Capturar</b></div>
+        <div class="breadcrumb"><span>Centro de control</span><span>/</span><b id="vista-titulo">Inteligencia</b></div>
         <div class="cabecera-meta">
           <span id="marcador" class="marcador num"></span>
           <span id="conexion" class="conexion">conectando…</span>
           <span id="modelo-ia" class="modelo-ia" title="Modelo local usado por la aplicación">IA local · esperando modelo</span>
+          <button id="abrir-ayuda" class="boton-ayuda" type="button" aria-label="Para qué sirve este módulo" aria-haspopup="dialog" aria-controls="ayuda-modulo" title="Para qué sirve este módulo"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-ayuda" xlink:href="#ic-ayuda" /></svg></button>
           <span class="avatar" aria-label="Usuario actual">Q</span>
         </div>
       </header>
+
+      <dialog id="ayuda-modulo" class="ayuda-modulo" aria-labelledby="ayuda-titulo">
+        <div id="ayuda-contenido"></div>
+        <form method="dialog" class="ayuda-pie">
+          <button class="primario" type="submit">Entendido</button>
+        </form>
+      </dialog>
 
   <main>
     <!--
@@ -177,7 +211,7 @@
       al contenido de la pantalla recién abierta.
     -->
     <!-- 1 · CAPTURAR — velocidad: un campo grande, cero formularios. -->
-    <section id="capturar" aria-label="Capturar" tabindex="-1">
+    <section id="capturar" aria-label="Capturar" tabindex="-1" hidden>
       <!--
         Dos columnas: la nota a la izquierda y, a la derecha, qué va a pasar
         con ella. Antes esta pantalla era una columna angosta con dos tercios
@@ -218,7 +252,7 @@
               <label class="campo-fecha">
                 <span class="campo-fecha-etiqueta">Visita</span>
                 <!--
-                  Lo llena `capturar.js` con la fecha de HOY al montar. Vacío,
+                  Lo llena `capture.js` con la fecha de HOY al montar. Vacío,
                   el servidor cae en `capturadaEn` — y RD-6 mide la frescura
                   desde la visita, no desde el dictado. Cargar el lunes la
                   recorrida del viernes quedaba fechado mal, y eso mueve el
@@ -229,10 +263,28 @@
               <button type="button" id="dictar" class="composer-boton"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-microfono" xlink:href="#ic-microfono" /></svg>Dictar</button>
             </div>
             <div class="composer-der">
-              <span class="pista small">⌘/Ctrl + Enter</span>
-              <button type="button" id="enviar" class="primario">Interpretar</button>
+              <!--
+                Los dos aparecen juntos y solo cuando hay algo que interpretar:
+                con la nota vacía no hay acción que ese botón o ese atajo
+                puedan cumplir, y mostrarlos igual invita a un click que solo
+                devuelve un aviso. Los oculta/muestra `actualizarComposer()`.
+              -->
+              <span id="pista-atajo" class="pista small" hidden>⌘/Ctrl + Enter</span>
+              <button type="button" id="enviar" class="primario" hidden>Interpretar</button>
             </div>
           </div>
+
+          <!--
+            Fragmentos del dictado por chunking: cada corte de ~20 s que
+            `capture.js` va subiendo y transcribiendo MIENTRAS la persona
+            sigue grabando, con su estado propio. Sin esto, el único rastro
+            de que el chunking funciona era una línea de `estado()` que se
+            pisa con la siguiente — no quedaba ninguna prueba visible de que
+            el fragmento 1 ya estaba transcrito cuando arrancó el 3.
+            `aria-live="polite"`: cada fragmento que cambia de estado se
+            anuncia una vez, sin interrumpir.
+          -->
+          <ul id="fragmentos-dictado" class="fragmentos-dictado" aria-label="Fragmentos de este dictado" aria-live="polite" hidden></ul>
         </div>
 
         <!--
@@ -261,7 +313,7 @@
       -->
       <p id="estado-captura" class="estado" role="status" aria-live="polite" hidden></p>
       <!--
-        Caja de falla de la pantalla: la explica `ui/errores.js` (qué pasó,
+        Caja de falla de la pantalla: la explica `ui/errors.js` (qué pasó,
         por qué y qué hacer) y la construye `error()` de `ui/dom.js`. Va
         FUERA de la región viva de arriba: ahí se anuncia el titular en una
         línea, y acá se lee el detalle con los pasos, que como lista no cabe
@@ -271,8 +323,15 @@
       <p id="ruta" class="chip" hidden></p>
 
       <!-- H-03 · paso 12: revisión obligatoria antes de guardar. -->
-      <div id="revision" class="revision" hidden>
-        <h2>Revisá antes de guardar</h2>
+      <!--
+        `tabindex="-1"` + `aria-labelledby`: al abrirse este panel es lo más
+        importante que apareció en la pantalla, y `pintarRevision()` le mueve
+        el foco. Sin esto, un lector de pantalla se quedaba anunciando el
+        botón «Interpretar» que ya no está visible, y nada decía que había
+        un borrador nuevo para revisar.
+      -->
+      <div id="revision" class="revision" tabindex="-1" aria-labelledby="revision-titulo" hidden>
+        <h2 id="revision-titulo">Revisá antes de guardar</h2>
         <p id="resumen" class="resumen"></p>
         <div id="campos"></div>
         <p id="pendiente" class="nota pendiente" hidden>
@@ -285,23 +344,35 @@
         </p>
         <div class="fila">
           <button type="button" id="confirmar" class="primario">Sí, es correcto — guardar</button>
+          <!--
+            El dictado/composer se oculta mientras se revisa (foco en un solo
+            bloque a la vez). Este botón lo trae de vuelta sin perder la nota:
+            libera el borrador en el servidor pero deja el texto tal cual, para
+            corregirlo y reinterpretarlo. Distinto de «Descartar», que además
+            avisa que no se guardó nada.
+          -->
+          <button type="button" id="volver">Volver a editar</button>
           <button type="button" id="descartar">Descartar</button>
         </div>
         <p class="nota">Nada se guarda hasta que vos lo confirmes.</p>
       </div>
     </section>
 
-    <!-- 2 · CLIENTE 360 — ★ la que gana. La pinta cliente.js. -->
+    <!-- 2 · CLIENTE 360 — ★ la que gana. La pinta client.js. -->
     <section id="cliente" aria-label="Cliente 360" tabindex="-1" hidden></section>
 
-    <!-- 3 · PANORAMA. La pinta panorama.js. -->
-    <section id="panorama" aria-label="Panorama" tabindex="-1" hidden></section>
+    <!-- 3 · PANORAMA. La pinta overview.js. -->
+    <section id="panorama" aria-label="Inteligencia" tabindex="-1"></section>
 
-    <!-- 4 · AUDITORÍA. La pinta auditoria.js. -->
+    <!-- 4 · AUDITORÍA. La pinta audit.js. -->
     <section id="auditoria" aria-label="Auditoría" tabindex="-1" hidden></section>
 
+    <!-- 4b · CONEXIONES — detalle por dispositivo del sync P2P (pendiente #4
+         de SYNC_P2P_MOBILE_CONTRACT.md). La pinta connections.js. -->
+    <section id="conexiones" aria-label="Conexiones" tabindex="-1" hidden></section>
+
     <!-- 5 · CÓMO FUNCIONA — los estados y el flujo, con diagramas. La pinta
-         `comofunciona.js`. Es la única pantalla sin un solo dato de la API:
+         `how-it-works.js`. Es la única pantalla sin un solo dato de la API:
          todo lo que dice está escrito en ese archivo. -->
     <section id="comofunciona" aria-label="Cómo funciona" tabindex="-1" hidden></section>
   </main>

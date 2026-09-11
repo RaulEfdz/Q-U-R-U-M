@@ -1,5 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { color, espacio, tipografia } from '../theme.ts';
+// Metro soporta `import` de JSON nativo — se evita agregar `expo-constants`
+// como dependencia nueva solo para leer un string que ya vive acá.
+import pkg from '../../../package.json';
 
 /**
  * Barra de marca, fija arriba de las dos pantallas.
@@ -20,6 +23,10 @@ export function BarraSuperior({ paddingTop }: { paddingTop: number }) {
       <View style={estilos.marca}>
         <Text style={estilos.glifo}>●</Text>
         <Text style={estilos.nombre}>QUÓRUM</Text>
+        {/* Visible para el jurado: qué build es este APK exacto, sin tener
+            que preguntar. Mismo dato que `package.json`, nunca hardcodeado
+            aparte — se lee de ahí para no quedar desactualizado. */}
+        <Text style={estilos.version}>v{pkg.version}</Text>
       </View>
       <Text style={estilos.tesis}>La verdad tiene quórum.</Text>
     </View>
@@ -35,5 +42,6 @@ const estilos = StyleSheet.create({
   marca: { flexDirection: 'row', alignItems: 'center', gap: espacio.sm },
   glifo: { fontSize: 15, color: color.quorum },
   nombre: { ...tipografia.subtitulo, letterSpacing: 1.5, color: color.texto },
+  version: { ...tipografia.pequeno, color: color.textoTenue },
   tesis: { ...tipografia.pequeno, color: color.textoTenue, marginTop: 2 },
 });

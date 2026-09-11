@@ -303,10 +303,21 @@ input, textarea {
 }
 input.invalido { border-color: var(--sinquorum); background: var(--sinquorum-fondo); }
 input.editado, select.editado { border-color: var(--primario); font-weight: 700; }
+/*
+ * El borde rojo de `.invalido` no le dice a nadie QUÉ se espera, y no lo dice
+ * en absoluto a quien no distingue el color o usa lector de pantalla. Este
+ * texto vive siempre en el DOM (así `aria-describedby` no apunta a nada
+ * cuando está oculto) y solo se muestra junto al input que falló.
+ */
+.campo-restriccion {
+  display: none;
+  margin-top: 4px; font-size: var(--t-chico); color: var(--sinquorum-ink);
+}
+input.invalido + .campo-restriccion { display: block; }
 
 /*
  * Un vocabulario CERRADO se elige, no se escribe (ver `MODALIDADES` en
- * capturar.js). El select toma exactamente la caja de un input para que la
+ * capture.js). El select toma exactamente la caja de un input para que la
  * grilla de campos editables no se parta en dos patrones visuales, y comparte
  * la marca `.editado`: el borde de acción significa «esto lo cambió el
  * humano», sin importar con qué control lo cambió.
@@ -528,8 +539,8 @@ tr.conflicto td { background: var(--sinquorum-fondo); border-bottom: 1px solid v
 .dupes { margin: var(--md) 0 0; font-size: var(--t-chico); color: var(--tenue); }
 
 /*
- * LA ÚNICA ANIMACIÓN de la app: el ascenso a quórum, 600 ms. Es el pico
- * del video: `Reportado · 1 testigo` → `QUÓRUM · 2 testigos independientes`.
+ * La buena noticia: el ascenso a quórum, 600 ms. Es el pico del video:
+ * `Reportado · 1 testigo` → `QUÓRUM · 2 testigos independientes`.
  */
 @keyframes ascenso {
   0%   { background: var(--quorum-fondo); transform: translateX(-6px); }
@@ -541,6 +552,22 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
   tr.ascenso { animation: none; background: var(--quorum-fondo); }
 }
 
+/*
+ * La mala noticia, con la misma cortesía: un campo que discrepa de golpe.
+ * Antes esta transición se veía igual que cualquier repintado rutinario —
+ * el cambio más urgente de notar era el menos señalado de toda la pantalla.
+ * Mismo patrón que `.ascenso` (600 ms, color propio de `Sin quórum`).
+ */
+@keyframes conflictoNuevo {
+  0%   { background: var(--sinquorum-fondo); transform: translateX(-6px); }
+  40%  { background: var(--sinquorum-fondo); transform: none; }
+  100% { background: transparent; transform: none; }
+}
+tr.conflicto-nuevo { animation: conflictoNuevo 600ms ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  tr.conflicto-nuevo { animation: none; background: var(--sinquorum-fondo); }
+}
+
 /* ─────────────────────────── 3 · Panorama ─────────────────────────── */
 
 .kpis {
@@ -548,11 +575,35 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
   gap: 1px; background: var(--borde); border: 1px solid var(--borde);
   margin-bottom: var(--xl);
 }
+.contexto-control { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--xl); margin-bottom: var(--xl); }
+.contexto-control h2 { margin: 0; font-size: 28px; line-height: 1.18; letter-spacing: -.02em; }
+.contexto-control p { max-width: 66ch; margin: var(--sm) 0 0; color: var(--tenue); font-size: var(--t-cuerpo); line-height: 1.45; }
+.contexto-control .estado-control { flex: 0 0 auto; max-width: 290px; margin: 0; padding: var(--sm) var(--md); color: var(--quorum-ink); background: var(--quorum-fondo); border: 1px solid var(--quorum); font-size: var(--t-chico); font-weight: 700; }
+.contexto-control .estado-control.con-alertas { color: var(--sinquorum-ink); background: var(--sinquorum-fondo); border-color: var(--sinquorum); }
 .kpi { padding: var(--lg); background: var(--superficie); }
 .kpi b { display: block; font-size: 34px; line-height: 1; font-weight: 700; }
 .kpi span { font-size: var(--t-chico); color: var(--tenue); }
 .kpi.ok b { color: var(--quorum-ink); }
 .kpi.sinquorum b { color: var(--sinquorum-ink); }
+
+.tablero-doble { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--lg); }
+.tablero-doble .bloque { margin-bottom: var(--xxl); }
+
+/* Composición de estados: una barra apilada sirve para el todo y sus partes.
+ * Es un único conjunto, por eso usa color de ESTADO y leyenda directa, nunca
+ * una paleta categórica arbitraria. */
+.reparto-estados { margin: 0 0 var(--lg); }
+.reparto-estados figcaption { margin-bottom: var(--sm); color: var(--tenue); font-size: var(--t-chico); }
+.reparto-pista { display: flex; gap: 2px; height: 18px; overflow: hidden; background: var(--hundida); }
+.reparto-segmento { min-width: 0; cursor: default; }
+.reparto-segmento:focus-visible { position: relative; z-index: 1; outline-offset: -2px; }
+.reparto-segmento.quorum, .reparto-leyenda .quorum .reparto-marca { background: var(--quorum); }
+.reparto-segmento.disputa, .reparto-leyenda .disputa .reparto-marca { background: var(--sinquorum); }
+.reparto-segmento.pendiente, .reparto-leyenda .pendiente .reparto-marca { background: var(--borde-duro); }
+.reparto-leyenda { display: flex; flex-wrap: wrap; gap: var(--lg); margin: var(--sm) 0 0; padding: 0; list-style: none; color: var(--tenue); font-size: var(--t-chico); }
+.reparto-leyenda li { display: inline-flex; align-items: center; gap: 5px; }
+.reparto-leyenda b { color: var(--texto); }
+.reparto-marca { width: 9px; height: 9px; flex: 0 0 auto; }
 /* Un total que excluye unidades tiene que decirlo pegado al total, no en una
    nota al pie. Glifo + etiqueta + color, como cualquier estado de quórum. */
 .nota.no-computadas {
@@ -572,6 +623,27 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
    borde duro completo, no con una franja al costado: es el mismo criterio
    que en `.grupo`. */
 .bloque.aviso-humano { background: var(--hundida); border-color: var(--borde-duro); }
+.bloque-prioridades { background: var(--hundida); }
+.lista-oportunidades { display: grid; gap: var(--md); }
+.oportunidad-central { padding: var(--lg); background: var(--superficie); border: 1px solid var(--borde-duro); border-radius: 10px; }
+.oportunidad-central.prioridad-alta { border-color: var(--sinquorum); background: #fffafa; }
+.oportunidad-cabecera { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--md); }
+.oportunidad-cabecera h5 { margin: 4px 0 0; font-size: var(--t-cuerpo); }
+.oportunidad-puntaje { color: var(--primario); font-size: var(--t-grande); white-space: nowrap; }
+.oportunidad-razones { margin: var(--md) 0; padding-left: 20px; font-size: var(--t-chico); }
+.oportunidad-meta { color: var(--tenue); font-size: var(--t-chico); }
+.oportunidad-accion { margin: var(--md) 0 0; font-size: var(--t-chico); }
+.desglose-oportunidad { margin-top: var(--md); color: var(--tenue); font-size: var(--t-chico); }
+.desglose-oportunidad summary { cursor: pointer; color: var(--texto); font-weight: 700; }
+.desglose-oportunidad p { margin: var(--sm) 0 0; }
+.calidad-inteligencia { display: grid; gap: var(--sm); }
+.calidad-inteligencia p { margin: 0; }
+.arbol-geografico { display: grid; gap: var(--sm); }
+.geo-nivel { padding: var(--sm) 0 var(--sm) var(--md); border-left: 1px solid var(--borde-duro); }
+.geo-nivel summary { cursor: pointer; color: var(--texto); font-weight: 700; }
+.geo-nivel.ciudad { margin: var(--sm) 0 0 var(--md); }
+.geo-nivel.cliente { margin: var(--sm) 0 0 var(--md); }
+.geo-equipos { display: grid; gap: var(--xs); margin: var(--sm) 0 0; padding-left: var(--lg); }
 
 /* Barras: `div` con porcentaje. Sin librería de gráficos, sin mapa. */
 .barras { display: flex; flex-direction: column; gap: var(--xs); }
@@ -629,8 +701,25 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 
 .auditoria-tabla { background: var(--superficie); border: 1px solid var(--borde); }
 .auditoria-tabla td { font-size: var(--t-chico); }
+
+/* Conexiones: mismo tratamiento visual que Auditoría, misma familia de
+ * pantalla (registro/estado del sistema, no dato de negocio). */
+.conexiones-tabla { background: var(--superficie); border: 1px solid var(--borde); width: 100%; margin-top: var(--md); }
+.conexiones-tabla td { font-size: var(--t-chico); }
+.conexiones-tabla tr.desconectado { color: var(--tenue); }
 .pares { display: flex; flex-wrap: wrap; gap: var(--md); }
 .par i { font-style: normal; color: var(--tenue); }
+/*
+ * Botón, no `title`: el hash y los valores largos de «Detalle» se expanden
+ * con click O con teclado (Enter/Espacio en un `<button>` real), y quedan
+ * enteros en pantalla — un `title` nativo no responde a ninguno de los dos.
+ */
+.hash-expandible, .valor-expandible {
+  font: inherit; color: var(--tenue); background: none; border: none; padding: 0;
+  cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px;
+}
+.hash-expandible:hover, .hash-expandible:focus-visible,
+.valor-expandible:hover, .valor-expandible:focus-visible { color: var(--texto); }
 .chip-inferencia {
   display: inline-flex; align-items: center; gap: var(--sm);
   padding: 1px 7px; font-size: var(--t-chico); font-weight: 700;
@@ -665,7 +754,7 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .vacio-detalle { margin: var(--md) auto 0; max-width: 62ch; font-size: var(--t-chico); color: var(--tenue); }
 
 /*
- * Caja de error legible (ver `ui/errores.js`). Dos tratamientos:
+ * Caja de error legible (ver `ui/errors.js`). Dos tratamientos:
  *
  *  `.estado` — situaciones ESPERADAS que no son fallas del producto: el
  *    servidor no está levantado, el modelo todavía se descarga, no hay
@@ -720,11 +809,22 @@ footer {
 .leyenda-estados b:nth-child(5) { color: var(--sinquorum); }
 .leyenda-estados i { color: var(--tenue); }
 
+/*
+ * `.grupo` siempre puede desplazarse horizontalmente: es la red de
+ * seguridad para la columna «Quién lo sostiene» (RD-4, el dato que sostiene
+ * toda la tesis del producto). Antes esto solo se activaba junto con
+ * `width:auto` en el breakpoint de 720px de acá abajo, pero el sidebar recién
+ * colapsa a los 800px — en el rango 721-800px (tablet/laptop chico) la
+ * tabla se quedaba con sus anchos fijos y SIN scroll, así que esa columna
+ * podía quedar recortada en silencio, sin barra que lo delate.
+ */
+.grupo { overflow-x: auto; }
+
 /* Pantallas chicas: la tabla de confianza no se comprime hasta ser
    ilegible, se deja desplazar. */
-@media (max-width: 720px) {
+@media (max-width: 800px) {
   main, header, footer { padding-left: var(--lg); padding-right: var(--lg); }
-  .grupo { overflow-x: auto; }
+  .tablero-doble { grid-template-columns: 1fr; gap: 0; }
   .barra { grid-template-columns: 100px 1fr 44px; }
   /* Los anchos fijos de columna dejan de servir acá: sin esto la insignia
      de frescura se parte palabra por palabra en la última columna. */
@@ -756,28 +856,53 @@ footer {
 
 body { background: var(--fondo); color: var(--texto); }
 .app-shell { min-height: 100vh; display: flex; }
+/*
+ * Sticky, no en el flujo del scroll de la página: con `main` sin alto fijo,
+ * una pantalla larga (Auditoría con 50 registros, Cliente 360 con muchos
+ * grupos) hacía crecer TODO el `.app-shell`, y el sidebar —que solo tenía
+ * `min-height: 100vh`, no una posición propia— se iba de la vista junto con
+ * el contenido en cuanto se scrolleaba. La navegación principal tiene que
+ * quedarse fija mientras el contenido se mueve, no viajar con él.
+ * `overflow-y: auto` es la red de seguridad si el propio sidebar llegara a
+ * ser más alto que el viewport (una ventana muy baja).
+ */
 .sidebar {
-  width: 238px; flex: 0 0 238px; min-height: 100vh; display: flex; flex-direction: column;
-  padding: 28px 16px 20px; background: var(--rail); border-right: 1px solid var(--borde);
+  width: 238px; flex: 0 0 238px; height: 100vh; display: flex; flex-direction: column;
+  padding: 28px 16px 20px; background: #fbfcfe; border-right: 1px solid var(--borde);
+  position: sticky; top: 0; align-self: flex-start; overflow-y: auto;
 }
-.sidebar .marca { align-items: center; gap: 11px; padding: 0 12px 34px; }
+.sidebar .marca { align-items: center; gap: 11px; padding: 0 12px 38px; }
 .sidebar .marca h1 { font-size: 18px; letter-spacing: .11em; line-height: 1; }
 .sidebar .tesis { margin-top: 5px; font-size: 12px; }
 .marca-logo { width: 31px; height: 31px; object-fit: contain; display: block; }
-.sidebar-label { margin: 0 12px 10px; color: #596579; font-size: 12px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
-.sidebar nav { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.sidebar-label { margin: 0 12px 10px; color: #596579; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.sidebar-label-secundario { margin-top: 30px; }
+.sidebar nav { display: flex; flex-direction: column; gap: 3px; margin: 0; }
 .sidebar nav button {
-  width: 100%; min-height: 44px; justify-content: flex-start; gap: 12px; padding: 10px 12px;
-  border: 0; border-radius: 8px; color: var(--tenue); font-size: 13px; font-weight: 600;
+  width: 100%; min-height: 43px; justify-content: flex-start; gap: 12px; padding: 10px 12px;
+  border: 0; border-radius: 9px; color: #7b8695; font-size: 13px; font-weight: 600;
 }
-.sidebar nav button:hover { color: var(--texto); background: #f5f7fb; }
+.sidebar nav button .icono { color: #9aa4b2; width: 18px; height: 18px; }
+.sidebar nav button:hover { color: var(--texto); background: #f2f5f9; }
 .sidebar nav button.activo { color: var(--primario); background: var(--nav-activo); border: 0; }
+.sidebar nav button.activo .icono { color: var(--primario); }
 .sidebar nav button.activo::before { content: ''; width: 3px; height: 22px; margin-left: -12px; margin-right: 1px; background: var(--primario); border-radius: 0 3px 3px 0; }
-.sidebar-bottom { display: flex; align-items: center; gap: 10px; margin: auto 8px 0; padding: 14px 12px; color: var(--tenue); border-top: 1px solid var(--borde); font-size: 12px; }
+.sidebar-bottom { display: flex; align-items: center; gap: 10px; margin: auto 8px 0; padding: 16px 12px; color: var(--tenue); border-top: 1px solid var(--borde); font-size: 12px; }
 .sidebar-bottom b, .sidebar-bottom small { display: block; }
 .sidebar-bottom b { color: var(--texto); font-size: 12px; }
 .sidebar-bottom small { margin-top: 3px; font-size: 12px; }
 .sidebar-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--quorum); }
+/*
+ * Chip de sync P2P (pendiente #5 de SYNC_P2P.md). Reusa el verde de
+ * "en vivo" — es la misma semántica de "conexión activa", no un estado de
+ * confianza de dato, así que no toca la rampa de quórum. Oculto por
+ * defecto (JS lo muestra solo con `peersConectados > 0`).
+ */
+.sync-peers {
+  margin: 0 8px 10px; padding: 7px 10px;
+  color: var(--quorum-ink); background: var(--quorum-fondo);
+  border-radius: 8px; font-size: 12px; font-weight: 700;
+}
 .app-frame { min-width: 0; flex: 1; }
 .app-frame > header {
   min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: var(--lg);
@@ -790,8 +915,327 @@ body { background: var(--fondo); color: var(--texto); }
 .conexion { font-size: 12px; }
 .modelo-ia { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 9px; color: var(--primario); background: var(--nav-activo); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .avatar { display: inline-grid; place-items: center; width: 30px; height: 30px; color: #fff; background: var(--primario); border-radius: 50%; font-size: 12px; font-weight: 800; }
+.boton-ayuda { display: inline-grid; place-items: center; width: 40px; min-height: 40px; padding: 0; color: var(--primario); background: var(--superficie); border: 1px solid var(--borde-duro); border-radius: 50%; }
+.boton-ayuda:hover { color: var(--primario-hover); background: var(--nav-activo); border-color: #b9cff7; }
+.boton-ayuda .icono { width: 20px; height: 20px; }
+.ayuda-modulo { width: min(520px, calc(100vw - 36px)); padding: 0; color: var(--texto); background: var(--superficie); border: 0; border-radius: 10px; box-shadow: 0 18px 48px rgba(23, 32, 51, .2); }
+.ayuda-modulo::backdrop { background: rgba(23, 32, 51, .48); }
+.ayuda-modulo[open] { display: block; }
+.ayuda-modulo > div { padding: 28px 28px 20px; }
+.ayuda-cabecera { display: flex; align-items: center; gap: 12px; }
+.ayuda-cabecera h2 { margin: 0; font-size: 20px; line-height: 1.25; }
+.ayuda-icono { display: inline-grid; place-items: center; width: 40px; height: 40px; flex: 0 0 auto; color: var(--primario); background: var(--nav-activo); border-radius: 50%; }
+.ayuda-icono .icono { width: 22px; height: 22px; }
+.ayuda-proposito { margin: 18px 0 0; color: var(--texto); font-size: 15px; line-height: 1.5; }
+.ayuda-pasos { display: grid; gap: 12px; margin: 20px 0; padding-left: 25px; color: var(--texto); font-size: 14px; line-height: 1.45; }
+.ayuda-pasos li::marker { color: var(--primario); font-weight: 800; }
+.ayuda-nota { margin: 0; padding: 12px 14px; color: var(--tenue); background: var(--hundida); border-radius: 8px; font-size: 13px; line-height: 1.45; }
+.ayuda-pie { display: flex; justify-content: flex-end; margin: 0; padding: 14px 28px 20px; border-top: 1px solid var(--borde); }
+.ayuda-pie button { min-width: 112px; }
+
+/* Explicación visual breve del módulo Inteligencia. Cada paso declara su
+ * papel con texto y orden; el orden visual nunca es el único significado. */
+.flujo-ayuda { margin: 20px 0; padding: 14px; background: var(--hundida); border: 1px solid var(--borde); border-radius: 8px; }
+.flujo-ayuda-titulo { margin: 0 0 12px; color: var(--tenue); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.flujo-ayuda-pasos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.flujo-ayuda-paso { position: relative; min-width: 0; padding: 10px 8px; background: var(--superficie); border: 1px solid var(--borde); }
+.flujo-ayuda-paso strong { display: block; color: var(--texto); font-size: 12px; line-height: 1.25; }
+.flujo-ayuda-paso span { display: block; margin-top: 4px; color: var(--tenue); font-size: 11px; line-height: 1.3; }
+
+@media (max-width: 540px) {
+  .flujo-ayuda-pasos { grid-template-columns: 1fr 1fr; }
+}
 .app-frame main { width: min(1240px, 100%); min-height: calc(100vh - 148px); margin: 0 auto; padding: 34px 38px 50px; }
 .app-frame footer { padding: 17px 38px 28px; background: var(--superficie); border-top: 1px solid var(--borde); }
+
+/* ── Centro de control · composición tipo workspace ──
+ * Toma de la referencia su gramática (lienzo suave, módulos respirados y
+ * métricas escaneables), no su identidad. El único bloque oscuro representa
+ * cobertura total, nunca un estado de confianza. */
+#panorama {
+  padding: 28px;
+  background: #f3f5f9;
+  border-radius: 24px;
+  box-shadow: 0 18px 46px rgba(23, 32, 51, .09);
+}
+#panorama .contexto-control {
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 6px 2px;
+}
+#panorama .contexto-control h2 { font-size: 31px; letter-spacing: -.03em; }
+#panorama .contexto-control p { max-width: 62ch; }
+#panorama .contexto-control .estado-control {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  max-width: 265px;
+  border-radius: 12px;
+  box-shadow: 0 5px 14px rgba(23, 32, 51, .05);
+}
+#panorama .kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+  background: transparent;
+  border: 0;
+}
+#panorama .kpi {
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 18px;
+  background: var(--superficie);
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 7px 18px rgba(23, 32, 51, .055);
+}
+#panorama .kpi:first-child { background: var(--texto); }
+#panorama .kpi:first-child b,
+#panorama .kpi:first-child span { color: #fff; }
+#panorama .kpi:first-child span { opacity: .78; }
+#panorama .kpi b { font-size: 36px; letter-spacing: -.04em; }
+#panorama .kpi span { font-weight: 600; }
+#panorama .bloque {
+  margin-bottom: 20px;
+  padding: 22px;
+  background: var(--superficie);
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 7px 18px rgba(23, 32, 51, .055);
+}
+#panorama .bloque h4 { margin-bottom: 7px; font-size: 13px; letter-spacing: .02em; }
+#panorama .bloque-prioridades { background: var(--superficie); }
+#panorama .cabecera-prioridades { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 16px; }
+#panorama .cabecera-prioridades h4 { margin-bottom: 0; }
+#panorama .cabecera-prioridades .nota { margin: 5px 0 0; }
+#panorama .resumen-prioridades { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 7px; color: var(--tenue); font-size: var(--t-chico); white-space: nowrap; }
+#panorama .resumen-prioridades > b:first-child { color: var(--texto); font-size: 18px; }
+#panorama .prioridades-alerta, #panorama .prioridades-revision { padding: 4px 8px; border-radius: 999px; font-weight: 700; }
+#panorama .prioridades-alerta { color: var(--sinquorum-ink); background: var(--sinquorum-fondo); }
+#panorama .prioridades-revision { color: var(--reportado-ink); background: #fff7df; }
+#panorama .lista-oportunidades { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+#panorama .oportunidad-central {
+  min-height: 174px;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  background: #f8f9fc;
+  border: 0;
+  border-radius: 13px;
+  box-shadow: none;
+}
+#panorama .oportunidad-central:first-child { grid-column: span 2; background: #f3f6fb; }
+#panorama .oportunidad-central.prioridad-alta {
+  background: var(--sinquorum-fondo);
+  border: 1px solid var(--sinquorum);
+}
+#panorama .oportunidad-cabecera h5 { font-size: 15px; }
+#panorama .oportunidad-puntaje { padding: 7px 9px; background: var(--superficie); border-radius: 8px; font-size: 15px; }
+#panorama .oportunidad-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+#panorama .oportunidad-accion { margin-top: auto; padding-top: 14px; }
+#panorama .etiqueta { font-size: 10px; letter-spacing: .05em; }
+#panorama .desglose-oportunidad { padding-top: 10px; border-top: 1px solid var(--borde); }
+#panorama .puntaje-barras { display: grid; gap: 6px; margin-top: 10px; }
+#panorama .puntaje-fila { display: grid; grid-template-columns: 76px minmax(60px, 1fr) 42px; align-items: center; gap: 7px; font-size: 11px; }
+#panorama .puntaje-fila > b { color: var(--texto); text-align: right; }
+#panorama .puntaje-pista { height: 6px; background: var(--hundida); border-radius: 999px; }
+#panorama .puntaje-pista i { display: block; height: 100%; background: var(--primario); border-radius: 999px; }
+#panorama .tablero-doble { gap: 20px; }
+#panorama .tablero-doble .bloque { min-height: 285px; }
+#panorama .reparto-estados { padding: 14px; background: #f8f9fc; border-radius: 10px; }
+#panorama .reparto-pista { height: 12px; border-radius: 999px; }
+#panorama .reparto-segmento:first-child { border-radius: 999px 0 0 999px; }
+#panorama .reparto-segmento:last-child { border-radius: 0 999px 999px 0; }
+#panorama .barra { min-height: 34px; }
+#panorama .barra-pista { height: 10px; border-radius: 999px; }
+#panorama .barra-pista i { border-radius: 999px; }
+#panorama .arbol-geografico { padding: 4px 2px; }
+#panorama .geo-nivel { border-left-color: #d6dce6; }
+
+@media (max-width: 980px) {
+  #panorama { padding: 20px; border-radius: 18px; }
+  #panorama .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  #panorama { padding: 16px; border-radius: 14px; }
+  #panorama .contexto-control h2 { font-size: 27px; }
+  #panorama .kpis, #panorama .lista-oportunidades { grid-template-columns: 1fr; }
+  #panorama .oportunidad-central:first-child { grid-column: auto; }
+  #panorama .bloque { padding: 17px; border-radius: 13px; }
+  #panorama .cabecera-prioridades { display: block; }
+  #panorama .resumen-prioridades { justify-content: flex-start; margin-top: 12px; }
+}
+
+/* ── Cliente 360 · cuenta → equipos → evidencia ── */
+#cliente {
+  padding: 28px;
+  background: #f3f5f9;
+  border-radius: 24px;
+  box-shadow: 0 18px 46px rgba(23, 32, 51, .09);
+}
+#cliente > .leyenda {
+  margin: 0 2px 22px;
+  padding: 0 2px 18px;
+  border-bottom: 1px solid var(--borde);
+}
+#cliente .cliente-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 2px 12px;
+}
+#cliente .cliente-hero h2 { margin: 0; font-size: 31px; letter-spacing: -.03em; }
+#cliente .cliente-hero p { max-width: 62ch; margin: 6px 0 0; color: var(--tenue); }
+#cliente .cliente-hero-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding: 12px 15px;
+  color: var(--texto);
+  background: var(--superficie);
+  border-radius: 12px;
+  box-shadow: 0 5px 14px rgba(23, 32, 51, .05);
+}
+#cliente .cliente-hero-meta b { font-size: 24px; }
+#cliente .cliente-hero-meta span { color: var(--tenue); font-size: var(--t-chico); font-weight: 700; }
+#cliente .cliente-leyenda { margin-top: 0; }
+#cliente .cliente-bloque {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: var(--superficie);
+  border-radius: 18px;
+  box-shadow: 0 7px 18px rgba(23, 32, 51, .055);
+}
+#cliente .cliente-cabecera {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  margin: 0 0 4px;
+  padding: 0 2px 14px;
+  border-bottom: 1px solid var(--borde);
+}
+#cliente .cliente-nombre { font-size: 24px; letter-spacing: -.025em; }
+#cliente .cliente-cabecera .ubicacion { order: 3; width: 100%; margin: 0; }
+#cliente .cliente-cabecera .small { margin-left: auto; }
+#cliente .grupo {
+  min-width: 0;
+  margin: 0;
+  padding: 18px;
+  background: #f8f9fc;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: none;
+  /*
+   * Red de seguridad real: en el grid de 2 columnas cada card mide ~310px,
+   * y no hay ajuste de `%` de columna que meta 4 columnas de datos densos
+   * (campo + valor + badge + testigos/frescura) ahí sin recortar algo. En
+   * vez de seguir achicando texto hasta que se vuelva ilegible, la tabla
+   * (abajo, `min-width` en `.confianza`) pide el ancho que necesita de
+   * verdad, y ESTE contenedor scrollea horizontal si el card no se lo da —
+   * mismo patrón que ya usa el resto de la app para tablas angostas, nunca
+   * texto que se solapa o se corta en silencio.
+   */
+  overflow-x: auto;
+}
+#cliente .grupo.sinquorum {
+  background: var(--sinquorum-fondo);
+  border: 1px solid var(--sinquorum);
+}
+#cliente .grupo::before { display: none; }
+#cliente .grupo-cabecera {
+  min-height: 54px;
+  align-items: center;
+  margin-bottom: 13px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--borde);
+}
+#cliente .equipo-titulo { font-size: 14px; letter-spacing: .025em; }
+/*
+ * `.con-icono` es `inline-flex` sin wrap (línea ~220): en el card angosto
+ * del layout de dos columnas, el ícono + el título + la píldora de modelo
+ * no entran en una sola fila, y como la píldora no se achica pero el TEXTO
+ * del título sí, el que terminaba partiéndose letra por letra era el título
+ * («CT · AURELIA» / «HEALTH» en líneas separadas) mientras la píldora se
+ * quedaba entera. Acá el título envuelve, y la píldora pasa a su propia
+ * línea completa (`flex-basis: 100%` en un flex-wrap es el truco para forzar
+ * un salto de línea sin sacarla del flujo del título).
+ */
+#cliente .equipo-titulo.con-icono { flex-wrap: wrap; row-gap: 4px; }
+#cliente .equipo-titulo .modelo-card { flex-basis: 100%; margin-left: 26px; }
+#cliente .puntaje-caja { padding-left: 12px; border-left: 1px solid var(--borde); }
+#cliente .puntaje { font-size: 23px; }
+#cliente .grupo .desglose { max-width: 190px; font-size: 10px; }
+/*
+ * `table-layout: fixed` es lo que faltaba acá. Sin él, el layout `auto` de
+ * la tabla mide el contenido y puede decidir que la 4ª columna («Quién lo
+ * sostiene», la que prueba RD-4) necesita más ancho del que le tocaba en el
+ * card de dos columnas — y como `overflow: hidden` de la línea de abajo
+ * existe para redondear las esquinas, no para recortar texto, el efecto era
+ * cortar «QUIÉN LO SOSTIENE» y «2 testigos» a la mitad en vez de que la
+ * tabla respetara el ancho real de su contenedor.
+ */
+#cliente .confianza { background: var(--superficie); border-radius: 9px; overflow: hidden; table-layout: fixed; width: 100%; min-width: 460px; }
+#cliente .confianza th { padding: 8px 9px; font-size: 10px; }
+#cliente .confianza td { padding: 9px; font-size: 12px; }
+/*
+ * La regla base (`.confianza th/td:nth-child(3) { white-space: nowrap }`,
+ * pensada para las 4 columnas de ancho FIJO en px de la tabla de una sola
+ * columna) seguía aplicando acá encima de estos anchos en %: con la columna
+ * apretada a 62px, «Estado de quórum» en el header y el badge «Sin quórum»
+ * no podían wrappear y se desbordaban visualmente sobre la columna
+ * siguiente («Quórutestigosm»). El header ahora envuelve normal; el badge
+ * se achica un poco (línea de abajo) en vez de desbordar.
+ */
+#cliente .confianza th:nth-child(3) { white-space: normal; }
+/* «Total unidades» también forzaba nowrap (regla base `td.campo`) — acá
+ * wrapea igual que ya wrapea «Aurelia Health» en la columna de al lado; no
+ * es una excepción, es la misma solución que el resto de la tabla. */
+#cliente .confianza td.campo { white-space: normal; }
+#cliente .confianza .badge { font-size: 10px; padding: 1px 6px; gap: 3px; }
+#cliente .confianza th:nth-child(1), #cliente .confianza td:nth-child(1) { width: 19%; }
+#cliente .confianza th:nth-child(2), #cliente .confianza td:nth-child(2) { width: 20%; }
+#cliente .confianza th:nth-child(3), #cliente .confianza td:nth-child(3) { width: 27%; }
+/* La 4ª columna se queda con el resto (34%) a propósito: es la más densa
+ * (testigos + badge de frescura) y antes era la única sin ancho propio. */
+#cliente .confianza th:nth-child(4), #cliente .confianza td:nth-child(4) { width: 34%; }
+#cliente .quienes { gap: 5px; }
+#cliente .dupes { margin: 12px 0 0; color: var(--tenue); font-size: 11px; }
+#cliente .oportunidad { margin-top: 0; margin-bottom: 12px; }
+
+@media (max-width: 980px) {
+  #cliente { padding: 20px; border-radius: 18px; }
+  #cliente .cliente-bloque { grid-template-columns: 1fr; padding: 17px; }
+  #cliente .cliente-cabecera { grid-column: auto; }
+}
+
+@media (max-width: 640px) {
+  #cliente { padding: 16px; border-radius: 14px; }
+  #cliente .cliente-hero { display: block; }
+  #cliente .cliente-hero h2 { font-size: 27px; }
+  #cliente .cliente-hero-meta { width: fit-content; margin-top: 12px; }
+  #cliente .cliente-bloque { padding: 14px; border-radius: 14px; }
+  #cliente .cliente-cabecera .small { width: 100%; margin-left: 0; }
+  #cliente .grupo { padding: 14px; }
+}
+
+/* En una pantalla angosta la evidencia conserva sus columnas: desplazar una
+ * tabla es explícito y reversible; comprimirla hasta cortar testigos sería
+ * una pérdida silenciosa de información. */
+@media (max-width: 800px) {
+  #cliente .grupo { overflow-x: auto; }
+  #cliente .confianza { min-width: 680px; }
+  #cliente .grupo-cabecera { min-width: 680px; }
+}
 
 /* Hero and content blocks */
 #capturar > #texto {
@@ -839,7 +1283,10 @@ td { padding: 11px 12px; }
 
 @media (max-width: 800px) {
   .app-shell { display: block; }
-  .sidebar { width: 100%; min-height: auto; padding: 14px 16px 8px; border-right: 0; border-bottom: 1px solid var(--borde); }
+  /* Colapsa a barra horizontal: acá ya no hay nada que separar del scroll
+   * de la página (el sidebar mismo mide unos 60px de alto), así que vuelve
+   * a fluir normal en vez de quedar pegado arriba tapando contenido. */
+  .sidebar { position: static; height: auto; overflow-y: visible; width: 100%; padding: 14px 16px 8px; border-right: 0; border-bottom: 1px solid var(--borde); }
   .sidebar .marca { padding: 0 4px 14px; }
   .sidebar-label, .sidebar-bottom { display: none; }
   .sidebar nav { flex-direction: row; overflow-x: auto; }
@@ -850,6 +1297,9 @@ td { padding: 11px 12px; }
   .app-frame footer { padding-left: 18px; padding-right: 18px; }
   .marcador { display: none; }
   .modelo-ia { display: none; }
+  .contexto-control { display: block; margin-bottom: var(--lg); }
+  .contexto-control .estado-control { max-width: none; margin-top: var(--md); }
+  .cabecera-meta { gap: 10px; }
   .capturar-intro { display: block; }
   .capturar-intro h2 { font-size: 28px; }
   .modelo-captura { margin-top: 16px; }
@@ -857,7 +1307,7 @@ td { padding: 11px 12px; }
 
 /* ══════════════════ Pantalla 5 · Cómo funciona (estados y flujo) ══════════════════
  *
- * Los diagramas son SVG dibujado en `comofunciona.js`. Todo el color sale de
+ * Los diagramas son SVG dibujado en `how-it-works.js`. Todo el color sale de
  * la rampa de confianza y de los neutros que ya existen: un diagrama que
  * introdujera color propio rompería el invariante de que el color codifica
  * confianza y nada más.
@@ -1043,14 +1493,48 @@ td { padding: 11px 12px; }
   background: var(--superficie);
 }
 
-/* Dictar es secundario en jerarquía pero central en el producto: se queda
- * visible, sin competir con el primario. */
+/*
+ * Dictar es secundario en jerarquía (no compite con «Interpretar», el
+ * único botón de RELLENO sólido de la barra) pero central en el producto
+ * — es la otra forma, junto con escribir, de cargar la nota. El azul de
+ * borde y texto lo marca como una acción con peso sin llenarlo de color:
+ * dos botones sólidos uno al lado del otro competirían por cuál es «el»
+ * primario.
+ */
 .composer-boton {
   border-radius: 999px;
   padding: 7px var(--md);
   font-size: var(--t-chico);
+  border-color: var(--primario);
+  color: var(--primario);
 }
+.composer-boton:hover:not(:disabled) { background: var(--nav-activo); }
 .composer-boton.grabando { border-color: var(--sinquorum); color: var(--sinquorum-ink); }
+.composer-boton.grabando:hover:not(:disabled) { background: var(--sinquorum-fondo); }
+
+/* Fragmentos del dictado por chunking (ver ui/capture.js, alternarDictado).
+ * Chips chicos, no una tabla: son un rastro de progreso, no un dato a leer
+ * con detenimiento — el texto que importa ya entró al campo grande. */
+.fragmentos-dictado {
+  display: flex; flex-wrap: wrap; gap: var(--sm);
+  margin: var(--sm) 0 0; padding: 0; list-style: none;
+}
+.fragmentos-dictado li {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 999px; font-size: var(--t-chico);
+  border: 1px solid var(--borde-duro); color: var(--tenue);
+}
+.fragmentos-dictado li.subiendo { border-color: var(--primario); color: var(--primario); }
+.fragmentos-dictado li.transcrito { border-color: var(--quorum); color: var(--quorum-ink); background: var(--quorum-fondo); }
+.fragmentos-dictado li.vacio { border-color: var(--borde-duro); color: var(--tenue); }
+.fragmentos-dictado li.error { border-color: var(--sinquorum); color: var(--sinquorum-ink); background: var(--sinquorum-fondo); }
+/* El punto que gira en «subiendo»: mismo lenguaje visual que `.estado.trabajando`,
+ * para no inventar un segundo indicador de "en curso" en la misma pantalla. */
+.fragmentos-dictado li.subiendo i { animation: girar 900ms linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .fragmentos-dictado li.subiendo i { animation: none; }
+}
 
 .composer-der .primario { border-radius: 999px; padding: 8px var(--lg); }
 .composer-der .pista { white-space: nowrap; }
@@ -1083,6 +1567,11 @@ td { padding: 11px 12px; }
  * otra. La solución no es apretar todo, es sacar lo que ahí no sirve.
  */
 @media (max-width: 720px) {
+  .flujo-conexion { grid-template-columns: 1fr; gap: 8px; }
+  .paso-conexion { display: grid; grid-template-columns: 38px minmax(0, 1fr); column-gap: 10px; align-items: start; }
+  .paso-conexion-icon { grid-row: span 2; margin: 0; }
+  .paso-conexion-cuerpo p { margin-top: 7px; }
+  .paso-conexion-flecha { top: auto; right: auto; bottom: -15px; left: 16px; transform: rotate(90deg); }
   .pasos-captura { grid-template-columns: minmax(0, 1fr); gap: var(--md); }
 
   /* La pista de teclado se va: `⌘/Ctrl + Enter` no significa nada en un
@@ -1157,3 +1646,27 @@ main > section:not([hidden]) { flex: 1 1 auto; }
 /* El campo aprovecha el alto disponible en vez de quedarse en un mínimo fijo,
  * con tope para que en una pantalla alta no se vuelva un lienzo vacío. */
 .composer #texto { min-height: clamp(132px, 24vh, 300px); }
+
+/*
+ * Navegación horizontal en pantalla angosta: aviso de que hay más a la derecha.
+ *
+ * El reskin la convierte en una fila con `overflow-x: auto`, y a 600 px la
+ * última pestaña quedaba cortada al ras del borde sin ninguna señal — se ve
+ * como un error de maquetado, no como algo que se desplaza. El degradado al
+ * borde derecho es la señal; `scroll-snap` hace que el desplazamiento pare en
+ * una pestaña entera y no a mitad de una etiqueta.
+ */
+@media (max-width: 900px) {
+  .sidebar nav {
+    position: relative;
+    scroll-snap-type: x proximity;
+    /* El degradado va como fondo del contenedor y fijo al borde: así no tapa
+     * el foco de ningún botón ni intercepta clics. */
+    background:
+      linear-gradient(to right, transparent calc(100% - 28px), var(--fondo) 100%)
+      right / 100% 100% no-repeat;
+    background-attachment: local, scroll;
+    padding-right: var(--md);
+  }
+  .sidebar nav button { scroll-snap-align: start; }
+}

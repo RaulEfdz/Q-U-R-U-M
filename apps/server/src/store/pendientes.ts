@@ -39,10 +39,22 @@
  * visitar, y con qué pregunta.
  */
 import { appendFile, readFile, mkdir } from 'node:fs/promises';
-import type { Borrador } from '../core/contracts.ts';
+import { zObservacion, type Borrador } from '../core/contracts.ts';
 
 const DIR = 'data';
 const RUTA = `${DIR}/pendientes.jsonl`;
+let corruptasMedidas: number[] = [];
+let medidoEn: string | null = null;
+
+function esBorrador(x: unknown): x is Borrador {
+  if (typeof x !== 'object' || x === null) return false;
+  const b = x as Partial<Borrador>;
+  return typeof b.id === 'string' && typeof b.sesionId === 'string'
+    && typeof b.resumen === 'string' && typeof b.creadoEn === 'string'
+    && (b.siguientePregunta === null || typeof b.siguientePregunta === 'string')
+    && (b.estadoRevision === 'confirmada' || b.estadoRevision === 'pendiente-de-revision')
+    && Array.isArray(b.observaciones) && b.observaciones.every((o) => zObservacion.safeParse(o).success);
+}
 
 /**
  * Encola un borrador pendiente de revisión. Append-only, igual que los otros
@@ -84,18 +96,28 @@ export async function listarPendientes(): Promise<Borrador[]> {
     return [];                     // todavía no hubo ninguna nota pendiente
   }
   const out: Borrador[] = [];
-  for (const linea of contenido.trim().split('\n')) {
+  const corruptas: number[] = [];
+  for (const [i, linea] of contenido.trim().split('\n').entries()) {
     if (!linea.trim()) continue;
     try {
       const parsed: unknown = JSON.parse(linea);
-      if (typeof parsed === 'object' && parsed !== null
-        && typeof (parsed as Borrador).id === 'string'
-        && Array.isArray((parsed as Borrador).observaciones)) {
-        out.push(parsed as Borrador);
-      }
-    } catch { /* línea corrupta: se descarta, no rompe la cola */ }
+      if (esBorrador(parsed)) out.push(parsed);
+      else corruptas.push(i + 1);
+    } catch { corruptas.push(i + 1); }
   }
+  corruptasMedidas = corruptas;
+  medidoEn = new Date().toISOString();
   return out;
+}
+
+/** Integridad de la cola de trabajo: una pérdida no puede quedar invisible. */
+export async function verificarPendientes(): Promise<{ ok: boolean; total: number; corruptas: number[]; medidoEn: string | null }> {
+  const pendientes = await listarPendientes();
+  return {
+    ok: corruptasMedidas.length === 0,
+    total: pendientes.length + corruptasMedidas.length,
+    corruptas: [...corruptasMedidas], medidoEn,
+  };
 }
 
 /** Cuántas notas quedaron con una pregunta sin responder. Es el número que la

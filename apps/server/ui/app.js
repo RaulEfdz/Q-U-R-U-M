@@ -6,13 +6,21 @@
  * servidos como archivos estáticos desde `apps/server/ui/`.
  */
 import { $, api, pintar, h } from './dom.js';
-import { montarCapturar } from './capturar.js';
-import { pintarCliente, pintarClienteError } from './cliente.js';
-import { pintarPanorama, pintarPanoramaError } from './panorama.js';
-import { pintarAuditoria } from './auditoria.js';
-import { pintarComoFunciona } from './comofunciona.js';
+import { montarCapturar } from './capture.js';
+import { pintarCliente, pintarClienteError } from './client.js';
+import { pintarPanorama, pintarPanoramaError } from './overview.js';
+import { pintarAuditoria } from './audit.js';
+import { pintarConexiones } from './connections.js';
+import { pintarComoFunciona } from './how-it-works.js';
+import { actualizarAyuda, montarAyuda } from './help.js';
 
-let vistaActual = 'capturar';
+let vistaActual = 'panorama';
+let resumenBase = '0 grupos · 0 con quórum · 0 sin quórum';
+
+function mostrarResumenConexiones({ total, conectados }) {
+  if (vistaActual !== 'conexiones') return;
+  $('#marcador').textContent = `${total} ${total === 1 ? 'dispositivo visto' : 'dispositivos vistos'} · ${conectados} ${conectados === 1 ? 'conectado' : 'conectados'} ahora`;
+}
 
 /* ───────────────────────────── Refresco ───────────────────────────── */
 
@@ -33,8 +41,24 @@ async function repintar() {
     if (captura) captura.textContent = `IA local · ${d.meta.modeloIA}`;
   }
   const t = d.totales ?? {};
-  $('#marcador').textContent =
-    `${t.grupos ?? 0} grupos · ${t.conQuorum ?? 0} con quórum · ${t.sinQuorum ?? 0} sin quórum`;
+  resumenBase = `${t.grupos ?? 0} grupos · ${t.conQuorum ?? 0} con quórum · ${t.sinQuorum ?? 0} sin quórum`;
+  if (vistaActual !== 'conexiones') $('#marcador').textContent = resumenBase;
+
+  /*
+   * Pendiente #5 de SYNC_P2P.md: "estado de sync visible en la UI". El
+   * servidor ya cuenta peers conectados AHORA (`syncActivo.pares()`, no el
+   * tamaño de la allowlist) y lo manda en `meta.peersConectados`; el evento
+   * SSE `cambio` se dispara solo cuando esa cifra cambia (peer.ts), así que
+   * este chip queda al día sin polling propio.
+   */
+  const peers = d.meta?.peersConectados ?? 0;
+  const chipPeers = $('#sync-peers');
+  if (chipPeers) {
+    chipPeers.hidden = peers === 0;
+    chipPeers.textContent = peers === 1
+      ? '● 1 dispositivo sincronizando'
+      : `● ${peers} dispositivos sincronizando`;
+  }
 }
 
 /*
@@ -53,7 +77,7 @@ let pendiente = false;
  *
  * Coalescer significa descartar el temporizador anterior, y antes eso dejaba
  * colgado para siempre el `resolve` de la promesa que ese temporizador iba a
- * cumplir. Hoy nadie la espera (`capturar.js` llama `alRefrescar()` sin
+ * cumplir. Hoy nadie la espera (`capture.js` llama `alRefrescar()` sin
  * `await`), así que no se veía — pero el primer `await refrescar()` que
  * alguien escribiera se colgaba. Los resolvedores se ACUMULAN: el refresco
  * que finalmente corre es también el de todos los pedidos que absorbió, así
@@ -100,8 +124,9 @@ export function refrescar() {
  */
 function mostrar(vista, { foco = true } = {}) {
   vistaActual = vista;
+  actualizarAyuda(vista);
   const titulo = document.querySelector('#vista-titulo');
-  if (titulo) titulo.textContent = { capturar: 'Capturar', cliente: 'Cliente 360', panorama: 'Panorama', auditoria: 'Auditoría', comofunciona: 'Cómo funciona' }[vista] ?? vista;
+  if (titulo) titulo.textContent = { capturar: 'Capturar', cliente: 'Cliente 360', panorama: 'Inteligencia', auditoria: 'Auditoría', conexiones: 'Conexiones', comofunciona: 'Cómo funciona' }[vista] ?? vista;
   document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== vista; });
   document.querySelectorAll('nav button').forEach((b) => {
     const activo = b.dataset.vista === vista;
@@ -109,6 +134,8 @@ function mostrar(vista, { foco = true } = {}) {
     b.setAttribute('aria-current', activo ? 'page' : 'false');
   });
   if (vista === 'auditoria') pintarAuditoria($('#auditoria'));
+  if (vista === 'conexiones') pintarConexiones($('#conexiones'), mostrarResumenConexiones);
+  else $('#marcador').textContent = resumenBase;
   // «Cómo funciona» no depende de datos, así que se pinta al abrirla y una
   // sola vez (el módulo lleva su propia guarda): no entra en `repintar()`
   // porque no hay nada que refrescar, y repintarla perdería la posición de
@@ -144,6 +171,10 @@ function conectarStream() {
   es.addEventListener('cambio', () => {
     refrescar();
     if (vistaActual === 'auditoria') pintarAuditoria($('#auditoria'));
+    // Mismo evento que dispara el chip de peers del sidebar (onParesCambio,
+    // ver index.ts): un dispositivo que se conecta o se cae repinta la
+    // lista si es lo que se está mirando ahora mismo.
+    if (vistaActual === 'conexiones') pintarConexiones($('#conexiones'), mostrarResumenConexiones);
   });
   es.addEventListener('policy-denied', (e) => {
     try { bandaDenegado(JSON.parse(e.data)); } catch { /* evento malformado: se ignora */ }
@@ -156,6 +187,7 @@ function conectarStream() {
 /* ────────────────────────────── Arranque ────────────────────────────── */
 
 montarCapturar(refrescar);
+montarAyuda();
 conectarStream();
-mostrar('capturar', { foco: false });
+mostrar('panorama', { foco: false });
 refrescar();
