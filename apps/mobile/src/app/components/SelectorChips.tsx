@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { color, espacio, radio, tap, tipografia } from '../theme.ts';
+import { color, elevacion, espacio, radio, tap, tipografia } from '../theme.ts';
 
 /** Fila horizontal de chips seleccionables — un dedo, sin picker nativo
  *  (los pickers nativos de Android son lentos de tocar con guantes).
@@ -46,17 +46,25 @@ export function SelectorChips<T extends string>({
 
 const estilos = StyleSheet.create({
   fila: { flexGrow: 0 },
+  // Contorno por defecto, relleno SOLO el elegido: con todos los chips
+  // rellenos la fila lee como cuatro botones compitiendo, y cuál está activo
+  // deja de ser lo primero que se ve. El peso visual marca la respuesta.
+  //
   // `minHeight` = objetivo táctil a escala de fuente 1.0; `paddingVertical`
   // deja crecer el chip con la fuente del sistema sin apretar el texto.
   chip: {
     minHeight: tap.normal, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: espacio.lg, paddingVertical: espacio.sm,
-    borderRadius: radio.md, borderWidth: 1.5,
+    paddingHorizontal: 15, paddingVertical: espacio.sm,
+    borderRadius: radio.lg, borderWidth: 1.5,
     borderColor: color.borde, backgroundColor: color.superficie, marginRight: espacio.sm,
+    ...elevacion.sutil,
   },
-  chipActivo: { backgroundColor: color.primario, borderColor: color.primario },
+  chipActivo: {
+    backgroundColor: color.primario, borderColor: color.primario,
+    ...elevacion.primaria, shadowRadius: 12, elevation: 4,
+  },
   // Tamaño de `cuerpo` (no de etiqueta): es un control que se toca con
   // guantes, tiene que leerse tan bien como el texto principal.
-  texto: { ...tipografia.cuerpo, fontWeight: '600', color: color.texto },
+  texto: { ...tipografia.cuerpo, fontSize: 15, fontWeight: '600', color: color.textoTenue },
   textoActivo: { color: color.primarioTexto },
 });

@@ -114,8 +114,7 @@ apps/mobile/
 │   ├── store/expo-store.ts         # ── NUEVO
 │   ├── audio/grabacion.ts          # ── NUEVO · expo-audio
 │   └── app/                        # ── NUEVO
-│       ├── Capturar.tsx
-│       └── Cliente360.tsx
+│       └── Capturar.tsx            # única pantalla — ver nota abajo
 └── test/
     ├── pipeline.test.ts            # los 5 resultados
     ├── verificar.test.ts
@@ -150,6 +149,12 @@ Requisitos duros: Android 12+, arm64, Adreno 700+ (Vulkan) u OpenCL, Expo ≥54,
 9. `audit/trace.ts`.
 10. UI: Capturar (con revisión antes de guardar) + Cliente 360 con estado por campo.
 11. Audio con `expo-audio`.
+
+**Nota posterior:** Cliente 360 se construyó en la Fase 10 y después se sacó del
+móvil. La reconciliación se visualiza del lado del server (`apps/server`, misma
+`trust/reconcile.ts`) en vez de duplicarse en el teléfono — el móvil es
+captura pura, una sola pantalla, sin barra de pestañas. Detalle en
+`CLAUDE.md` §Orden de construcción.
 
 ## 7. Gate antes de escribir código
 

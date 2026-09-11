@@ -22,7 +22,9 @@ import type { Modalidad } from '../../core/contracts.ts';
 
 export type NombreIcono =
   | 'mr' | 'ct' | 'ultrasound' | 'xray' | 'monitoring' | 'therapy'
-  | 'capturar' | 'cliente' | 'microfono' | 'detener' | 'chequeo' | 'renovacion';
+  | 'capturar' | 'microfono' | 'detener' | 'chequeo' | 'renovacion'
+  | 'marca' | 'anterior' | 'siguiente' | 'flecha' | 'mas'
+  | 'alerta' | 'falla' | 'info' | 'candado';
 
 interface Props {
   nombre: NombreIcono;
@@ -56,6 +58,24 @@ export function Icono({ nombre, tamano = 20, color = 'currentColor', etiqueta }:
     </Svg>
   );
 }
+
+/**
+ * Modalidad → trazo. La forma se reconoce antes que la sigla: en la tarjeta
+ * de lote y en el recibo de confirmación, el mosaico dice "es un resonador"
+ * de un vistazo, sin leer.
+ *
+ * (El componente `IconoModalidad` que envolvía este mapa se fue con la
+ * pantalla Cliente 360; el mapa vuelve porque lo necesitan dos pantallas
+ * distintas, no porque vuelva aquella.)
+ */
+export const ICONO_MODALIDAD: Record<Modalidad, NombreIcono> = {
+  MR: 'mr',
+  CT: 'ct',
+  Ultrasound: 'ultrasound',
+  XRay: 'xray',
+  PatientMonitoring: 'monitoring',
+  ImageGuidedTherapy: 'therapy',
+};
 
 const TRAZOS: Record<NombreIcono, React.ReactNode> = {
   /* ── Modalidades: la forma se reconoce antes que el texto ── */
@@ -94,16 +114,51 @@ const TRAZOS: Record<NombreIcono, React.ReactNode> = {
     <Rect x={14} y={17.5} width={5.5} height={4} rx={1} />
   </>,
 
+  /* ── Marca ──
+   * Una línea de pulso que sube una vez fuerte y vuelve a la basal: la
+   * forma del monitor de signos vitales (mismo trazo que `monitoring`,
+   * sin la carcasa) y, leída como gráfico, un testimonio que destaca
+   * sobre el resto. Es la marca de la app, no un logotipo nuevo. */
+  marca: <Path d="M2.5 13h3.6l2-6.5 3.4 13 2.6-9.5 1.6 3h5.8" />,
+
   /* ── Navegación ── */
   capturar: <>
     <Path d="M4 20h4L20 8l-4-4L4 16z" />
     <Path d="m14.5 5.5 4 4" />
   </>,
-  cliente: <>
-    <Path d="M4 20.5V8.5L12 3l8 5.5v12" />
-    <Path d="M12 11.5v4.5" />
-    <Path d="M9.75 13.75h4.5" />
-    <Path d="M3 20.5h18" />
+  anterior: <Path d="M15 5l-7 7 7 7" />,
+  siguiente: <Path d="M9 5l7 7-7 7" />,
+  flecha: <>
+    <Path d="M5 12h13" />
+    <Path d="m12.5 6 6 6-6 6" />
+  </>,
+  mas: <>
+    <Path d="M12 5v14" />
+    <Path d="M5 12h14" />
+  </>,
+
+  /* ── Avisos ──
+   * Reemplazan los glifos Unicode `⚠` y `✕`, que Android dibuja con la
+   * fuente de emoji del sistema: salen en color, saltándose la paleta que
+   * en este producto codifica confianza. */
+  alerta: <>
+    <Path d="M12 4.5 2.5 20h19L12 4.5z" />
+    <Path d="M12 10v4" />
+    <Path d="M12 17v.01" />
+  </>,
+  falla: <>
+    <Circle cx={12} cy={12} r={9} />
+    <Path d="m9 9 6 6" />
+    <Path d="m15 9-6 6" />
+  </>,
+  info: <>
+    <Circle cx={12} cy={12} r={9} />
+    <Path d="M12 11v5.5" />
+    <Path d="M12 8v.01" />
+  </>,
+  candado: <>
+    <Rect x={4} y={9.5} width={16} height={11} rx={2.5} />
+    <Path d="M8 9.5V7a4 4 0 0 1 8 0v2.5" />
   </>,
 
   /* ── Acciones y confirmación ── */
@@ -120,22 +175,3 @@ const TRAZOS: Record<NombreIcono, React.ReactNode> = {
     <Path d="M20 3.5V7h-3.5" />
   </>,
 };
-
-/**
- * Icono de una modalidad del vocabulario controlado (`MODALIDADES` en
- * `core/contracts.ts`). Devuelve `null` para lo que no reconoce, en vez de un
- * icono genérico: un icono equivocado sobre un dato clínico es peor que
- * ninguno.
- */
-const POR_MODALIDAD: Record<Modalidad, NombreIcono> = {
-  MR: 'mr', CT: 'ct', Ultrasound: 'ultrasound', XRay: 'xray',
-  PatientMonitoring: 'monitoring', ImageGuidedTherapy: 'therapy',
-};
-
-export function IconoModalidad(
-  { modalidad, tamano, color }: { modalidad?: unknown; tamano?: number; color?: string },
-) {
-  const nombre = POR_MODALIDAD[modalidad as Modalidad];
-  if (!nombre) return null;
-  return <Icono nombre={nombre} {...(tamano !== undefined ? { tamano } : {})} {...(color !== undefined ? { color } : {})} />;
-}

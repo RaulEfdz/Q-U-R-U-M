@@ -146,7 +146,7 @@ El schema de `generationParams` es `$strict` (`node_modules/@qvac/sdk/dist/schem
 
 Tokens en `app/theme.ts`: `color`, `espacio`, `radio`, `tipografia` (8 roles con un trabajo cada uno), `tap`. Los componentes se enganchan a un rol, no eligen `fontSize` suelto.
 
-**Deuda conocida:** los glifos que NO son de estado (`✎ ◍` en las pestañas, `✓ ✕` en el panel de progreso, `⚠`, `🎙`) son caracteres Unicode del font del sistema, no "iconografía SVG propia" como pide el brand (`PRODUCT.md`). Los 5 glifos de estado (`● ◐ ○ · ▲`) sí se quedan. Convertir el resto a SVG necesita `react-native-svg` (paquete oficial de Expo) + `expo prebuild --clean` + rebuild nativo — tarea aparte, no un `polish`. Mientras tanto todos llevan `accessibilityLabel` y los decorativos `importantForAccessibility="no"`.
+**Deuda cerrada:** los glifos que NO son de estado (`✓ ✕` del panel de progreso, `⚠`, `🎙`) eran caracteres Unicode del font del sistema — en Android salían con la fuente de emoji, en color, saltándose la paleta. Ya son trazos de `app/components/Icono.tsx` (`chequeo`, `falla`, `alerta`, `microfono`), mismo viewBox 24×24 y trazo 1.6 que el resto. Los 5 glifos de estado (`● ◐ ○ · ▲`) sí se quedan tipográficos: los fija §II.20 del doc maestro y escalan con la fuente del sistema. Todos llevan `accessibilityLabel` y los decorativos `importantForAccessibility="no"`.
 
 ## Restricciones duras
 
@@ -163,6 +163,8 @@ No hay corrida sobre las 300 notas ciegas. Las cifras 93%/95% son **hipótesis**
 ## Orden de construcción
 
 1. Contratos Zod (copiados, congelar) → 2. Pool + assert `isDelegated !== false` → 3. Hola mundo: portero en teléfono real; si falla, parar → 4. `precheck` + `portero` + tests → 5. `extractor` + `verificar` + tests → 6. `procesarNota()` + test de los 5 resultados → 7. Motor de quórum (RD-0..RD-7, 1 test por regla) → 8. Store → 9. `audit/trace.ts` (extensión nuestra, ver `TRAZABILIDAD.md`) → 10. UI Capturar + Cliente 360 → 11. Audio con `expo-audio`.
+
+**Cliente 360 salió del móvil.** La Fase 10 la construyó en el teléfono (`Cliente360Screen.tsx`, pestaña `Clientes`); se eliminó después: la reconciliación se visualiza del lado del server (`apps/server`, misma `trust/reconcile.ts`), no duplicada acá. El móvil quedó de una sola pantalla — Capturar — sin barra de pestañas. Lo que era exclusivo de esa pantalla se borró con ella: `app/Cliente360Screen.tsx`, `app/testigos.ts`, `app/components/FilaCampo.tsx`, `app/components/InsigniaQuorum.tsx`, y el icono `cliente` + `IconoModalidad` de `app/components/Icono.tsx`.
 
 ## Skills, hooks y técnicas a usar en esta app
 
