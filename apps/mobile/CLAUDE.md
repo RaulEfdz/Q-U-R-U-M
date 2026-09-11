@@ -1,6 +1,6 @@
 # QUÓRUM · mobile (app celular · Android)
 
-> **v0.4.1 · 2026-09-10** — las dos apps corren, el extractor extrae y hay dictado por voz. Ver `README.md` de esta carpeta para el historial de cambios y `../../docs/AUDITORIA.md` para los hallazgos completos.
+> **v0.5.0 · 2026-09-11** — las dos apps corren, el extractor extrae y hay dictado por voz. Ver `README.md` de esta carpeta para el historial de cambios y `../../docs/AUDITORIA.md` para los hallazgos completos.
 
 Fuente: `../../docs/QUORUM_pipeline_android.md` (Anexo D del doc maestro). Diseño y diagrama: `ARCHITECTURE.md`. Auditoría por nota: `TRAZABILIDAD.md`.
 
@@ -8,7 +8,11 @@ Fuente: `../../docs/QUORUM_pipeline_android.md` (Anexo D del doc maestro). Dise�
 
 ## Stack
 
-Expo ≥54, React Native, TypeScript estricto. Android 12+, arm64, GPU Adreno 700+ (Vulkan) u OpenCL. **Solo dispositivo físico** — los emuladores no corren llama.cpp. Node ≥22.17 para dev.
+Expo ≥54, React Native, TypeScript estricto. Android 12+, arm64. **Solo dispositivo físico** — los emuladores no corren llama.cpp. Node ≥22.17 para dev.
+
+**Solo teléfono, solo vertical.** `orientation: "portrait"` y `ios.supportsTablet: false` son deliberados: la captura se hace de pie, con una mano, entre consultas — apaisado y tablet no son el escenario. No hay layouts por size class y construirlos está fuera de alcance. La UI sí tolera la fuente del sistema en grande (los controles crecen, no recortan); probar con `adb shell settings put system font_scale 1.5` y restaurar a `1.0`.
+
+**GPU:** el doc pide Adreno 800+ (Vulkan) u OpenCL, pero verificado 2026-09-10: el **Immortalis-G715 del Pixel 8 Pro (familia Mali)** corre Vulkan bien — 11-17 tok/s. Requiere `device: 'gpu'` + `gpu_layers: 99` explícitos en el `modelConfig` (ver `qvac/pool.ts`); sin eso cae a CPU (0.5-1.4 tok/s, ~4 min/nota). Los Pixel/Tensor **no tienen OpenCL** (sin driver del fabricante) — sale por Vulkan. Confirmá siempre con `diagModelo` (`dev=gpu`).
 
 ## Paso 0 — antes de escribir código
 
@@ -28,7 +32,7 @@ list.filter(x => /qwen|whisper/i.test(x.name));
 
 | Rol | Constante a importar del SDK | Tamaño |
 |---|---|---|
-| ASR | `WHISPER_TINY` | 78 MB |
+| ASR | `WHISPER_BASE_Q8_0` | 78 MB |
 | Portero | `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M` | 533 MB |
 | Extractor | `QWEN3_1_7B_INST_Q4` | 1057 MB |
 
@@ -37,6 +41,19 @@ list.filter(x => /qwen|whisper/i.test(x.name));
 Las constantes son **objetos** (con `src`, `sha256Checksum`, `expectedSize`), no strings. Importalas del SDK; no escribas `'WHISPER_TINY'` como literal de texto.
 
 Los tres ya están descargados en `~/.qvac/models` (2026-09-10).
+
+⚠️ **El ASR cambió de `WHISPER_TINY` a `WHISPER_BASE_Q8_0`** — el base todavía **no** está en `~/.qvac/models` ni en el teléfono. `loadModel` lo baja solo la primera vez (78 MB), pero eso significa que el primer arranque después de este cambio **necesita red**. Antes de una demo: abrir la app una vez con conectividad y esperar a que `[QUÓRUM·precarga] asr listo` aparezca en el log. Vale para cualquier cambio de la escalera de modelos de `qvac/pool.ts`.
+
+## Precisión del ASR — qué se tocó y dónde
+
+Cuatro palancas, en orden de cuánto mueven la aguja. Todas viven en dos archivos: `qvac/pool.ts` (`CONFIG_ASR`) y `pipeline/lexico.ts`.
+
+1. **Modelo.** `WHISPER_BASE_Q8_0` en vez de `WHISPER_TINY`: cuesta 4 MB (78 vs 74 — el base viene cuantizado q8_0, el tiny que traíamos era f16) y es un escalón entero de whisper. La escalera completa, con `WHISPER_SMALL_Q8_0` (+174 MB) como próximo paso, está tabulada en el comentario de `MODELOS`. **Small no está medido**: el dictado es en vivo y hay que mirar el `ms` del paso «dictando» antes de dejarlo.
+2. **Decodificación.** `strategy: 'beam_search'` + `beam_search_beam_size: 5` en vez del `greedy` por default — greedy no reconsidera, y una sílaba mal resuelta arrastra la palabra entera («Blue Pick» por «BluePeak»). Más `no_context: true` (corta el bucle de repetición de raíz) y el fallback por temperatura de whisper (`temperature_inc` + `entropy_thold` + `logprob_thold`). **Si el dictado en vivo llega tarde a la pantalla, bajar el beam a 3 es lo primero que hay que probar, antes de tocar el modelo.**
+3. **VAD.** `threshold` 0.6 → 0.5 y `speech_pad_ms` 200 → 300: a 0.6 el VAD se comía el arranque de la frase, y «dos MR» llegaba como «MR» — perder la cantidad es perder justo uno de los campos que reconcilia el quórum.
+4. **Corrector léxico** (`pipeline/lexico.ts`, nuevo). Ningún whisper vio nunca «BluePeak Medical»: subir el modelo mejora el promedio y no cierra el vocabulario cerrado. La corrección va en CÓDIGO —alias exactos para las siglas, similitud difusa acotada para las 6 marcas— y **devuelve qué cambió**, que la pantalla de captura muestra: la nota la confirma la persona como propia y una palabra que reescribió el código sin avisar sería inaceptable. Umbral 0.88, **medido** (ver el comentario de `UMBRAL_MARCA`), no elegido a ojo. Tests en `test/lexico.test.ts`.
+
+El `initial_prompt` está escrito **con forma de nota dictada**, no de descripción del dominio: el prompt de whisper no es una instrucción, son tokens que el modelo imita. Vive en `pipeline/lexico.ts` como `PROMPT_ASR` y es fuente única — el SDK, al recibir `prompt` en `transcribe()`, recarga el modelo y al terminar deja el `initial_prompt` en cadena vacía, así que el de la carga no sobrevive a la primera nota y los dos tienen que decir lo mismo.
 
 **Oportunidad:** el modelo del portero es multimodal. La captura por foto que el doc maestro corta en H-14 usa **el mismo modelo** que ya cargás para el portero — sale sin RAM adicional.
 
@@ -104,13 +121,26 @@ No copiar y pegar. Aplicar esto:
 
 **Cláusula del prompt del extractor, textual:** *"Si no podés copiar un fragmento literal que lo justifique, NO generes ese lote."* Es la que le da al modelo una salida honesta en vez de inventar la cita.
 
-**Determinismo:** `generationParams: { temp: 0, seed: 42, predict: 80 }`. Sin `temp: 0` las cinco métricas no son comparables entre corridas. `ctx_size`: 1024 el portero, 2048 el extractor (`tools: true`).
+**Determinismo:** `temp: 0` + `seed: 42` — sin eso las cinco métricas no son comparables entre corridas.
+
+**Qwen3 sin razonamiento — TRES capas (`Qwen3-1.7B` y `Qwen3.5-0.8B` son híbridos, razonan por defecto):**
+1. `reasoning_budget: 0` en `generationParams` de cada `completion()` (`portero.ts`, `extractor.ts`) — por request; doc del schema: `0` desactiva el canal de razonamiento.
+2. `reasoning_budget: 0` en `modelConfig` al `loadModel` (`qvac/pool.ts` `CONFIG`) — default del modelo.
+3. `/no_think` (tag exacto, no `/nothink`) al final del `content` del system — switch suave entrenado de Qwen3, actúa a nivel plantilla, independiente de si el addon Bare cablea bien `reasoning_budget`.
+
+El SDK **no** expone `enable_thinking` ni `chat_template_kwargs` (solo `chatTemplatePath`, y solo en finetune) — `/no_think` + `reasoning_budget` es todo lo que hay. `remove_thinking_from_context` NO sirve para esto (solo limpia el KV cache post-generación; ya default `true` para la familia Qwen3).
+
+Sin esto, Qwen3 quema `predict` razonando en prosa y nunca emite el tool call — era el bloqueante "el extractor no extrae". Para confirmar en runtime: `diagModelo()` (`pipeline/_diag.ts`) loguea `think=N` (largo de `thinkingText`; `>0` = razonó), `stop=length` (truncado), `dev=cpu|gpu` y `tok/s` al canal `[QUÓRUM·modelo]`.
+
+**`predict`:** `80` el portero (devuelve `{hayEquipo, motivo}`, le sobra), **`512` el extractor** — un tool call con cliente + N lotes + citas `evidencia` no entra en 80 y el JSON truncado tira el `safeParse` entero. `ctx_size`: 1024 el portero, 2048 el extractor (`tools: true`).
+
+El schema de `generationParams` es `$strict` (`node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts`): solo `temp`, `top_p`, `top_k`, `predict`, `seed`, las penalties, `reasoning_budget` y `remove_thinking_from_context`.
 
 ## Presupuesto de memoria
 
 | Componente | RAM |
 |---|---|
-| Whisper tiny | ~78 MB |
+| Whisper base q8_0 | ~78 MB |
 | Portero Qwen3.5 0.8B Q4_K_M | ~533 MB |
 | Extractor Qwen3 1.7B Q4_0 | ~1057 MB |
 | KV cache (portero 1024 + extractor 2048) | ~150 MB |
@@ -124,6 +154,12 @@ No copiar y pegar. Aplicar esto:
 **Copiado de `apps/server` sin tocar** (10 archivos): `core/contracts.ts`, `core/ids.ts`, `trust/{normalize,similarity,entity,reconcile,score}.ts`, `policy/engine.ts`, `context/spotlight.ts`, `export/philips.ts`.
 
 **Nuevo** (8 módulos): `qvac/pool.ts`, `pipeline/{precheck,portero,extractor,verificar,cruzar}.ts`, `store/expo-store.ts`, `app/*`. La fuente olvida `precheck.ts` en su lista aunque lo define.
+
+## UI · tipografía e iconos
+
+Tokens en `app/theme.ts`: `color`, `espacio`, `radio`, `tipografia` (8 roles con un trabajo cada uno), `tap`. Los componentes se enganchan a un rol, no eligen `fontSize` suelto.
+
+**Deuda cerrada:** los glifos que NO son de estado (`✓ ✕` del panel de progreso, `⚠`, `🎙`) eran caracteres Unicode del font del sistema — en Android salían con la fuente de emoji, en color, saltándose la paleta. Ya son trazos de `app/components/Icono.tsx` (`chequeo`, `falla`, `alerta`, `microfono`), mismo viewBox 24×24 y trazo 1.6 que el resto. Los 5 glifos de estado (`● ◐ ○ · ▲`) sí se quedan tipográficos: los fija §II.20 del doc maestro y escalan con la fuente del sistema. Todos llevan `accessibilityLabel` y los decorativos `importantForAccessibility="no"`.
 
 ## Restricciones duras
 
@@ -140,6 +176,8 @@ No hay corrida sobre las 300 notas ciegas. Las cifras 93%/95% son **hipótesis**
 ## Orden de construcción
 
 1. Contratos Zod (copiados, congelar) → 2. Pool + assert `isDelegated !== false` → 3. Hola mundo: portero en teléfono real; si falla, parar → 4. `precheck` + `portero` + tests → 5. `extractor` + `verificar` + tests → 6. `procesarNota()` + test de los 5 resultados → 7. Motor de quórum (RD-0..RD-7, 1 test por regla) → 8. Store → 9. `audit/trace.ts` (extensión nuestra, ver `TRAZABILIDAD.md`) → 10. UI Capturar + Cliente 360 → 11. Audio con `expo-audio`.
+
+**Cliente 360 salió del móvil.** La Fase 10 la construyó en el teléfono (`Cliente360Screen.tsx`, pestaña `Clientes`); se eliminó después: la reconciliación se visualiza del lado del server (`apps/server`, misma `trust/reconcile.ts`), no duplicada acá. El móvil quedó de una sola pantalla — Capturar — sin barra de pestañas. Lo que era exclusivo de esa pantalla se borró con ella: `app/Cliente360Screen.tsx`, `app/testigos.ts`, `app/components/FilaCampo.tsx`, `app/components/InsigniaQuorum.tsx`, y el icono `cliente` + `IconoModalidad` de `app/components/Icono.tsx`.
 
 ## Skills, hooks y técnicas a usar en esta app
 

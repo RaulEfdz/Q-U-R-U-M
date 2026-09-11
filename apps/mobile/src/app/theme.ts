@@ -27,12 +27,25 @@ export const color = {
   superficie: '#ffffff',
   superficieHundida: '#e9ecf1',
   borde: '#d1d6dd',
+  /* Filete de 1 px para separar sin dibujar una caja: cabecera, borde de
+   * tarjeta elevada, divisores. Con `borde` sólido a 1 px una tarjeta con
+   * sombra lee como dos contornos superpuestos. */
+  bordeSutil: 'rgba(25,27,30,0.07)',
   texto: '#191b1e',
   textoTenue: '#4f5257', // suficientemente oscuro para sol directo — nunca #999+
   textoInvertido: '#ffffff',
 
-  primario: '#1a4d8f',
+  /* 5.84:1 sobre blanco y 5.39:1 sobre `fondo` — pasa AA como texto, no
+   * solo como color de identidad. El azul anterior (#1a4d8f) era más
+   * oscuro de lo que este producto necesita: acá el primario aparece
+   * sobre todo como relleno de la acción principal, y el tono medio se
+   * distingue mejor del negro del texto a sol directo. */
+  primario: '#0b5ed7',
   primarioTexto: '#ffffff',
+  /* Fondo de la MISMA tinta para superficies que pertenecen al primario sin
+   * ser accionables: mosaico de modalidad, insignia, caja de evidencia. */
+  primarioTinte: 'rgba(11,94,215,0.09)',
+  primarioTinteSuave: 'rgba(11,94,215,0.055)',
 
   // Eje 2 — Quórum (por campo). Literal de §II.20.
   quorum: '#1a7f5a',
@@ -68,7 +81,7 @@ export const color = {
   // doc maestro; paleta propia, deliberadamente distinta de la del quórum
   // para que un usuario nunca confunda "quién lo vio" con "cuánto se
   // corroboró" — son dos preguntas distintas.
-  directo: '#1a4d8f',
+  directo: '#0b5ed7',
   referido: '#6b4fa0',
   // 4.01:1 sobre `superficieHundida` con el ocre original (#a3651b): mismo
   // criterio que las tintas de arriba, oscurecido a 4.57:1.
@@ -83,13 +96,62 @@ export const color = {
 
 export const espacio = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
-export const radio = { sm: 6, md: 10, lg: 14 } as const;
+export const radio = { sm: 6, md: 12, lg: 14, xl: 18, pastilla: 999 } as const;
 
+/**
+ * Elevación. La jerarquía de esta app se dibuja con SOMBRA, no con bordes:
+ * un borde de 1.5 px alrededor de cada tarjeta convierte la pantalla en una
+ * grilla de cajas del mismo peso, y entonces nada destaca. La sombra dice
+ * "esto está por encima" sin agregar una línea más al ruido.
+ *
+ * En Android la sombra la dibuja `elevation` (las props `shadow*` son de
+ * iOS y las ignora); se declaran las dos porque el token es uno solo y el
+ * componente no debería saber en qué plataforma corre.
+ */
+export const elevacion = {
+  /** Filete: pastilla de estado, control apoyado en el fondo. */
+  sutil: {
+    shadowColor: '#101820', shadowOpacity: 0.05, shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 }, elevation: 1,
+  },
+  /** Tarjeta: la nota, el panel de progreso, cada lote de la revisión. */
+  tarjeta: {
+    shadowColor: '#101820', shadowOpacity: 0.1, shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 }, elevation: 3,
+  },
+  /** Acción primaria: flota sobre la barra inferior, con su propia tinta. */
+  primaria: {
+    shadowColor: '#0b5ed7', shadowOpacity: 0.45, shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 }, elevation: 6,
+  },
+};
+
+/**
+ * Escala de roles. Cada tamaño tiene un trabajo; los componentes se enganchan
+ * a un rol, no eligen un `fontSize` suelto (así no derivan entre pantallas).
+ * Los `fontSize` numéricos escalan solos con la fuente del sistema.
+ */
 export const tipografia = {
-  titulo: { fontSize: 22, fontWeight: '700' as const },
+  /** Título de pantalla. */
+  titulo: { fontSize: 24, fontWeight: '700' as const, letterSpacing: -0.3 },
+  /** Rótulo de sección: versalita corta que nombra el bloque que sigue. */
+  overline: {
+    fontSize: 11, fontWeight: '700' as const, letterSpacing: 1,
+    textTransform: 'uppercase' as const,
+  },
+  /** Cifra escaneable (el puntaje del grupo). Va con `fontVariant: ['tabular-nums']`. */
+  dato: { fontSize: 20, fontWeight: '700' as const },
+  /** Título de sección o de tarjeta. */
   subtitulo: { fontSize: 17, fontWeight: '600' as const },
+  /** Texto de botón — primario y secundario, para que no diverjan. */
+  accion: { fontSize: 17, fontWeight: '700' as const },
+  /** Cuerpo, párrafos, campos de texto. */
   cuerpo: { fontSize: 16, fontWeight: '400' as const },
+  /** Detalle legible un escalón bajo `cuerpo`: citas, avisos, errores. */
+  secundario: { fontSize: 14, fontWeight: '400' as const },
+  /** Etiqueta de campo, chip-etiqueta, metadato. */
   etiqueta: { fontSize: 13, fontWeight: '600' as const },
+  /** Letra chica: pistas, notas al pie, texto tenue. */
   pequeno: { fontSize: 12, fontWeight: '400' as const },
 };
 

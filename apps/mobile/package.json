@@ -1,6 +1,6 @@
 {
   "name": "qurum-mobile",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "main": "index.ts",
   "dependencies": {
     "@noble/hashes": "2.4.0",
@@ -15,7 +15,9 @@
     "expo-crypto": "57.0.2",
     "expo-device": "57.0.1",
     "expo-file-system": "57.0.6",
+    "expo-location": "57.0.16",
     "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.3",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-bare-kit": "0.14.5",

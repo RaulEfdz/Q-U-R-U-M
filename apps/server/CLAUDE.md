@@ -1,6 +1,6 @@
 # QUÓRUM · server (app central)
 
-> **v0.4.1 · 2026-09-10** — las dos apps corren, el extractor extrae y hay dictado por voz. Ver `../../docs/AUDITORIA.md` para los hallazgos y `../../README.md` para el historial de versiones.
+> **v0.5.0 · 2026-09-11** — las dos apps corren, el extractor extrae y hay dictado por voz. Ver `../../docs/AUDITORIA.md` para los hallazgos y `../../README.md` para el historial de versiones.
 
 Node ≥22.17, TypeScript sin build step (`--experimental-strip-types`), 3 dependencias totales: `@qvac/sdk` (usar **0.18.2**, no la 0.17.1 del doc), `hyperswarm`, `zod`. Ver monorepo raíz `../../CLAUDE.md` para restricciones duras (sin nube, sin Vercel). Diagrama y decisiones: `ARCHITECTURE.md`. Trazabilidad y auditoría: `TRAZABILIDAD.md`. Reparto de trabajo entre agentes: `ORQUESTACION.md`.
 
@@ -44,7 +44,11 @@ Texto completo y código de referencia: `../../docs/QUORUM_documento_unico.md` �
 
 ## Correcciones obligatorias al código del doc maestro
 
-Bloqueantes de demo:
+**Ya aplicadas — tabla histórica.** Estos eran los bugs del código del doc maestro cuando
+todavía era solo el diseño en papel, no la implementación real. Los 16 ya están corregidos
+en `src/`; se deja la tabla para que quien lea el doc maestro sepa qué NO copiar tal cual de ahí.
+
+Bloqueantes de demo (histórico, ya resuelto):
 
 | # | Bug | Corrección |
 |---|---|---|
@@ -89,6 +93,6 @@ Opcional: `PreToolUse` sobre `Bash` bloqueando `curl`/`fetch` a dominios de infe
 
 1. `core/contracts.ts` es el contrato — no romper sin actualizar el doc maestro.
 2. `.npmrc` tiene `ignore-scripts=true` — no lo saques. Si un addon nativo necesita rebuild, hacelo selectivo (`npm rebuild <pkg> --ignore-scripts=false`), nunca global, nunca en máquina con tokens de CI/prod.
-3. `verify-no-cloud.sh` es el control que corre antes de cualquier demo. Son **5 controles automatizados, no 7**: el 5 nunca hace `exit 1` y el 7 es un `echo` manual. Arreglar eso o corregir el número en el README y el video.
+3. `verify-no-cloud.sh` es el control que corre antes de cualquier demo. Son **7 controles automatizados** (1, 2, 3, 4a, 4b, 4c, 7), todos con `exit 1` real.
 4. **Prohibido `@qvac/ai-sdk-provider` y el Vercel AI SDK** (política de la organización). Usar `@qvac/sdk` puro.
 5. `WHISPER_TINY` ya está en `~/.qvac/models` (2026-09-10). El README todavía no tiene paso de descarga del GGUF documentado, y el checklist exige arrancar en máquina virgen siguiendo solo el README — falta escribir ese paso, aunque el modelo ya esté en caché local.

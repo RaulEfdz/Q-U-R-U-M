@@ -78,7 +78,7 @@ QUÓRUM convierte una conversación de campo en una base instalada que conserva 
 | Extracción con IA | QVAC local extrae cliente, ubicación, modalidad, marca, modelo, cantidad, edad y cita original |
 | Información incompleta | Lo desconocido conserva estado `UNKNOWN`; no se rellena ni se descarta |
 | Validación | Borrador editable y confirmación humana obligatoria antes de persistir |
-| Dataset estructurado | Observaciones con autor, fecha, fuente, confianza, estado, evidencia y trazabilidad |
+| Dataset estructurado | Observaciones con autor, fecha, fuente, confianza, estado, evidencia, trazabilidad y ubicación GPS de captura |
 | Customer 360 | Base instalada por cliente con desglose hasta cada testimonio |
 | Agregación geográfica | País → ciudad → cliente → equipos observados |
 | Dashboard y analytics | Modalidad, geografía, antigüedad, calidad, conflictos, frescura y prioridades |
@@ -128,7 +128,7 @@ El núcleo compartido (contratos Zod, motor de quórum, puntaje, política de se
 
 | Rol | Modelo (`@qvac/sdk`) | Tamaño | Qué hace |
 |---|---|---|---|
-| ASR (voz → texto) | `WHISPER_TINY` | 78 MB | Transcribe el dictado en fragmentos de 20 s mientras la persona sigue hablando |
+| ASR (voz → texto) | `WHISPER_BASE_Q8_0` (móvil) · `WHISPER_TINY` (escritorio) | 78 MB | Transcribe mientras la persona sigue hablando: en el móvil por streaming con VAD y beam search; en escritorio por fragmentos de 20 s |
 | Portero | `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M` | 533 MB | Decide en milisegundos si la nota habla de equipos médicos; filtra ruido antes de gastar el modelo grande |
 | Extractor | `QWEN3_1_7B_INST_Q4` | 1 057 MB | Produce la estructura (cliente, sitio, modalidad, marca, edad, cantidad, cita textual) vía tool call validado con Zod |
 
@@ -151,7 +151,7 @@ En la consulta en lenguaje natural el modelo **solo traduce la pregunta a un fil
 
 ### App de campo (Android)
 
-Dos pestañas: **Capturar** (texto o dictado, panel de progreso en vivo de los tres modelos, borrador editable, confirmación) y **Clientes** (Cliente 360 con la misma semántica de confianza que el escritorio). Verificada en Pixel 7 y Pixel 8 Pro reales.
+Pantalla única de **captura pura**, pensada para usarse de pie y con una mano: texto o dictado en vivo (whisper por streaming con VAD, indicador de nivel de voz, corrector léxico determinista que muestra qué palabra corrigió), panel de progreso de los tres modelos, borrador editable y confirmación. Cada nota guarda además la **ubicación GPS del dispositivo** al momento de capturarla (opcional: sin permiso o sin señal, la nota se guarda igual) — sirve para corroborar o detectar un desvío frente a la ciudad/país que declara el testimonio. La reconciliación y Cliente 360 viven en el centro de control, no se duplican en el teléfono. Verificada en Pixel 7 y Pixel 8 Pro reales.
 
 ### Sincronización P2P y despliegue distribuido
 
@@ -204,10 +204,10 @@ Resultado esperado: `RESULTADO: 7/7 controles en verde`.
 
 ```bash
 cd apps/server && npm run test:ci                  # typecheck + 117 tests + verify:no-cloud
-cd ../mobile   && npm run typecheck && npm test    # typecheck + 17 tests
+cd ../mobile   && npm run typecheck && npm test    # typecheck + 28 tests
 ```
 
-Los 117 tests del servidor cubren reglas de confianza (RD-0 a RD-7), puntaje, cohortes, reconciliación multidispositivo, política, inyección, delegación, protocolo peer, integridad del store y rutas HTTP. Los 17 de mobile cubren cola offline, protocolo, ACK, reintentos e idempotencia.
+Los 117 tests del servidor cubren reglas de confianza (RD-0 a RD-7), puntaje, cohortes, reconciliación multidispositivo, política, inyección, delegación, protocolo peer, integridad del store y rutas HTTP. Los 28 de mobile cubren cola offline, protocolo, ACK, reintentos, idempotencia y el corrector léxico del dictado.
 
 ---
 

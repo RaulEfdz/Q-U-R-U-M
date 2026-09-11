@@ -2,12 +2,13 @@
   "expo": {
     "name": "QUÓRUM",
     "slug": "qurum-mobile",
-    "version": "0.1.0",
+    "version": "0.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#f7f6f3",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false
     },
     "android": {
       "package": "io.qurum.mobile",
@@ -17,8 +18,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
-      "versionCode": 1
+      "predictiveBackGestureEnabled": true,
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,6 +29,12 @@
         "expo-audio",
         {
           "microphonePermission": "QUÓRUM usa el micrófono para dictar la nota de la visita. El audio se transcribe en este teléfono y no sale del dispositivo."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "QUÓRUM usa tu ubicación para registrar dónde se hizo la visita. Se guarda junto con la nota, solo en este teléfono, y es opcional: si no das el permiso la nota se guarda igual, sin ubicación."
         }
       ],
       [

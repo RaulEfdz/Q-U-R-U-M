@@ -6,11 +6,14 @@
 
 web
 
-Nota: el producto tiene **dos superficies**. La registrada arriba es la UI de escritorio
-(`apps/server/ui/`, HTML/CSS/JS servido en 127.0.0.1). La segunda es una app **Android
-nativa** (`apps/mobile/`, Expo + React Native, Android 12+, solo dispositivo físico), que
-no es un envoltorio de la web: tiene su propio lenguaje de interacción y sus propios
-componentes. Trabajo que toque `apps/mobile/` debe tratarse como Android nativo.
+Nota: el producto tiene **dos superficies**. La segunda —y hoy **la principal** (ver
+Capabilities → Prioridad de superficie)— es una app **Android nativa** (`apps/mobile/`,
+Expo + React Native, Android 12+, solo dispositivo físico): no es un envoltorio de la web,
+tiene su propio lenguaje de interacción y sus propios componentes, y trabajo que la toque
+debe tratarse como Android nativo. La primera es la UI de escritorio (`apps/server/ui/`,
+HTML/CSS/JS servido en 127.0.0.1). El valor del campo queda en `web` porque ese campo no
+sostiene dos; si el tooling tiene que tratar el proyecto como Android por defecto, cambiarlo
+a `android` es una decisión aparte.
 
 ## Stack
 
@@ -108,10 +111,13 @@ antes de pasar la entrega al cliente final.
 - `core/contracts.ts` está congelado, y diez archivos del núcleo son idénticos byte a byte
   entre las dos apps: cualquier cambio ahí se replica a ambos lados.
 
-**Explícitamente sin decidir**
+**Prioridad de superficie (decidido 2026-09-10)**
 
-- La prioridad estratégica escritorio-vs-móvil. Hoy el móvil está más avanzado y ya demostró
-  lo que más pesa (el modelo corriendo en un teléfono real), pero la decisión no se tomó.
+- El **móvil es la superficie principal**. Ya demostró lo que más pesa en el reto: el modelo
+  corriendo on-device en un teléfono real, ahora de punta a punta y en GPU. El escritorio
+  sigue vivo y completo, pero el peso del argumento y de la demo va por el móvil.
+- Lo que sigue formalmente abierto (`ARCHITECTURE.md` §9): nada estratégico — quedan
+  decisiones tácticas como si la demo en video se graba sobre móvil o escritorio.
 
 ## Brand Commitments
 
@@ -134,9 +140,12 @@ antes de pasar la entrega al cliente final.
   reconciliados en el dispositivo; 31 tests en verde; `verify-no-cloud.sh` con siete
   controles en verde, probado también con prueba negativa; `data/seed.json` con 23
   observaciones válidas que producen los cuatro estados de quórum.
-- **Existe pero no está probado de punta a punta**: el pipeline completo de tres modelos en
-  el teléfono, bloqueado hoy por espacio en el dispositivo. La UI de escritorio se verificó
-  contra un servidor mock, no contra QVAC real.
+- **Corre de punta a punta, con reservas**: el pipeline de tres modelos corre entero en el
+  teléfono (en GPU) y produce un borrador `ACUERDO` con lotes y cita literal verificada
+  (2026-09-10). Las reservas: el portero (0.8B) todavía no emite el tool call y se
+  fail-openea a "hay equipo", así que hoy no aporta; y sigue sin existir cualquier corrida
+  de precisión (ver abajo). La UI de escritorio se verificó contra un servidor mock, no
+  contra QVAC real.
 - **No existe, y no se puede insinuar que exista**: cualquier corrida sobre las 300 notas
   ciegas. Las cifras de precisión que circulan en el documento son hipótesis. No inventar
   benchmarks, clientes, testimonios ni resultados de evaluación.
