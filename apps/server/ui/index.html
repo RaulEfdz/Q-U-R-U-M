@@ -148,11 +148,14 @@
         <img class="marca-logo" src="/assets/qorum-mark.png" alt="" aria-hidden="true" />
         <div><h1>QUÓRUM</h1><p class="tesis">La verdad tiene quórum.</p></div>
       </div>
-      <p class="sidebar-label">Workspace</p>
-      <nav aria-label="Pantallas">
-        <button type="button" data-vista="capturar" class="activo" aria-current="page"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-capturar" xlink:href="#ic-capturar" /></svg>Capturar</button>
+      <p class="sidebar-label">Menu</p>
+      <nav aria-label="Trabajo">
+        <button type="button" data-vista="panorama" class="activo" aria-current="page"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-panorama" xlink:href="#ic-panorama" /></svg>Inteligencia</button>
         <button type="button" data-vista="cliente"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-cliente" xlink:href="#ic-cliente" /></svg>Cliente 360</button>
-        <button type="button" data-vista="panorama"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-panorama" xlink:href="#ic-panorama" /></svg>Panorama</button>
+        <button type="button" data-vista="capturar"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-capturar" xlink:href="#ic-capturar" /></svg>Capturar</button>
+      </nav>
+      <p class="sidebar-label sidebar-label-secundario">General</p>
+      <nav aria-label="Sistema">
         <button type="button" data-vista="auditoria"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-auditoria" xlink:href="#ic-auditoria" /></svg>Auditoría</button>
         <button type="button" data-vista="comofunciona"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-flujo" xlink:href="#ic-flujo" /></svg>Cómo funciona</button>
       </nav>
@@ -163,7 +166,7 @@
     </aside>
     <div class="app-frame">
       <header>
-        <div class="breadcrumb"><span>Workspace</span><span>/</span><b id="vista-titulo">Capturar</b></div>
+        <div class="breadcrumb"><span>Centro de control</span><span>/</span><b id="vista-titulo">Inteligencia</b></div>
         <div class="cabecera-meta">
           <span id="marcador" class="marcador num"></span>
           <span id="conexion" class="conexion">conectando…</span>
@@ -190,7 +193,7 @@
       al contenido de la pantalla recién abierta.
     -->
     <!-- 1 · CAPTURAR — velocidad: un campo grande, cero formularios. -->
-    <section id="capturar" aria-label="Capturar" tabindex="-1">
+    <section id="capturar" aria-label="Capturar" tabindex="-1" hidden>
       <!--
         Dos columnas: la nota a la izquierda y, a la derecha, qué va a pasar
         con ella. Antes esta pantalla era una columna angosta con dos tercios
@@ -231,7 +234,7 @@
               <label class="campo-fecha">
                 <span class="campo-fecha-etiqueta">Visita</span>
                 <!--
-                  Lo llena `capturar.js` con la fecha de HOY al montar. Vacío,
+                  Lo llena `capture.js` con la fecha de HOY al montar. Vacío,
                   el servidor cae en `capturadaEn` — y RD-6 mide la frescura
                   desde la visita, no desde el dictado. Cargar el lunes la
                   recorrida del viernes quedaba fechado mal, y eso mueve el
@@ -255,7 +258,7 @@
 
           <!--
             Fragmentos del dictado por chunking: cada corte de ~20 s que
-            `capturar.js` va subiendo y transcribiendo MIENTRAS la persona
+            `capture.js` va subiendo y transcribiendo MIENTRAS la persona
             sigue grabando, con su estado propio. Sin esto, el único rastro
             de que el chunking funciona era una línea de `estado()` que se
             pisa con la siguiente — no quedaba ninguna prueba visible de que
@@ -292,7 +295,7 @@
       -->
       <p id="estado-captura" class="estado" role="status" aria-live="polite" hidden></p>
       <!--
-        Caja de falla de la pantalla: la explica `ui/errores.js` (qué pasó,
+        Caja de falla de la pantalla: la explica `ui/errors.js` (qué pasó,
         por qué y qué hacer) y la construye `error()` de `ui/dom.js`. Va
         FUERA de la región viva de arriba: ahí se anuncia el titular en una
         línea, y acá se lee el detalle con los pasos, que como lista no cabe
@@ -337,17 +340,17 @@
       </div>
     </section>
 
-    <!-- 2 · CLIENTE 360 — ★ la que gana. La pinta cliente.js. -->
+    <!-- 2 · CLIENTE 360 — ★ la que gana. La pinta client.js. -->
     <section id="cliente" aria-label="Cliente 360" tabindex="-1" hidden></section>
 
-    <!-- 3 · PANORAMA. La pinta panorama.js. -->
-    <section id="panorama" aria-label="Panorama" tabindex="-1" hidden></section>
+    <!-- 3 · PANORAMA. La pinta overview.js. -->
+    <section id="panorama" aria-label="Inteligencia" tabindex="-1"></section>
 
-    <!-- 4 · AUDITORÍA. La pinta auditoria.js. -->
+    <!-- 4 · AUDITORÍA. La pinta audit.js. -->
     <section id="auditoria" aria-label="Auditoría" tabindex="-1" hidden></section>
 
     <!-- 5 · CÓMO FUNCIONA — los estados y el flujo, con diagramas. La pinta
-         `comofunciona.js`. Es la única pantalla sin un solo dato de la API:
+         `how-it-works.js`. Es la única pantalla sin un solo dato de la API:
          todo lo que dice está escrito en ese archivo. -->
     <section id="comofunciona" aria-label="Cómo funciona" tabindex="-1" hidden></section>
   </main>

@@ -1,5 +1,5 @@
 /**
- * capturar.js — pantalla 1. Debe transmitir VELOCIDAD (§B.2): un campo
+ * capture.js — pantalla 1. Debe transmitir VELOCIDAD (§B.2): un campo
  * grande, cero formularios. Los campos extraídos aparecen como
  * CONFIRMACIÓN, no como formulario a rellenar — pero son EDITABLES, porque
  * H-03 promete «confirma, corrige o descarta» (corrección obligatoria #14
@@ -19,7 +19,7 @@
  * el control de cumplimiento es un grep automatizado.
  */
 import { $, h, api, pintar, formatearValor, icono, error, testimonios } from './dom.js';
-import { explicar } from './errores.js';
+import { explicar } from './errors.js';
 
 /*
  * VOCABULARIO CONTROLADO de modalidad — copia literal de `MODALIDADES` en
@@ -307,7 +307,7 @@ async function volverAEditar() {
 /* ─────────────────────────── Interpretar ─────────────────────────── */
 
 /**
- * Muestra una falla con el texto accionable de `errores.js`: el titular en la
+ * Muestra una falla con el texto accionable de `errors.js`: el titular en la
  * región viva (se anuncia una vez) y la explicación con sus pasos en la caja
  * de abajo. Acá NO se redacta nada: si falta un caso, la entrada nueva va en
  * el diccionario, no en esta pantalla.
@@ -529,7 +529,7 @@ function latido() {
  *
  * Los valores son deliberadamente ALTOS. La primera interpretación de la
  * sesión puede incluir la descarga del modelo (alrededor de 1 GB, como ya
- * documenta `errores.js`), así que un tope de pocos segundos convertiría el
+ * documenta `errors.js`), así que un tope de pocos segundos convertiría el
  * caso normal en un error y sería peor que no tener tope. Estos números no
  * están para acelerar nada: están para que exista un final. Quien mira la
  * pantalla no espera a ciegas — el contador de `latido()` le dice que sigue
@@ -568,7 +568,7 @@ function conTope(ms, etiqueta) {
     senal: control.signal,
     fin: () => clearTimeout(t),
     traducir: (e) => (vencido
-      // El prefijo es la llave del diccionario de `errores.js`, donde vive el
+      // El prefijo es la llave del diccionario de `errors.js`, donde vive el
       // texto accionable. Acá no se redacta nada para el usuario.
       ? new Error(`Tope de tiempo · ${etiqueta}: no hubo respuesta en ${Math.round(ms / 1000)} s`)
       : e),
@@ -631,7 +631,7 @@ async function alternarDictado() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
-    // El diccionario de `errores.js` tiene la entrada del permiso, con los
+    // El diccionario de `errors.js` tiene la entrada del permiso, con los
     // pasos para darlo desde la barra de direcciones.
     fallar(new Error('Sin permiso de micrófono'));
     return;
@@ -735,7 +735,7 @@ async function alternarDictado() {
    * para un problema que necesita acción del usuario) — un fragmento que
    * falla no para la grabación, así que se avisa con `estado()` y se sigue.
    * El último, en `stop()`, si falla sí es la falla real de la sesión de
-   * dictado completa y se muestra con el diccionario de `errores.js`.
+   * dictado completa y se muestra con el diccionario de `errors.js`.
    */
   async function transcribirFragmento(wav, { silencioso }) {
     subiendoFragmento = true;

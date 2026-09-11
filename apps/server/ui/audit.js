@@ -1,5 +1,5 @@
 /**
- * auditoria.js — pantalla 4. La cadena de hashes con su botón «Verificar
+ * audit.js — pantalla 4. La cadena de hashes con su botón «Verificar
  * integridad», que invita al jurado a editar `data/audit.jsonl` a mano y
  * comprobarlo en vivo. Y cada llamada de inferencia con `delegado`
  * visible: ahí está la prueba de cumplimiento, no en una diapositiva

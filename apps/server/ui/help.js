@@ -1,5 +1,5 @@
 /**
- * ayuda.js — explicación breve del módulo visible.
+ * help.js — explicación breve del módulo visible.
  *
  * No es onboarding ni texto de marketing: responde la pregunta que alguien
  * tiene mientras opera la herramienta. El diálogo no cambia datos ni navega;
@@ -29,7 +29,7 @@ const CONTENIDO = {
     nota: 'Quórum y frescura son distintos: un dato corroborado puede requerir una visita nueva.',
   },
   panorama: {
-    titulo: 'Para qué sirve Panorama',
+    titulo: 'Para qué sirve Inteligencia',
     proposito: 'Para transformar muchas visitas en prioridades visibles entre clientes, modalidades y países.',
     pasos: [
       'Revisá distribución, oportunidades de renovación, datos antiguos y conflictos.',
@@ -62,6 +62,23 @@ const CONTENIDO = {
 
 let vista = 'capturar';
 
+/* Una lectura de diez segundos para la ayuda contextual del centro de
+ * control. No reemplaza los diagramas de "Cómo funciona": resume solamente
+ * el camino que transforma una visita en una prioridad explicable. */
+function flujoInteligencia() {
+  const paso = (titulo, detalle) => h('li', { clase: 'flujo-ayuda-paso' },
+    h('strong', { texto: titulo }),
+    h('span', { texto: detalle }));
+
+  return h('section', { clase: 'flujo-ayuda', 'aria-label': 'Del testimonio a la prioridad' },
+    h('p', { clase: 'flujo-ayuda-titulo', texto: 'Del testimonio a la decisión' }),
+    h('ol', { clase: 'flujo-ayuda-pasos' },
+      paso('1. Observación', 'Una visita llega desde móvil o carga local.'),
+      paso('2. Evidencia', 'Se preserva fuente, fecha y texto original.'),
+      paso('3. Inteligencia', 'El motor cruza quórum, conflicto y frescura.'),
+      paso('4. Prioridad', 'Cliente 360 explica qué verificar o actuar.')));
+}
+
 function renderizar() {
   const contenido = CONTENIDO[vista] ?? CONTENIDO.capturar;
   pintar($('#ayuda-contenido'),
@@ -71,6 +88,7 @@ function renderizar() {
     h('p', { clase: 'ayuda-proposito', texto: contenido.proposito }),
     h('ol', { clase: 'ayuda-pasos' },
       contenido.pasos.map((paso) => h('li', { texto: paso }))),
+    vista === 'panorama' ? flujoInteligencia() : null,
     h('p', { clase: 'ayuda-nota', texto: contenido.nota }));
 }
 

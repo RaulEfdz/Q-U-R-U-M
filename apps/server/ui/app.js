@@ -6,14 +6,14 @@
  * servidos como archivos estáticos desde `apps/server/ui/`.
  */
 import { $, api, pintar, h } from './dom.js';
-import { montarCapturar } from './capturar.js';
-import { pintarCliente, pintarClienteError } from './cliente.js';
-import { pintarPanorama, pintarPanoramaError } from './panorama.js';
-import { pintarAuditoria } from './auditoria.js';
-import { pintarComoFunciona } from './comofunciona.js';
-import { actualizarAyuda, montarAyuda } from './ayuda.js';
+import { montarCapturar } from './capture.js';
+import { pintarCliente, pintarClienteError } from './client.js';
+import { pintarPanorama, pintarPanoramaError } from './overview.js';
+import { pintarAuditoria } from './audit.js';
+import { pintarComoFunciona } from './how-it-works.js';
+import { actualizarAyuda, montarAyuda } from './help.js';
 
-let vistaActual = 'capturar';
+let vistaActual = 'panorama';
 
 /* ───────────────────────────── Refresco ───────────────────────────── */
 
@@ -54,7 +54,7 @@ let pendiente = false;
  *
  * Coalescer significa descartar el temporizador anterior, y antes eso dejaba
  * colgado para siempre el `resolve` de la promesa que ese temporizador iba a
- * cumplir. Hoy nadie la espera (`capturar.js` llama `alRefrescar()` sin
+ * cumplir. Hoy nadie la espera (`capture.js` llama `alRefrescar()` sin
  * `await`), así que no se veía — pero el primer `await refrescar()` que
  * alguien escribiera se colgaba. Los resolvedores se ACUMULAN: el refresco
  * que finalmente corre es también el de todos los pedidos que absorbió, así
@@ -103,7 +103,7 @@ function mostrar(vista, { foco = true } = {}) {
   vistaActual = vista;
   actualizarAyuda(vista);
   const titulo = document.querySelector('#vista-titulo');
-  if (titulo) titulo.textContent = { capturar: 'Capturar', cliente: 'Cliente 360', panorama: 'Panorama', auditoria: 'Auditoría', comofunciona: 'Cómo funciona' }[vista] ?? vista;
+  if (titulo) titulo.textContent = { capturar: 'Capturar', cliente: 'Cliente 360', panorama: 'Inteligencia', auditoria: 'Auditoría', comofunciona: 'Cómo funciona' }[vista] ?? vista;
   document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== vista; });
   document.querySelectorAll('nav button').forEach((b) => {
     const activo = b.dataset.vista === vista;
@@ -160,5 +160,5 @@ function conectarStream() {
 montarCapturar(refrescar);
 montarAyuda();
 conectarStream();
-mostrar('capturar', { foco: false });
+mostrar('panorama', { foco: false });
 refrescar();

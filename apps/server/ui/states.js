@@ -1,5 +1,5 @@
 /**
- * estados.js — los DOS EJES de confianza, y su tratamiento visual.
+ * states.js — los DOS EJES de confianza, y su tratamiento visual.
  *
  * Eje 2 · Quórum (por campo): `Sin datos` → `Estimado` → `Reportado` →
  * `Quórum`, más `Sin quórum` cuando los testimonios discrepan. Glifos y
@@ -58,7 +58,7 @@ export function esAscensoAQuorum(anterior, actual) {
  * la mala noticia —un campo que tenía Reportado/Quórum y pasa a Sin quórum
  * porque llegó un testimonio que discrepa— se veía exactamente igual que
  * cualquier repintado rutinario. Para una app cuya tesis es "el conflicto no
- * debe pasar desapercibido" (`cliente.js`), que el único evento señalado
+ * debe pasar desapercibido" (`client.js`), que el único evento señalado
  * fuera la buena noticia y no la mala era una asimetría de producto: el
  * cambio más urgente de notar era el menos notado.
  */

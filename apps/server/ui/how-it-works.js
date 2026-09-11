@@ -1,5 +1,5 @@
 /**
- * comofunciona.js — pantalla 5. Los estados y el flujo, explicados con
+ * how-it-works.js — pantalla 5. Los estados y el flujo, explicados con
  * diagramas.
  *
  * Por qué existe: las otras cuatro pantallas MUESTRAN el resultado del modelo
@@ -27,7 +27,7 @@
  * el invariante de que el color codifica confianza y nada más.
  */
 import { h, pintar } from './dom.js';
-import { insignia } from './estados.js';
+import { insignia } from './states.js';
 
 /* ═══════════════════════════ Mini-constructor de SVG ═══════════════════════════ */
 

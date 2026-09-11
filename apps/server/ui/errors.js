@@ -1,5 +1,5 @@
 /**
- * errores.js — traduce fallas técnicas a algo que se pueda leer y actuar.
+ * errors.js — traduce fallas técnicas a algo que se pueda leer y actuar.
  *
  * Antes, cualquier problema aparecía como «No se pudo leer del servidor» más
  * el mensaje crudo: `TypeError: Failed to fetch`, `/api/observar devolvió 500`,
