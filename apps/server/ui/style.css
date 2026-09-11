@@ -1077,8 +1077,83 @@ td { padding: 11px 12px; }
 .pasos-captura li:last-child { border-top-color: var(--quorum); }
 .pasos-captura li:last-child b { color: var(--quorum-ink); }
 
+/*
+ * Pantalla chica. Medido con redimensionado real: a 500 px la barra se partía
+ * en dos filas y los controles quedaban a 52 px de desalineación entre una y
+ * otra. La solución no es apretar todo, es sacar lo que ahí no sirve.
+ */
 @media (max-width: 720px) {
   .pasos-captura { grid-template-columns: minmax(0, 1fr); gap: var(--md); }
-  .composer-barra { justify-content: flex-start; }
+
+  /* La pista de teclado se va: `⌘/Ctrl + Enter` no significa nada en un
+   * teléfono, y era justo el elemento que forzaba el salto de línea. El atajo
+   * sigue funcionando para quien tenga teclado. */
+  .composer-der .pista { display: none; }
+
+  .composer-barra { flex-wrap: nowrap; padding-left: var(--md); gap: var(--sm); }
+  .composer-izq { min-width: 0; gap: var(--sm); }
   .composer-der { margin-left: auto; }
+
+  /* La etiqueta «Visita» cede antes que el campo: la fecha es el dato, su
+   * rótulo se deduce del formato. */
+  .campo-fecha-etiqueta { display: none; }
+  .composer .campo-fecha input { width: 100%; min-width: 0; }
+  .composer-boton { padding: 7px var(--sm); }
+  .composer #texto { font-size: var(--t-cuerpo); padding: var(--md); }
 }
+
+/* Muy angosto: el texto de los botones se conserva —un icono solo obliga a
+ * adivinar— y lo que se reduce es el aire, no la información. */
+@media (max-width: 420px) {
+  .composer-der .primario { padding: 8px var(--md); }
+}
+
+/* ══════════════════ Reparto del alto: el sobrante va arriba Y abajo ══════════════════
+ *
+ * Medido a 1440×900: quedaban 266 px muertos al pie de Capturar. La causa no
+ * era el margen de la pantalla, era el armazón: `.app-frame` y `main` eran
+ * bloques de alto fijo, así que todo el sobrante se acumulaba abajo del
+ * contenido en vez de repartirse.
+ *
+ * Ahora el marco es una columna flex de alto de viewport y `main` se estira.
+ * La pantalla visible recibe ese alto y decide qué hacer con él — para las
+ * tablas y los diagramas, nada (siguen arriba); para Capturar, centrar.
+ */
+.app-frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.app-frame main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  /*
+   * `min-height: 0` anula el mínimo fijo de 680 px que traía el reskin. Con el
+   * marco repartiendo el alto, ese número ya no describe nada: el alto
+   * disponible real a 1440×900 es 657, así que el mínimo forzaba 23 px de más
+   * y aparecía una barra de scroll vertical en una pantalla que entra
+   * completa. Un mínimo en píxeles fijos y un layout que reparte el alto no
+   * pueden coexistir: gana el layout.
+   */
+  min-height: 0;
+}
+
+/* Solo la pantalla visible es item flex: las ocultas llevan `hidden`. */
+main > section:not([hidden]) { flex: 1 1 auto; }
+
+/*
+ * Capturar, como el estado vacío de un chat: el composer queda en el centro
+ * óptico y el aire se reparte arriba y abajo por igual. Cuando aparece el
+ * panel de revisión el contenido crece y el centrado cede solo — sin salto,
+ * porque es el mismo contenedor.
+ */
+#capturar {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* El campo aprovecha el alto disponible en vez de quedarse en un mínimo fijo,
+ * con tope para que en una pantalla alta no se vuelva un lienzo vacío. */
+.composer #texto { min-height: clamp(132px, 24vh, 300px); }
