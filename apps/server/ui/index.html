@@ -178,29 +178,75 @@
     -->
     <!-- 1 · CAPTURAR — velocidad: un campo grande, cero formularios. -->
     <section id="capturar" aria-label="Capturar" tabindex="-1">
-      <div class="capturar-intro">
-        <div>
-          <h2>Nueva observación: ¿qué viste hoy?</h2>
-          <p class="capturar-subtitulo">Contalo como se lo contarías a otra persona del equipo. QUÓRUM ordena la nota y te muestra la evidencia antes de guardar.</p>
+      <!--
+        Dos columnas: la nota a la izquierda y, a la derecha, qué va a pasar
+        con ella. Antes esta pantalla era una columna angosta con dos tercios
+        de alto vacío, y cuatro textos explicativos apilados ANTES del primer
+        control (título largo, subtítulo, caja de ayuda y placeholder), que
+        decían casi lo mismo. Ahora la explicación vive al costado, donde no se
+        interpone entre la persona y el campo, y el campo se queda con el
+        espacio — que es lo que §B.2 pide de esta pantalla: velocidad, un campo
+        grande, cero formularios.
+
+        El chip del modelo se fue de acá: ya está en la cabecera y estaba
+        DUPLICADO en la misma vista.
+      -->
+      <!--
+        COMPOSER. Un solo contenedor para el campo y sus acciones, en columna
+        centrada — la forma del cuadro de mensaje de un asistente, que es lo
+        que la gente ya sabe usar sin que nadie le explique.
+
+        Antes esto era un título largo, un subtítulo, una caja de ayuda, el
+        campo, y una fila de controles suelta debajo con la fecha, dos botones
+        y una pista, cada uno con su propia altura y su propia línea base: se
+        veía descuadrado porque lo estaba. Acá los controles viven DENTRO de la
+        caja, sobre una sola barra, y el borde de foco envuelve al conjunto.
+      -->
+      <div class="capturar-centro">
+        <div class="capturar-intro">
+          <h2>¿Qué viste hoy?</h2>
+          <p class="capturar-subtitulo">Contalo como se lo contarías a alguien del equipo. Cliente, equipo, marca, cantidad o antigüedad, en cualquier orden.</p>
         </div>
-        <div class="modelo-captura"><span class="modelo-punto" aria-hidden="true"></span><span id="modelo-captura-label">Modelo local preparado</span></div>
-      </div>
-      <label class="oculto-visual" for="texto">Nota de la visita</label>
-      <textarea id="texto" rows="4" spellcheck="true"
-        placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR de NovaMed, uno como de ocho años y otro más nuevo, y un CT de BluePeak Medical…"></textarea>
 
-      <div class="capturar-ayuda" aria-label="Ejemplo de captura">
-        <span class="capturar-ayuda-icono" aria-hidden="true">i</span>
-        <span><b>Una nota alcanza.</b> Podés mencionar cliente, equipo, marca, modelo, cantidad o antigüedad en cualquier orden.</span>
-      </div>
+        <label class="oculto-visual" for="texto">Nota de la visita</label>
+        <div class="composer">
+          <textarea id="texto" rows="4" spellcheck="true"
+            placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR de NovaMed, uno como de ocho años y otro más nuevo, y un CT de BluePeak Medical…"></textarea>
 
-      <div class="fila fila-acciones">
-        <label class="campo-fecha">Fecha de la visita
-          <input type="date" id="visita" />
-        </label>
-        <button type="button" id="dictar"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-microfono" xlink:href="#ic-microfono" /></svg>Dictar</button>
-        <button type="button" id="enviar" class="primario">Interpretar</button>
-        <span class="pista small">⌘/Ctrl + Enter</span>
+          <div class="composer-barra">
+            <div class="composer-izq">
+              <label class="campo-fecha">
+                <span class="campo-fecha-etiqueta">Visita</span>
+                <!--
+                  Lo llena `capturar.js` con la fecha de HOY al montar. Vacío,
+                  el servidor cae en `capturadaEn` — y RD-6 mide la frescura
+                  desde la visita, no desde el dictado. Cargar el lunes la
+                  recorrida del viernes quedaba fechado mal, y eso mueve el
+                  estado de frescura de todo un grupo.
+                -->
+                <input type="date" id="visita" />
+              </label>
+              <button type="button" id="dictar" class="composer-boton"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-microfono" xlink:href="#ic-microfono" /></svg>Dictar</button>
+            </div>
+            <div class="composer-der">
+              <span class="pista small">⌘/Ctrl + Enter</span>
+              <button type="button" id="enviar" class="primario">Interpretar</button>
+            </div>
+          </div>
+        </div>
+
+        <!--
+          Los tres pasos, en una línea. No es decoración: H-03 promete
+          «confirmá, corregí o descartá» y que nada se guarde solo. Decirlo
+          antes de escribir es lo que hace que alguien dicte sin miedo a que el
+          modelo invente algo a sus espaldas. En una línea y no en un panel al
+          costado, que era el elemento que rompía el cuadre de la pantalla.
+        -->
+        <ol class="pasos-captura" aria-label="Qué pasa con tu nota">
+          <li><b>Se interpreta acá.</b> <span>El modelo local, sin nube.</span></li>
+          <li><b>La revisás vos.</b> <span>Con la cita literal de tu nota.</span></li>
+          <li><b>Recién ahí se guarda.</b> <span>Nada se persiste sin tu OK.</span></li>
+        </ol>
       </div>
 
       <!--

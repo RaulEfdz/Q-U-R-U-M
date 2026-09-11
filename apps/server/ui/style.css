@@ -220,6 +220,10 @@ body {
 .con-icono { display: inline-flex; align-items: center; gap: var(--md); }
 
 .num { font-variant-numeric: tabular-nums; }   /* columnas alineadas */
+
+.revisiones-peer { margin-top: var(--lg); }
+.revision-peer { margin-top: var(--sm); padding: var(--md); border: 1px solid var(--borde); border-radius: 8px; }
+.revision-peer .acciones { display: flex; gap: var(--sm); margin-top: var(--sm); flex-wrap: wrap; }
 .small { font-size: var(--t-chico); color: var(--tenue); }
 code { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--t-chico); }
 .glifo { font-style: normal; }
@@ -949,3 +953,132 @@ td { padding: 11px 12px; }
 /* La leyenda de estados reusa las insignias reales de la app, no una copia:
  * si cambia el tratamiento de un estado, cambia acá también. */
 .estados-leyenda { display: flex; flex-wrap: wrap; gap: var(--md); margin-top: var(--md); }
+
+/* ══════════════════ Capturar · el composer ══════════════════
+ *
+ * Un solo contenedor para el campo y sus acciones, centrado en columna. La
+ * forma del cuadro de mensaje de un asistente: la gente ya sabe usarla sin que
+ * nadie le explique, y resuelve de raíz el desalineado que tenía esta pantalla
+ * — antes la fecha, los dos botones y la pista eran cuatro elementos sueltos
+ * en una fila, cada uno con su altura y su línea base.
+ *
+ * Nota sobre las reglas del proyecto: el encabezado de esta hoja pide
+ * «ornamento cero, sin bordes redondeados grandes». Acá hay un radio de 14px
+ * y un anillo de foco, a pedido explícito. No es ornamento gratuito: el radio
+ * es lo que hace leer el campo y su barra como UNA superficie en vez de dos
+ * cosas apiladas, que es el punto del composer.
+ */
+.capturar-centro {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+/* `display: block` explícito: el reskin declara `.capturar-intro` como flex de
+ * dos columnas, y con el composer eso dejaba el título a la izquierda y el
+ * subtítulo a la derecha, en dos líneas base distintas. */
+.capturar-intro { display: block; margin-bottom: var(--xl); text-align: center; }
+.capturar-intro h2 { margin: 0; }
+.capturar-subtitulo {
+  margin: var(--sm) auto 0;
+  max-width: 58ch;
+}
+
+.composer {
+  border: 1px solid var(--borde-duro);
+  border-radius: 14px;
+  background: var(--superficie);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+/* El anillo envuelve al CONJUNTO, no al textarea: es lo que comunica que el
+ * campo y su barra son una sola cosa. */
+.composer:focus-within {
+  border-color: var(--primario);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primario) 18%, transparent);
+}
+
+/* El textarea pierde su propio marco: el marco es el del composer. */
+.composer #texto {
+  display: block;
+  width: 100%;
+  min-height: 132px;
+  max-height: 420px;
+  padding: var(--lg) var(--lg) var(--md);
+  border: 0;
+  border-radius: 14px 14px 0 0;
+  background: transparent;
+  resize: none;                 /* crece solo, ver `ajustarAlto` */
+  font-size: var(--t-grande);
+  line-height: 1.45;
+}
+.composer #texto:focus { outline: none; }
+
+.composer-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--md);
+  flex-wrap: wrap;
+  padding: var(--md) var(--md) var(--md) var(--lg);
+  border-top: 1px solid var(--borde);
+}
+
+.composer-izq,
+.composer-der { display: flex; align-items: center; gap: var(--md); }
+
+/* La fecha deja de ser un campo con etiqueta arriba —que era lo que rompía la
+ * línea base de la fila— y pasa a leerse en una sola línea, como un dato del
+ * composer y no como un formulario. */
+.composer .campo-fecha {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sm);
+}
+.campo-fecha-etiqueta { font-size: var(--t-chico); color: var(--tenue); }
+.composer .campo-fecha input {
+  padding: 5px var(--sm);
+  font-size: var(--t-chico);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+/* Dictar es secundario en jerarquía pero central en el producto: se queda
+ * visible, sin competir con el primario. */
+.composer-boton {
+  border-radius: 999px;
+  padding: 7px var(--md);
+  font-size: var(--t-chico);
+}
+.composer-boton.grabando { border-color: var(--sinquorum); color: var(--sinquorum-ink); }
+
+.composer-der .primario { border-radius: 999px; padding: 8px var(--lg); }
+.composer-der .pista { white-space: nowrap; }
+
+/* Los tres pasos, en una línea bajo el composer. */
+.pasos-captura {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lg);
+  margin: var(--lg) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: paso;
+}
+.pasos-captura li {
+  font-size: var(--t-chico);
+  color: var(--tenue);
+  padding-top: var(--sm);
+  border-top: 2px solid var(--borde);
+  counter-increment: paso;
+}
+.pasos-captura b { display: block; color: var(--texto); }
+.pasos-captura b::before { content: counter(paso) " · "; color: var(--tenue); font-weight: 500; }
+.pasos-captura li:last-child { border-top-color: var(--quorum); }
+.pasos-captura li:last-child b { color: var(--quorum-ink); }
+
+@media (max-width: 720px) {
+  .pasos-captura { grid-template-columns: minmax(0, 1fr); gap: var(--md); }
+  .composer-barra { justify-content: flex-start; }
+  .composer-der { margin-left: auto; }
+}

@@ -291,8 +291,10 @@ async function confirmar() {
     }
     const r = await api('/api/confirmar', cuerpo);
     cerrarRevision();
-    $('#texto').value = '';
-    delete $('#texto').dataset.fuente;
+    const caja = $('#texto');
+    caja.value = '';
+    delete caja.dataset.fuente;
+    ajustarAlto(caja);          // sin esto el campo queda alto y vacío
     informarGuardado(r);
     alRefrescar();
   } catch (e) {
@@ -576,6 +578,7 @@ async function alternarDictado() {
         const caja = $('#texto');
         caja.value = [caja.value.trim(), (texto ?? '').trim()].filter(Boolean).join(' ');
         caja.dataset.fuente = 'voz';
+        ajustarAlto(caja);
         caja.focus();
         estado(texto ? 'Transcrito en este equipo. Revisá antes de interpretar.' : 'La transcripción vino vacía.', texto ? 'bueno' : 'aviso');
       } catch (e) {
@@ -597,8 +600,50 @@ async function alternarDictado() {
 
 /* ─────────────────────────────── Montaje ─────────────────────────────── */
 
+/**
+ * Fecha de la visita = HOY, por defecto.
+ *
+ * Vacía, `/api/observar` cae en `capturadaEn` — y RD-6 dice que la frescura se
+ * mide desde `visitadoEn`, no desde cuándo se dictó. El caso normal (dicto lo
+ * que acabo de ver) quedaba bien por accidente; el caso real de campo —cargo
+ * el lunes la recorrida del viernes— quedaba fechado mal y movía el estado de
+ * frescura de todo un grupo sin que nadie lo notara.
+ *
+ * Se arma con los componentes LOCALES y no con `toISOString()`: ese devuelve
+ * UTC, y al este de Greenwich por la tarde ya es el día siguiente. Una fecha de
+ * visita corrida un día es exactamente el tipo de error que este producto no
+ * puede cometer.
+ */
+function fechaDeHoyLocal() {
+  const d = new Date();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mes}-${dia}`;
+}
+
+/**
+ * El campo crece con la nota, hasta un tope.
+ *
+ * Un dictado largo entraba en un textarea de altura fija y había que
+ * desplazarse dentro de él para releer lo que se acababa de decir — justo
+ * antes de confirmar, que es el momento en que hay que poder leerlo todo.
+ */
+function ajustarAlto(caja) {
+  const TOPE = 420;
+  caja.style.height = 'auto';
+  caja.style.height = `${Math.min(caja.scrollHeight, TOPE)}px`;
+  caja.style.overflowY = caja.scrollHeight > TOPE ? 'auto' : 'hidden';
+}
+
 export function montarCapturar(refrescar) {
   alRefrescar = refrescar;
+
+  const visita = $('#visita');
+  if (visita && !visita.value) visita.value = fechaDeHoyLocal();
+
+  const caja = $('#texto');
+  ajustarAlto(caja);
+  caja.addEventListener('input', () => ajustarAlto(caja));
   $('#enviar').onclick = interpretar;
   $('#confirmar').onclick = confirmar;
   $('#descartar').onclick = descartar;
