@@ -99,6 +99,14 @@
         <path d="M9.5 12a3.5 3.5 0 0 1 3.5-3.5h2a3.5 3.5 0 0 1 0 7h-1.2" />
         <path d="M14.5 12a3.5 3.5 0 0 1-3.5 3.5H9a3.5 3.5 0 0 1 0-7h1.2" />
       </symbol>
+      <!-- Tres nodos conectados: dispositivos P2P, no jerarquía. -->
+      <symbol id="ic-conexiones" viewBox="0 0 24 24">
+        <circle cx="5.5" cy="6.5" r="2.5" />
+        <circle cx="18.5" cy="6.5" r="2.5" />
+        <circle cx="12" cy="18" r="2.5" />
+        <path d="M7.6 7.9 9.9 16" />
+        <path d="M16.4 7.9 14.1 16" />
+      </symbol>
 
       <!-- ── Acciones y estado ── -->
       <symbol id="ic-microfono" viewBox="0 0 24 24">
@@ -157,6 +165,7 @@
       <p class="sidebar-label sidebar-label-secundario">General</p>
       <nav aria-label="Sistema">
         <button type="button" data-vista="auditoria"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-auditoria" xlink:href="#ic-auditoria" /></svg>Auditoría</button>
+        <button type="button" data-vista="conexiones"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-conexiones" xlink:href="#ic-conexiones" /></svg>Conexiones</button>
         <button type="button" data-vista="comofunciona"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-flujo" xlink:href="#ic-flujo" /></svg>Cómo funciona</button>
       </nav>
       <div class="sidebar-bottom">
@@ -357,6 +366,10 @@
 
     <!-- 4 · AUDITORÍA. La pinta audit.js. -->
     <section id="auditoria" aria-label="Auditoría" tabindex="-1" hidden></section>
+
+    <!-- 4b · CONEXIONES — detalle por dispositivo del sync P2P (pendiente #4
+         de SYNC_P2P_MOBILE_CONTRACT.md). La pinta connections.js. -->
+    <section id="conexiones" aria-label="Conexiones" tabindex="-1" hidden></section>
 
     <!-- 5 · CÓMO FUNCIONA — los estados y el flujo, con diagramas. La pinta
          `how-it-works.js`. Es la única pantalla sin un solo dato de la API:

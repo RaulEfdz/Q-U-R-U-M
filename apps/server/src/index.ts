@@ -94,6 +94,7 @@ import { cargar, agregar, lineasDescartadas, verificarArchivo } from './store/ob
 import { guardarBorrador, obtenerBorrador, descartarBorrador } from './store/drafts.ts';
 import { agregarPendiente, contarPendientes, verificarPendientes } from './store/pendientes.ts';
 import { descartarRevisionPeer, obtenerRevisionPeer, listarRevisionesPeer } from './store/revisiones-peer.ts';
+import { listarDispositivos } from './store/dispositivos.ts';
 import { reconciliar } from './trust/reconcile.ts';
 import { candidatosFusion } from './trust/entity.ts';
 import { construirInteligencia } from './intelligence/central.ts';
@@ -1331,6 +1332,20 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
       revisionesPeer: listarRevisionesPeer(),
       registros,
     });
+    return;
+  }
+
+  /*
+   * ── Dispositivos conectados por P2P ──
+   * Pendiente #4 de SYNC_P2P_MOBILE_CONTRACT.md ("registro/revocación de
+   * dispositivos"). Antes solo existía el CONTEO (`meta.peersConectados`,
+   * de arriba) — acá va el detalle por dispositivo que ese conteo no puede
+   * mostrar: quién es, si sigue conectado, cuándo se supo de él por
+   * última vez.
+   */
+  if (ruta === '/api/dispositivos') {
+    if (metodo !== 'GET') { res.writeHead(405).end(); return; }
+    json(res, 200, { dispositivos: listarDispositivos() });
     return;
   }
 

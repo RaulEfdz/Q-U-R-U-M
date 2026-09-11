@@ -701,6 +701,12 @@ tr.conflicto-nuevo { animation: conflictoNuevo 600ms ease-out 1; }
 
 .auditoria-tabla { background: var(--superficie); border: 1px solid var(--borde); }
 .auditoria-tabla td { font-size: var(--t-chico); }
+
+/* Conexiones: mismo tratamiento visual que Auditoría, misma familia de
+ * pantalla (registro/estado del sistema, no dato de negocio). */
+.conexiones-tabla { background: var(--superficie); border: 1px solid var(--borde); width: 100%; margin-top: var(--md); }
+.conexiones-tabla td { font-size: var(--t-chico); }
+.conexiones-tabla tr.desconectado { color: var(--tenue); }
 .pares { display: flex; flex-wrap: wrap; gap: var(--md); }
 .par i { font-style: normal; color: var(--tenue); }
 /*

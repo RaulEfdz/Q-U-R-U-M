@@ -10,6 +10,7 @@ import { montarCapturar } from './capture.js';
 import { pintarCliente, pintarClienteError } from './client.js';
 import { pintarPanorama, pintarPanoramaError } from './overview.js';
 import { pintarAuditoria } from './audit.js';
+import { pintarConexiones } from './connections.js';
 import { pintarComoFunciona } from './how-it-works.js';
 import { actualizarAyuda, montarAyuda } from './help.js';
 
@@ -119,7 +120,7 @@ function mostrar(vista, { foco = true } = {}) {
   vistaActual = vista;
   actualizarAyuda(vista);
   const titulo = document.querySelector('#vista-titulo');
-  if (titulo) titulo.textContent = { capturar: 'Capturar', cliente: 'Cliente 360', panorama: 'Inteligencia', auditoria: 'Auditoría', comofunciona: 'Cómo funciona' }[vista] ?? vista;
+  if (titulo) titulo.textContent = { capturar: 'Capturar', cliente: 'Cliente 360', panorama: 'Inteligencia', auditoria: 'Auditoría', conexiones: 'Conexiones', comofunciona: 'Cómo funciona' }[vista] ?? vista;
   document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== vista; });
   document.querySelectorAll('nav button').forEach((b) => {
     const activo = b.dataset.vista === vista;
@@ -127,6 +128,7 @@ function mostrar(vista, { foco = true } = {}) {
     b.setAttribute('aria-current', activo ? 'page' : 'false');
   });
   if (vista === 'auditoria') pintarAuditoria($('#auditoria'));
+  if (vista === 'conexiones') pintarConexiones($('#conexiones'));
   // «Cómo funciona» no depende de datos, así que se pinta al abrirla y una
   // sola vez (el módulo lleva su propia guarda): no entra en `repintar()`
   // porque no hay nada que refrescar, y repintarla perdería la posición de
@@ -162,6 +164,10 @@ function conectarStream() {
   es.addEventListener('cambio', () => {
     refrescar();
     if (vistaActual === 'auditoria') pintarAuditoria($('#auditoria'));
+    // Mismo evento que dispara el chip de peers del sidebar (onParesCambio,
+    // ver index.ts): un dispositivo que se conecta o se cae repinta la
+    // lista si es lo que se está mirando ahora mismo.
+    if (vistaActual === 'conexiones') pintarConexiones($('#conexiones'));
   });
   es.addEventListener('policy-denied', (e) => {
     try { bandaDenegado(JSON.parse(e.data)); } catch { /* evento malformado: se ignora */ }

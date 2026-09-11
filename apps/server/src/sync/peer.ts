@@ -20,6 +20,7 @@ import { zObservacion, type Observacion } from '../core/contracts.ts';
 import { cargar } from '../store/observations.ts';
 import { registrarAuditoria } from '../store/audit.ts';
 import { encolarRevisionPeer } from '../store/revisiones-peer.ts';
+import { registrarConexion, registrarDesconexion, registrarActividad } from '../store/dispositivos.ts';
 import { nuevoId } from '../core/ids.ts';
 
 const TOPIC = createHash('sha256').update('quorum/base-instalada/v1').digest();
@@ -141,6 +142,7 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
 
     pares++;
     opts.onParesCambio?.(pares);
+    registrarConexion(clave.slice(0, 16));
     void registrarAuditoria({
       traceId: 'sync', accion: 'sync:peer-aceptado',
       detalle: { clave: clave.slice(0, 16) },
@@ -174,6 +176,7 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
     socket.on('close', () => {
       pares--;
       opts.onParesCambio?.(pares);
+      registrarDesconexion(clave.slice(0, 16));
     });
     socket.on('error', () => {
       // conexión ruidosa de un peer no debe tumbar el proceso de sync.
@@ -224,6 +227,15 @@ export async function procesarLineas(
       validas.push({ ...p.data, origen: 'peer' }); // ★ marcado untrusted, siempre
     }
     if (!validas.length) continue;
+
+    // Primera vez que se sabe QUIÉN es este peer más allá de su clave: el
+    // registro de dispositivos se enriquece con lo que trae la propia
+    // observación (dato de peer, por eso solo se guarda para mostrar en la
+    // UI — nunca decide confianza ni quórum, eso es trabajo exclusivo de
+    // `trust/reconcile.ts` sobre la Observacion ya persistida).
+    registrarActividad(clave.slice(0, 16), {
+      dispositivoId: validas[0]!.dispositivoId, observadorId: validas[0]!.observadorId,
+    });
 
     // Un peer puede entregar testimonios, pero ni su allowlist ni Zod son una
     // confirmación humana. Se mantienen fuera de observations.jsonl hasta que
