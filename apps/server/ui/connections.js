@@ -55,7 +55,7 @@ function tabla(dispositivos) {
     h('tbody', null, dispositivos.map(filaDispositivo)));
 }
 
-export async function pintarConexiones(seccion) {
+export async function pintarConexiones(seccion, alResumen) {
   pintar(seccion, h('p', { clase: 'estado trabajando', texto: 'Consultando dispositivos…' }));
   let d;
   try {
@@ -66,6 +66,7 @@ export async function pintarConexiones(seccion) {
   }
   const dispositivos = Array.isArray(d.dispositivos) ? d.dispositivos : [];
   const conectados = dispositivos.filter((x) => x.conectado).length;
+  alResumen?.({ total: dispositivos.length, conectados });
 
   pintar(seccion,
     h('p', { clase: 'leyenda small', texto:

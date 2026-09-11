@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto';
 import { zObservacion, type Observacion } from '../core/contracts.ts';
 import { cargar } from '../store/observations.ts';
 import { registrarAuditoria } from '../store/audit.ts';
-import { encolarRevisionPeer } from '../store/revisiones-peer.ts';
+import { encolarRevisionPeer, idsObservacionesPendientes } from '../store/revisiones-peer.ts';
 import { registrarConexion, registrarDesconexion, registrarActividad } from '../store/dispositivos.ts';
 import { nuevoId } from '../core/ids.ts';
 
@@ -170,7 +170,9 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
         return;
       }
 
-      void procesarLineas(lineas, clave, opts.onCambio);
+      void procesarLineas(lineas, clave, opts.onCambio, (mensaje) => {
+        socket.write(JSON.stringify(mensaje) + '\n');
+      });
     });
 
     socket.on('close', () => {
@@ -208,25 +210,59 @@ async function enviarPropias(socket: PeerSocket): Promise<void> {
  */
 export async function procesarLineas(
   lineas: string[], clave: string, onCambio?: (n: number) => void,
+  responder?: (mensaje: MensajeSalidaSync) => void,
 ): Promise<void> {
   for (const linea of lineas) {
     if (!linea.trim()) continue;
 
-    let mensaje: { tipo?: string; datos?: unknown[] };
+    let mensaje: MensajeEntradaSync;
     try {
-      mensaje = JSON.parse(linea) as { tipo?: string; datos?: unknown[] };
+      mensaje = JSON.parse(linea) as MensajeEntradaSync;
     } catch {
       continue; // línea corrupta o hostil: se descarta, no rompe el socket
     }
+    if (mensaje.tipo === 'hello') {
+      if (mensaje.versionProtocolo !== 1 || !mensaje.dispositivoId || !mensaje.observadorId) continue;
+      registrarActividad(clave.slice(0, 16), {
+        dispositivoId: mensaje.dispositivoId, observadorId: mensaje.observadorId,
+      });
+      responder?.({
+        tipo: 'hello_ack', versionProtocolo: 1,
+        servidorId: 'quorum-central', sesionId: nuevoId(),
+      });
+      continue;
+    }
     if (mensaje.tipo !== 'observaciones' || !Array.isArray(mensaje.datos)) continue;
 
+    const loteV1 = mensaje.versionProtocolo === 1 && typeof mensaje.loteId === 'string';
+    const loteId = loteV1 ? mensaje.loteId! : undefined;
+    const almacenadas = new Set((await cargar()).map((o) => o.id));
+    const pendientes = idsObservacionesPendientes();
+
     const validas: Observacion[] = [];
+    const duplicadas: string[] = [];
+    const rechazadas: Array<{ id: string; motivo: string }> = [];
     for (const d of mensaje.datos) {
       const p = zObservacion.safeParse(d);
-      if (!p.success) continue; // input hostil que no matchea el contrato: fuera
+      if (!p.success) {
+        const id = typeof d === 'object' && d !== null && 'id' in d && typeof d.id === 'string'
+          ? d.id : 'sin-id';
+        rechazadas.push({ id, motivo: 'CONTRATO_INVALIDO' });
+        continue;
+      }
+      if (almacenadas.has(p.data.id) || pendientes.has(p.data.id)) {
+        duplicadas.push(p.data.id);
+        continue;
+      }
       validas.push({ ...p.data, origen: 'peer' }); // ★ marcado untrusted, siempre
     }
-    if (!validas.length) continue;
+    if (!validas.length) {
+      if (loteId) responder?.({
+        tipo: 'ack', versionProtocolo: 1, loteId,
+        recibidas: [], duplicadas, rechazadas,
+      });
+      continue;
+    }
 
     // Primera vez que se sabe QUIÉN es este peer más allá de su clave: el
     // registro de dispositivos se enriquece con lo que trae la propia
@@ -249,6 +285,28 @@ export async function procesarLineas(
       traceId: revisionId, accion: 'sync:revision-pendiente',
       detalle: { clave: clave.slice(0, 16), testimonios: validas.length },
     });
+    if (loteId) responder?.({
+      tipo: 'ack', versionProtocolo: 1, loteId,
+      recibidas: validas.map((o) => o.id), duplicadas, rechazadas, revisionId,
+    });
     onCambio?.(0);
   }
 }
+
+type MensajeEntradaSync = {
+  tipo?: string;
+  versionProtocolo?: number;
+  dispositivoId?: string;
+  observadorId?: string;
+  loteId?: string;
+  datos?: unknown[];
+};
+
+export type MensajeSalidaSync =
+  | { tipo: 'hello_ack'; versionProtocolo: 1; servidorId: string; sesionId: string }
+  | {
+    tipo: 'ack'; versionProtocolo: 1; loteId: string;
+    recibidas: string[]; duplicadas: string[];
+    rechazadas: Array<{ id: string; motivo: string }>;
+    revisionId?: string;
+  };

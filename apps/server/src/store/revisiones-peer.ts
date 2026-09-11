@@ -64,6 +64,13 @@ export function listarRevisionesPeer(): RevisionPeer[] {
   return [...pendientes.values()].sort((a, b) => a.recibidoEn.localeCompare(b.recibidoEn));
 }
 
+/** IDs ya recibidos y todavía pendientes de decisión humana. El transporte
+ * los usa para responder un reenvío como duplicado sin crear otra revisión. */
+export function idsObservacionesPendientes(): Set<string> {
+  cargarDesdeDisco();
+  return new Set([...pendientes.values()].flatMap((r) => r.observaciones.map((o) => o.id)));
+}
+
 export function obtenerRevisionPeer(id: string): RevisionPeer | undefined {
   cargarDesdeDisco();
   return pendientes.get(id);

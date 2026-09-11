@@ -5,6 +5,8 @@ import { nuevoId } from '../core/ids.ts';
 import { agregar, confirmarParaGuardar } from '../store/expo-store.ts';
 import type { SalidaPipeline } from '../pipeline/cruzar.ts';
 import { agregarPendiente } from './pendientes-store.ts';
+import { encolar } from '../sync/queue.ts';
+import { refrescarEstadoSync } from '../sync/controller.ts';
 import { LoteEditable } from './components/LoteEditable.tsx';
 import { LoteDescartado } from './components/LoteDescartado.tsx';
 import { color, espacio, radio, tap, tipografia } from './theme.ts';
@@ -74,6 +76,8 @@ export function ConfirmacionBorrador({
         // usuario acaba de aprobar explícitamente lo que ve en pantalla.
         const confirmadas = confirmarParaGuardar(finales);
         guardadas = await agregar(confirmadas);
+        await encolar(confirmadas);
+        await refrescarEstadoSync();
       }
 
       if (estadoRevision === 'pendiente-de-revision') {

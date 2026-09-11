@@ -15,6 +15,12 @@ import { pintarComoFunciona } from './how-it-works.js';
 import { actualizarAyuda, montarAyuda } from './help.js';
 
 let vistaActual = 'panorama';
+let resumenBase = '0 grupos · 0 con quórum · 0 sin quórum';
+
+function mostrarResumenConexiones({ total, conectados }) {
+  if (vistaActual !== 'conexiones') return;
+  $('#marcador').textContent = `${total} ${total === 1 ? 'dispositivo visto' : 'dispositivos vistos'} · ${conectados} ${conectados === 1 ? 'conectado' : 'conectados'} ahora`;
+}
 
 /* ───────────────────────────── Refresco ───────────────────────────── */
 
@@ -35,8 +41,8 @@ async function repintar() {
     if (captura) captura.textContent = `IA local · ${d.meta.modeloIA}`;
   }
   const t = d.totales ?? {};
-  $('#marcador').textContent =
-    `${t.grupos ?? 0} grupos · ${t.conQuorum ?? 0} con quórum · ${t.sinQuorum ?? 0} sin quórum`;
+  resumenBase = `${t.grupos ?? 0} grupos · ${t.conQuorum ?? 0} con quórum · ${t.sinQuorum ?? 0} sin quórum`;
+  if (vistaActual !== 'conexiones') $('#marcador').textContent = resumenBase;
 
   /*
    * Pendiente #5 de SYNC_P2P.md: "estado de sync visible en la UI". El
@@ -128,7 +134,8 @@ function mostrar(vista, { foco = true } = {}) {
     b.setAttribute('aria-current', activo ? 'page' : 'false');
   });
   if (vista === 'auditoria') pintarAuditoria($('#auditoria'));
-  if (vista === 'conexiones') pintarConexiones($('#conexiones'));
+  if (vista === 'conexiones') pintarConexiones($('#conexiones'), mostrarResumenConexiones);
+  else $('#marcador').textContent = resumenBase;
   // «Cómo funciona» no depende de datos, así que se pinta al abrirla y una
   // sola vez (el módulo lleva su propia guarda): no entra en `repintar()`
   // porque no hay nada que refrescar, y repintarla perdería la posición de
@@ -167,7 +174,7 @@ function conectarStream() {
     // Mismo evento que dispara el chip de peers del sidebar (onParesCambio,
     // ver index.ts): un dispositivo que se conecta o se cae repinta la
     // lista si es lo que se está mirando ahora mismo.
-    if (vistaActual === 'conexiones') pintarConexiones($('#conexiones'));
+    if (vistaActual === 'conexiones') pintarConexiones($('#conexiones'), mostrarResumenConexiones);
   });
   es.addEventListener('policy-denied', (e) => {
     try { bandaDenegado(JSON.parse(e.data)); } catch { /* evento malformado: se ignora */ }
