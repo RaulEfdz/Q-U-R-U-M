@@ -7,6 +7,8 @@
     "@qvac/sdk": "0.18.2",
     "bare-link": "3.3.0",
     "buffer": "6.0.3",
+    "hypercore-crypto": "3.6.1",
+    "hyperswarm": "4.14.0",
     "expo": "~57.0.21",
     "expo-audio": "57.0.4",
     "expo-build-properties": "^57.0.17",
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^22.20.2",
     "@types/react": "~19.2.2",
+    "bare-pack": "2.2.2",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -32,7 +35,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "build:sync-worker": "bare-pack --linked --host android-arm64 --format bundle.cjs src/sync/worker.cjs --out src/sync/worker.bundle.js"
   },
   "private": true
 }

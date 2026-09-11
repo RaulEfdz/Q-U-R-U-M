@@ -10,17 +10,66 @@ Requisito duro: inferencia on-device o delegada P2P con QVAC. **Nube prohibida e
 
 ---
 
+## Por qué existe QUÓRUM
+
+Después de cada visita a un hospital, alguien puede haber visto información decisiva: cuántos MR, CT o ecógrafos hay; de qué fabricante son; cuáles parecen viejos; qué equipos convendría renovar. Hoy ese conocimiento termina repartido entre notas, conversaciones, hojas de cálculo y memoria personal. No se puede consultar con confianza, comparar entre cuentas ni convertir en una decisión comercial o de servicio.
+
+El problema no es solo extraer texto con IA. También hay que responder una pregunta más difícil: **cuando dos personas cuentan cosas distintas, ¿qué dato merece entrar en la visión de un cliente?** Guardar cada frase como un hecho produciría un inventario rápido, pero poco confiable.
+
+QUÓRUM convierte una conversación de campo en una base instalada que conserva evidencia, incertidumbre y trazabilidad. La persona habla o escribe como lo haría al salir de una visita; la IA local propone estructura; la persona revisa antes de guardar; y el motor de confianza decide, campo por campo, si hay evidencia suficiente para mostrar un dato como quórum, reportado, estimado o desconocido.
+
+## Cómo resuelve el reto
+
+| Fricción en campo | Respuesta de QUÓRUM | Resultado para el equipo |
+|---|---|---|
+| El conocimiento vive en notas y memoria | Captura por texto o voz en lenguaje natural | Registrar una visita no obliga a completar un formulario largo |
+| Las descripciones son inconsistentes o incompletas | Extracción local a cliente, sitio, equipo, cantidad, edad, fuente y confianza | Un dato parcial sigue siendo útil sin inventar lo desconocido |
+| Dos personas pueden informar versiones distintas | Quórum y conflicto por campo; nunca se promedian versiones incompatibles | Se ve qué se sabe, quién lo sostiene y qué necesita revisión |
+| Un borrador de IA puede estar equivocado | Revisión y confirmación humana obligatorias antes de persistir | La IA asiste; no convierte una suposición en registro oficial |
+| Los datos sensibles no deberían salir del entorno | Inferencia QVAC local; P2P permitido solo por allowlist y con revisión humana | El conocimiento no depende de enviar notas a un proveedor cloud |
+| Es difícil actuar sobre muchas visitas aisladas | Cliente 360, Panorama, frescura, oportunidades, filtros y exportación | Una observación se transforma en inteligencia accionable entre clientes |
+
+### La idea que va más allá del prototipo
+
+Queremos que la base instalada deje de ser una fotografía incierta que alguien reconstruye antes de una reunión. QUÓRUM plantea una **memoria operativa compartida y verificable**: cada visita aporta evidencia, la evidencia madura con el tiempo y la organización puede actuar sin borrar el desacuerdo ni esconder la incertidumbre.
+
+Eso permite que ventas, servicio y especialistas compartan una misma vista de cada entorno tecnológico, sin exigir que el personal de campo se vuelva digitador ni que datos sensibles viajen a la nube. La ambición no es reemplazar el criterio humano: es hacer que ese criterio, cuando está respaldado por evidencia, sobreviva a la conversación y se vuelva útil para todos.
+
+### Qué se puede demostrar hoy
+
+El flujo de producto está implementado: **capturar → interpretar → revisar → confirmar → reconciliar → consultar/visualizar/exportar**. El servidor tiene pruebas automatizadas de sus reglas de confianza, persistencia, política, seguridad y transporte; `npm run test:ci` valida typecheck, tests y ausencia de egress de inferencia cloud.
+
+Hay trabajo de demostración y validación real que no debe maquillarse como terminado: la lista priorizada, los criterios de cierre y la evidencia esperada están en [FALTANTES_PARA_DEMO.md](docs/FALTANTES_PARA_DEMO.md).
+
+### Declaración de trabajo previo
+
+Exigida por las reglas del hackathon (*Decentralized AI Hackathon*, ISD Summit Panamá): toda base preexistente debe declararse acá; omitirla descalifica la entrega.
+
+**Todo el código de este repositorio se escribió durante las 48 horas del hackathon** (9–11 de septiembre de 2026). Verificable en el historial de git: el primer commit es del **2026-09-10 00:16:46**, dentro de la ventana de construcción (arranca el 9/09 08:00, cierra el 11/09 08:00).
+
+**Lo único externo son dependencias públicas de propósito general, todas declaradas:**
+
+| Paquete | Dónde | Por qué no es "base preexistente" |
+|---|---|---|
+| `@qvac/sdk` | `apps/server`, `apps/mobile` | Stack **obligatorio** del reto (`qvac.tether.io`) — no es una elección del equipo |
+| `hyperswarm`, `zod` | `apps/server` | Librerías de propósito general (transporte P2P, validación de esquemas), sin lógica de producto |
+| Expo / React Native | `apps/mobile` | Framework de plataforma, no un starter con funcionalidad de negocio ya escrita |
+
+Ningún boilerplate, plantilla ni proyecto de arranque con lógica de producto propia se usó como punto de partida. Los contratos de datos, el motor de reconciliación de confianza, la política de seguridad, y las dos interfaces (escritorio y mobile) se escribieron enteros durante el hackathon.
+
+---
+
 ## Versión
 
 | Componente | Versión | Fecha |
 |---|---|---|
-| Monorepo | **v0.4.1** | 2026-09-10 |
-| `apps/server` | v0.4.1 | 2026-09-10 |
+| Monorepo | **v0.5.0** | 2026-09-11 |
+| `apps/server` | v0.5.0 | 2026-09-11 |
 | `apps/mobile` | v0.4.1 | 2026-09-10 |
 
-Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las nueve rutas de la API y las cuatro pantallas de escritorio en 127.0.0.1; `apps/mobile` arranca en un Pixel 7 con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`.
+Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las rutas de la API y **seis** pantallas de escritorio en 127.0.0.1 (sumó Conexiones); `apps/mobile` arranca en un Pixel 7 con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`. Técnicas propias que valen como punto de pitch, no solo como fix: `docs/FUNCIONALIDADES_RESCATABLES.md`.
 
-**Lo que todavía no está probado:** el dictado por voz funciona de punta a punta y transcribe en menos de 8 segundos, pero solo se verificó grabando silencio. Falta que una persona dicte una nota real. Y el build de release, que es lo que hace falta para la demo sin WiFi, nunca llegó a compilar. Ver `CONTINUAR.md`.
+**Lo que todavía no está probado:** el build de release de mobile, que es lo que hace falta para la demo sin WiFi, nunca llegó a compilar. Ver `CONTINUAR.md`. El dictado de escritorio sí quedó probado con voz real esta sesión (no solo silencio): ver v0.5.0 abajo.
 
 Esquema de versionado: `MAJOR.MINOR.PATCH`. Mientras no exista código, `MINOR` sube con cada revisión de diseño que cambia decisiones; `PATCH` con correcciones puntuales de documentación. La versión de cada app vive en la cabecera de su `CLAUDE.md`.
 
@@ -121,14 +170,16 @@ Variables de entorno, **todas opcionales** (`apps/server/src/index.ts`):
 | `QUORUM_PEER_PUBKEY` | — | peer al que delegar inferencia |
 | `BOOTSTRAP` | — | nodos DHT `host:puerto`, separados por coma |
 
-Las cuatro pantallas, en la barra de navegación:
+Las seis pantallas, en la barra de navegación (los módulos que las pintan viven en `apps/server/ui/`, nombrados en inglés — `capture.js`, `client.js`, `overview.js`, `audit.js`, `connections.js`, `how-it-works.js`):
 
-| Pantalla | Qué se ve |
-|---|---|
-| **Capturar** | un campo de texto grande, `Dictar` (el navegador solo **graba** con `MediaRecorder`; transcribe whisper local vía `/api/transcribir`) e `Interpretar`. Lo extraído aparece abajo como «Revisá antes de guardar», **editable**, con `Sí, es correcto — guardar` y `Descartar`. Nada toca el disco hasta ese botón. |
-| **Cliente 360** | la reconciliación agrupada por cliente: confianza **por campo**, `Sin quórum` mostrando todas las versiones en conflicto y quién sostiene cada una (nunca un promedio), cohortes de edad como composición y frescura como eje aparte. |
-| **Panorama** | KPIs, distribución por país y modalidad en barras, candidatos a duplicado con su nota de revisión humana, la consulta en lenguaje natural (`/api/consultar` — el modelo solo traduce la pregunta a un filtro; el filtro lo corre código determinista) y `Exportar CSV (esquema del workbook, 19 columnas)`. |
-| **Auditoría** | la cadena de hashes con su botón `Verificar integridad`, y cada llamada de inferencia con su `delegado` a la vista. |
+| Pantalla | Módulo | Qué se ve |
+|---|---|---|
+| **Capturar** | `capture.js` | un campo de texto grande, `Dictar` (WebAudio graba WAV 16 kHz; transcribe whisper local vía `/api/transcribir`, **por fragmentos de 20 s mientras se sigue grabando** — no espera a que termines de hablar) e `Interpretar`, que solo aparece con nota real. Lo extraído aparece abajo como «Revisá antes de guardar», **editable** con validación visible, con `Sí, es correcto — guardar`, `Volver a editar` y `Descartar`. Nada toca el disco hasta confirmar. |
+| **Cliente 360** | `client.js` | la reconciliación agrupada por cliente: confianza **por campo**, `Sin quórum` mostrando todas las versiones en conflicto y quién sostiene cada una (nunca un promedio), cohortes de edad como composición y frescura como eje aparte. |
+| **Inteligencia** | `overview.js` | KPIs, la Intelligence Layer (posible renovación, requiere verificación, base instalada en disputa, información crítica faltante — cada una con puntaje desglosado y evidencia), distribución por país y modalidad, candidatos a duplicado, la consulta en lenguaje natural (`/api/consultar` — el modelo solo traduce a un filtro; el filtro lo corre código determinista, con testigos y frescura en el resultado) y `Exportar CSV`. |
+| **Auditoría** | `audit.js` | la cadena de hashes con `Verificar integridad` (ya no pierde el scroll al reclickear), cada llamada de inferencia con su `delegado` a la vista, y la cola de revisión de testimonios P2P. |
+| **Conexiones** | `connections.js` | detalle por dispositivo P2P — conectado o no, `dispositivoId`/`observadorId`, primer y último contacto — no solo el conteo del sidebar. |
+| **Cómo funciona** | `how-it-works.js` | los estados y el flujo del motor, con diagramas SVG propios. |
 
 ### Sembrar los datos de demo (server)
 
@@ -212,7 +263,7 @@ Esperado: `RESULTADO: 7/7 controles en verde` y exit 0. Sin red, el control 6 no
 ### Correr los tests y el typecheck
 
 ```bash
-cd apps/server && npx tsc --noEmit && npm test     # esperado: 31/31, exit 0
+cd apps/server && npm run test:ci                  # typecheck + 113 tests + verify:no-cloud
 cd ../mobile   && npx tsc --noEmit                 # esperado: exit 0
 ```
 
@@ -233,6 +284,26 @@ Para chequear que los diez archivos del núcleo compartido siguen idénticos ent
 ---
 
 ## Historial de cambios
+
+### v0.5.0 — 2026-09-11
+
+Bug del dictado resuelto, procesamiento continuo en vez de esperar al final, Intelligence Layer, y el sync P2P deja de ser una promesa para volverse observable.
+
+**El dictado no transcribía nada.** `CONFIG_ASR` mandaba `no_speech_thold`, una clave que no existe en `whisperConfigSchema` de `@qvac/sdk` 0.18.2 (`modelConfig` valida con `z.core.$strict`) — cada intento de dictar terminaba en 500. Corregido en las dos apps (server y mobile comparten el mismo bloque a propósito).
+
+**Dictado por fragmentos.** Antes: grabar todo, después esperar todo. Ahora el audio se corta cada 20 s mientras se sigue grabando, cada fragmento se transcribe apenas se corta, y el texto entra a la nota en cuanto vuelve — con chips visibles por fragmento (`transcribiendo…`/`transcrito`/`sin voz`/`no se pudo`). Para cuando se toca «Detener» después de dictar varios minutos, casi toda la nota ya está transcrita. Documentado como técnica propia de pitch, con guía de portado a mobile, en `docs/FUNCIONALIDADES_RESCATABLES.md`.
+
+**Intelligence Layer** (`src/intelligence/central.ts`): proyecciones recalculables sobre los testimonios confirmados — posible renovación por antigüedad, dato que requiere verificación por frescura, base instalada en disputa, información crítica faltante — cada una con puntaje desglosado y evidencia. No reescribe evidencia ni persiste conclusiones.
+
+**El sync P2P se puede ver, no solo declarar.** Antes el conteo de peers conectados (`pares()`) existía en el transporte y nada lo mostraba. Ahora: chip «● N dispositivos sincronizando» en vivo en el sidebar, y una pantalla nueva, **Conexiones**, con el detalle por dispositivo (conectado o no, `dispositivoId`/`observadorId`, primer y último contacto). El inbox de revisiones P2P pasó de efímero a persistente en disco. Documentado en `apps/server/SYNC_P2P.md` y `SYNC_P2P_MOBILE_CONTRACT.md` (protocolo `hello`/lote/ACK, idempotencia, checklist exacto para portar a mobile).
+
+**Bug real en Cliente 360, no solo ajuste visual.** Un `<td>` con `class="quienes"` tenía `display: flex` puesto directo en la celda — eso rompe `table-layout: fixed` en varios navegadores y hacía que «Quién lo sostiene» apareciera comprimido y superpuesto con la columna vecina en el layout de dos columnas. El flex ahora vive en un `<div>` adentro del `<td>`, nunca en el `<td>` mismo.
+
+**Ocho arreglos de usabilidad** (heurísticas de Nielsen Norman Group + Apple HIG): Interpretar y su atajo solo aparecen con nota real; el panel de revisión oculta el composer y suma «Volver a editar»; el foco se mueve al panel al abrir (antes un lector de pantalla no se enteraba); la consulta en lenguaje natural bloquea/cancela en vez de permitir requests concurrentes; «Verificar integridad» ya no pierde el scroll; hash y detalle expandibles por teclado; un conflicto nuevo se anima igual que el ascenso a quórum; sidebar `sticky`.
+
+**Los 8 módulos de `apps/server/ui/` se renombraron a inglés**: `capturar.js→capture.js`, `cliente.js→client.js`, `panorama.js→overview.js`, `auditoria.js→audit.js`, `comofunciona.js→how-it-works.js`, `estados.js→states.js`, `errores.js→errors.js`, `ayuda.js→help.js`. `app.js`/`dom.js` ya eran inglés.
+
+**102 → 113 tests.** Typecheck limpio en todo momento durante la sesión.
 
 ### v0.4.1 — 2026-09-10
 

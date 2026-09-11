@@ -91,7 +91,7 @@ test('pendientes: una línea corrupta no se lleva la cola entera', async () => {
   // Mismo criterio que `store/observations.ts` y `store/audit.ts`: cargar
   // TOLERANTE. Una escritura a medias (disco lleno, proceso muerto en mitad
   // del append) no puede borrar el trabajo pendiente que sí está bueno.
-  const { agregarPendiente, listarPendientes } = await import('../src/store/pendientes.ts');
+  const { agregarPendiente, listarPendientes, verificarPendientes } = await import('../src/store/pendientes.ts');
   const bueno = armarBorrador();
   await agregarPendiente(bueno);
 
@@ -114,6 +114,9 @@ test('pendientes: una línea corrupta no se lleva la cola entera', async () => {
     assert(Array.isArray(x.observaciones),
       'todo lo que sale de la cola tiene forma de Borrador');
   }
+  const integridad = await verificarPendientes();
+  assert.strictEqual(integridad.ok, false, 'la corrupción no se presenta como una cola sana');
+  assert(integridad.corruptas.length >= 3, 'cada línea descartada queda expuesta para auditoría');
 });
 
 test('pendientes: lo que se encola son las observaciones CORREGIDAS por el humano', async () => {

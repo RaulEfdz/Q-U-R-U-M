@@ -12,6 +12,7 @@ import { estaListo, MODELOS } from '../qvac/pool.ts';
 import { obtenerIdentidad } from './identidad.ts';
 import { ConfirmacionBorrador } from './ConfirmacionBorrador.tsx';
 import { Icono } from './components/Icono.tsx';
+import { EstadoSync } from './components/EstadoSync.tsx';
 import { color, espacio, radio, tap, tipografia } from './theme.ts';
 
 type Vista =
@@ -328,6 +329,7 @@ export default function CapturarScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
+        <EstadoSync />
         {/* La marca y la tesis viven en `components/BarraSuperior.tsx`,
             fijas arriba de las dos pantallas — acá quedarían duplicadas y
             se irían con el scroll. */}

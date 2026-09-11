@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<!--
+  Escenas GRÁFICAS del video de QUÓRUM (apertura + cierre) — tipografía
+  cinética pura, sin foto: el bloque 1 del guion pide explícitamente "no
+  nombrar el producto ni la tecnología, el problema primero", y el cierre
+  es una línea hablada a cámara o, si no hay toma, esta misma escena.
+
+  Paleta: la de la app real (apps/server/ui/style.css), no la del template
+  genérico de la skill — --primario #1a4d8f (azul de acción, nunca de
+  confianza) y --quorum #1a7f5a (verde sobrio del estado Quórum), sobre
+  fondo casi negro. Nada de rojo/dorado del template base: ese esquema es
+  de otra marca.
+
+  1920x1080. Arranque por tecla/click (window.__begin), igual que el
+  esqueleto de la skill video-promo-cinematografico — para sincronizar con
+  screencapture. Ver docs/video/STORYBOARD.md para cómo se graba.
+-->
+<html lang="es"><head><meta charset="UTF-8"><title>QUÓRUM — apertura y cierre</title>
+<style>
+  :root{
+    --primario:#1a4d8f; --quorum:#1a7f5a; --fondo:#05070b; --texto:#f2f5fa; --tenue:#8b95a8;
+    --sans:'Helvetica Neue',Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1920px;height:1080px;overflow:hidden;background:var(--fondo);font-family:var(--sans)}
+  .stage{position:relative;width:1920px;height:1080px;background:var(--fondo)}
+  .scene{position:absolute;inset:0;opacity:0;transition:opacity .85s cubic-bezier(.4,0,.2,1);
+    display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:0 160px}
+  .scene.active{opacity:1}
+  .scene.center{align-items:center;text-align:center;padding:0 220px}
+
+  /* tipografía cinética: cada línea entra con un barrido, no un fade genérico */
+  .reveal{display:block;clip-path:inset(0 0 108% 0);opacity:0}
+  .scene.active .reveal{animation:reveal .9s cubic-bezier(.16,1,.3,1) forwards}
+  @keyframes reveal{to{clip-path:inset(0 0 -14% 0);opacity:1}}
+
+  .linea{font-size:56px;line-height:1.32;color:var(--texto);font-weight:400;max-width:1500px}
+  .linea + .linea{margin-top:6px}
+  .destacado{color:var(--quorum);font-weight:700}
+  .kicker{font-size:24px;letter-spacing:.32em;text-transform:uppercase;color:var(--primario);
+    font-weight:700;margin-bottom:34px}
+
+  .marca{font-size:120px;font-weight:800;letter-spacing:.06em;color:var(--texto)}
+  .marca .quorum{color:var(--quorum)}
+  .tesis{font-size:34px;color:var(--tenue);margin-top:22px;font-style:italic}
+
+  /* punto de fondo sutil, referencia visual al glifo de estado ● que ya usa
+     la app — nunca decorativo sin motivo, es el mismo lenguaje del producto */
+  .glifo-fondo{position:absolute;right:150px;top:50%;transform:translateY(-50%);
+    font-size:340px;color:var(--quorum);opacity:.08;font-weight:800;pointer-events:none}
+
+  .grain{position:absolute;inset:0;pointer-events:none;opacity:.04;mix-blend-mode:overlay;z-index:55;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation:grain 1.1s steps(4) infinite}
+  @keyframes grain{0%{transform:translate(0,0)}50%{transform:translate(5px,-5px)}100%{transform:translate(0,0)}}
+  .fade2black{position:absolute;inset:0;background:#000;opacity:0;z-index:64;pointer-events:none}
+</style></head>
+<body><div class="stage" id="stage">
+
+  <!-- Escena 1 · apertura (bloque 1 del guion, 0:00-0:25) — el problema,
+       sin nombrar el producto todavía. Tres líneas del guion, una por vez. -->
+  <div class="scene" data-start="0" data-end="8">
+    <div class="glifo-fondo">●</div>
+    <p class="linea reveal">Un ingeniero de servicio sale de un hospital.</p>
+    <p class="linea reveal" style="animation-delay:.25s">Vio dos resonadores y un tomógrafo.</p>
+  </div>
+
+  <div class="scene" data-start="8" data-end="16">
+    <div class="glifo-fondo">▲</div>
+    <p class="linea reveal">Ese conocimiento se queda en su cabeza,</p>
+    <p class="linea reveal" style="animation-delay:.25s">o en una nota que nadie va a leer.</p>
+  </div>
+
+  <div class="scene" data-start="16" data-end="25">
+    <div class="glifo-fondo">▲</div>
+    <p class="linea reveal">Mañana un colega visita al mismo cliente</p>
+    <p class="linea reveal" style="animation-delay:.25s">y reporta lo mismo, <span class="destacado">distinto</span>.</p>
+    <p class="linea reveal" style="animation-delay:.6s;margin-top:28px">La organización termina con miles de registros aislados</p>
+    <p class="linea reveal" style="animation-delay:.85s">y ninguna certeza sobre cuál creer.</p>
+  </div>
+
+  <!-- Escena 2 · marca (opcional, transición de 0:25 al bloque 2 real) -->
+  <div class="scene center" data-start="25" data-end="30">
+    <div class="marca reveal">QU<span class="quorum">Ó</span>RUM</div>
+    <p class="tesis reveal" style="animation-delay:.3s">La verdad tiene quórum.</p>
+  </div>
+
+  <!-- Escena 3 · cierre (línea final, ~5:00) — mismo lenguaje visual que
+       la apertura para que abran y cierren igual. -->
+  <div class="scene center" data-start="30" data-end="40">
+    <p class="linea reveal" style="font-size:50px">No convertimos observaciones en registros.</p>
+    <p class="linea reveal" style="animation-delay:.35s;font-size:50px">
+      Las convertimos en algo que la organización puede <span class="destacado">creer</span> —
+    </p>
+    <p class="linea reveal" style="animation-delay:.7s;font-size:50px">y sabe por qué.</p>
+  </div>
+
+  <div class="grain"></div>
+  <div class="fade2black" id="f2b"></div>
+</div>
+<script>
+  const scenes=[...document.querySelectorAll('.scene')];
+  const total=Math.max(...scenes.map(s=>+s.dataset.end));
+  const f2b=document.getElementById('f2b'); let start=null;
+  function tick(ts){if(!start)start=ts;const t=(ts-start)/1000;
+    scenes.forEach(s=>{const a=t>=+s.dataset.start&&t<+s.dataset.end;
+      if(a&&!s.classList.contains('active'))s.classList.add('active');
+      else if(!a&&s.classList.contains('active'))s.classList.remove('active');});
+    f2b.style.opacity=t>total-2?Math.min(1,(t-(total-2))/1.8):0;
+    if(t<total+0.5)requestAnimationFrame(tick);}
+  let started=false;
+  function begin(){if(started)return;started=true;start=null;requestAnimationFrame(tick);}
+  window.addEventListener('load',()=>{scenes[0].classList.add('active');
+    document.body.addEventListener('keydown',begin);document.body.addEventListener('click',begin);});
+  window.__begin=begin;
+</script></body></html>

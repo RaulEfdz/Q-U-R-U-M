@@ -1,5 +1,5 @@
 /**
- * errores.js — traduce fallas técnicas a algo que se pueda leer y actuar.
+ * errors.js — traduce fallas técnicas a algo que se pueda leer y actuar.
  *
  * Antes, cualquier problema aparecía como «No se pudo leer del servidor» más
  * el mensaje crudo: `TypeError: Failed to fetch`, `/api/observar devolvió 500`,
@@ -97,15 +97,21 @@ const CATALOGO = [
   {
     coincide: (m) => /no produjo una extracción utilizable|validation_error/i.test(m),
     grave: false,
-    titulo: 'El modelo no pudo estructurar la nota',
+    titulo: 'El modelo no devolvió nada utilizable',
     explicacion:
-      'Entendió el texto pero no logró separarlo en equipos con su cantidad y ' +
-      'edad. La nota NO se perdió: se puede guardar igual y quedar pendiente ' +
-      'de revisión.',
+      // Antes esta entrada decía «la nota NO se perdió: se puede guardar igual
+      // y quedar pendiente de revisión», y era falso: en este camino el
+      // borrador no llegó a crearse, así que no hay nada que guardar ni ningún
+      // botón que lo haga. Una nota que no describe equipos SÍ se puede
+      // guardar ahora, pero eso ya no pasa por acá — pasa por la pantalla de
+      // revisión, con su borrador vacío. Acá el modelo falló antes de eso.
+      'No llegó a producir una extracción: falló antes de devolver estructura, ' +
+      'así que no hay nada que revisar todavía. El texto que escribiste sigue ' +
+      'en el campo — no se borró.',
     pasos: [
-      'Probá nombrar el tipo de equipo y la cantidad de forma directa: «dos MR NovaMed de siete años».',
+      'Volvé a tocar «Interpretar»: el modelo no es determinista al arrancar y el segundo intento suele salir.',
+      'Si vuelve a fallar, nombrá el tipo de equipo y la cantidad de forma directa: «dos MR NovaMed de siete años».',
       'Si son de edades distintas, decilo separado: «dos viejos y uno nuevo».',
-      'O guardá la nota como está: nada se descarta.',
     ],
   },
   {

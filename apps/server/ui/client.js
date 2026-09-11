@@ -1,5 +1,5 @@
 /**
- * cliente.js — ★ CLIENTE 360. La pantalla que gana.
+ * client.js — ★ CLIENTE 360. La pantalla que gana.
  *
  * Acá vive el 35% de Technical hecho visible. Tiene que lograr, EN ESTE
  * ORDEN (doc maestro §B.2):
@@ -15,16 +15,19 @@
  * detrás de un click.
  */
 import { h, pintar, formatearValor, testigos, testimonios, vacio, error, iconoModalidad } from './dom.js';
-import { claseEstado, insignia, insigniaFrescura, esAscensoAQuorum } from './estados.js';
+import { claseEstado, insignia, insigniaFrescura, esAscensoAQuorum, esNuevoConflicto } from './states.js';
 
-/** Estados de la pasada anterior, para detectar el ascenso a quórum.
- *  Clave: `${grupo.clave}|${nombreCampo}`. */
+/** Estados de la pasada anterior, para detectar el ascenso a quórum y la
+ *  aparición de un conflicto nuevo. Clave: `${grupo.clave}|${nombreCampo}`. */
 const estadoPrevio = new Map();
 
 function marcarAscenso(fila, clave, estado) {
   const anterior = estadoPrevio.get(clave);
   estadoPrevio.set(clave, estado);
   if (esAscensoAQuorum(anterior, estado)) fila.classList.add('ascenso');
+  // La mala noticia recibe la misma cortesía que la buena: RD-2 existe para
+  // que un conflicto nuevo se note, no para que se filtre entre repintados.
+  else if (esNuevoConflicto(anterior, estado)) fila.classList.add('conflicto-nuevo');
 }
 
 /**
@@ -56,10 +59,16 @@ function filaCampo(clave, nombre, campo, { sangrada = false } = {}) {
     h('td', { clase: 'campo', texto: nombre }),
     h('td', { clase: esConflicto ? 'num disputa' : 'num', texto: valor }),
     h('td', null, insignia(campo.estado)),
-    h('td', { clase: 'quienes' },
+    // `display: flex` va en un `<div>` DENTRO del `<td>`, nunca en el `<td>`
+    // mismo: un `<td>` con `display: flex` deja de comportarse como celda
+    // de tabla para `table-layout: fixed` (varios navegadores lo miden por
+    // contenido en vez de respetar el ancho de columna) — el bug real detrás
+    // de que «Quién lo sostiene» apareciera comprimido/superpuesto en el
+    // layout de Cliente 360 en dos columnas.
+    h('td', null, h('div', { clase: 'quienes' },
       campo.estado === 'Sin datos' ? h('span', { clase: 'small', texto: 'nadie lo reportó' })
         : h('span', { texto: testigos((campo.observadores ?? []).length) }),
-      insigniaFrescura(campo)));
+      insigniaFrescura(campo))));
 
   marcarAscenso(fila, clave, campo.estado);
   return esConflicto ? [fila, bloqueConflicto(campo)] : fila;
@@ -106,7 +115,7 @@ function filaCohorte(clave, cohorte, indice) {
     h('td', { clase: 'campo', texto: '— cohorte' }),
     h('td', { clase: enDisputa ? 'num disputa' : 'num', texto: partes.join(' ') }),
     h('td', null, insignia(estadoFila)),
-    h('td', { clase: 'quienes' }, h('span', { texto: testigos((cohorte.observadores ?? []).length) })));
+    h('td', null, h('div', { clase: 'quienes' }, h('span', { texto: testigos((cohorte.observadores ?? []).length) }))));
 
   marcarAscenso(fila, `${clave}|cohorte${indice}`, estadoFila);
   // `cohorte.cantidad.clusters` trae las versiones en conflicto: mismo bloque
@@ -206,7 +215,14 @@ export function pintarCliente(seccion, datos) {
   }
 
   pintar(seccion,
-    h('p', { clase: 'leyenda' },
+    h('header', { clase: 'cliente-hero' },
+      h('div', null,
+        h('h2', { texto: 'Customer 360' }),
+        h('p', { texto: 'La base instalada de cada cuenta, con evidencia, confianza y frescura por campo.' })),
+      h('div', { clase: 'cliente-hero-meta' },
+        h('b', { clase: 'num', texto: String(porCliente.size) }),
+        h('span', { texto: porCliente.size === 1 ? 'cuenta' : 'cuentas' }))),
+    h('p', { clase: 'leyenda cliente-leyenda' },
       h('span', { texto: 'La confianza es por campo. ' }),
       h('span', { clase: 'small', texto: 'El color codifica solo el estado de quórum; la frescura (◷) es un eje aparte.' })),
     [...porCliente.entries()].map(([nombre, suyos]) => {
@@ -218,7 +234,7 @@ export function pintarCliente(seccion, datos) {
           ubicacion ? h('p', { clase: 'ubicacion', texto: ubicacion }) : null,
           h('p', { clase: 'small', texto: suyos.length === 1
             ? '1 grupo de equipo' : `${suyos.length} grupos de equipo` })),
-        suyos.map((g) => pintarGrupo(g, d.meta ?? {})));
+        suyos.map((g) => pintarGrupo(g, datos.meta ?? {})));
     }));
 }
 

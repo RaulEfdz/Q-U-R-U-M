@@ -97,8 +97,10 @@ escanear() {
   # Sin la exclusión el verificador se denuncia a sí mismo — la misma clase de
   # bug que el `A_STATUS_PHILIPS` del control 4, encontrada al correrlo.
   local crudo rc
+  # Las URL de licencia no son destinos ejecutables. Escanearlas hacía que el
+  # control de egress fallara por la licencia de una fuente servida localmente.
   crudo="$(grep -rIniE --exclude-dir=node_modules --exclude-dir=.git \
-             --exclude-dir=tmp --exclude="$YO" -e "$patron" "$@" 2>&1)"
+             --exclude-dir=tmp --exclude="$YO" --exclude='LICENSE*' -e "$patron" "$@" 2>&1)"
   rc=$?
   if [ "$rc" -gt 1 ]; then
     RESULTADO="$crudo"

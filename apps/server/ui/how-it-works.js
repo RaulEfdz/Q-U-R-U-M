@@ -1,5 +1,5 @@
 /**
- * comofunciona.js — pantalla 5. Los estados y el flujo, explicados con
+ * how-it-works.js — pantalla 5. Los estados y el flujo, explicados con
  * diagramas.
  *
  * Por qué existe: las otras cuatro pantallas MUESTRAN el resultado del modelo
@@ -27,7 +27,7 @@
  * el invariante de que el color codifica confianza y nada más.
  */
 import { h, pintar } from './dom.js';
-import { insignia } from './estados.js';
+import { insignia } from './states.js';
 
 /* ═══════════════════════════ Mini-constructor de SVG ═══════════════════════════ */
 
@@ -226,7 +226,24 @@ function diagramaEjes() {
 function diagramaMaquina() {
   return lienzo(900, 340,
     'Máquina de estados de un campo',
-    'Sin votos el campo queda Sin datos y nunca se rellena. Con un voto queda Estimado si venía hedgeado o Reportado si era asertivo, nunca Quórum. Con dos o más votos compatibles asciende a Quórum solo si al menos dos son directos y asertivos. Un voto incompatible manda el campo a Sin quórum desde cualquier estado.',
+    /*
+     * `role="img"` oculta a un lector de pantalla TODO el texto interno del
+     * SVG (comportamiento correcto: evita que lea coordenadas y trazos
+     * sueltos) — así que el `<desc>` es la única fuente de las cinco notas
+     * RD-0/RD-1/RD-5/RD-7 dibujadas al costado del diagrama (líneas 255-258
+     * de este archivo) y de qué significa «compatible» acá. Antes describía
+     * solo las transiciones entre cajas y ese texto quedaba invisible para
+     * quien no ve el diagrama — justo la pantalla que existe para explicar
+     * la regla.
+     */
+    'Sin votos el campo queda Sin datos y nunca se rellena (RD-0). Un observador solo, ' +
+    'sin importar cuántas veces repita el mismo dato, nunca da quórum (RD-1): con un voto ' +
+    'el campo queda Estimado si venía hedgeado o Reportado si era asertivo, nunca Quórum. ' +
+    'Con dos o más votos compatibles asciende a Quórum solo si al menos dos son directos y ' +
+    'asertivos (RD-7); si todos los votos hedgean, el techo es Reportado aunque haya muchos ' +
+    '(RD-5). Un voto incompatible manda el campo a Sin quórum desde cualquier estado, y un ' +
+    'voto nuevo puede volver a resolver la disputa dejando un solo clúster. «Compatible» no ' +
+    'es igualdad literal: la edad tolera ±2 años y la marca se normaliza antes de comparar.',
     caja(20, 40, 150, 46, 'Sin datos', { detalle: 'nadie lo reportó', clase: 'e-nulo', glifo: '·' }),
     caja(250, 40, 150, 46, 'Estimado', { detalle: '1 voto, hedgeado', clase: 'e-bajo', glifo: '○' }),
     caja(480, 40, 150, 46, 'Reportado', { detalle: 'dicho, sin corroborar', clase: 'e-medio', glifo: '◐' }),
@@ -365,6 +382,32 @@ function diagramaMultidispositivo() {
     ], ['total ● Quórum · edad ▲ Sin quórum', 'el grupo entero queda ▲'], 'e-sinquorum', '▲'));
 }
 
+function diagramaConexionOffline() {
+  return lienzo(1160, 330,
+    'Conexión offline: varios celulares alimentan una inteligencia central',
+    'La frontera es clara: el celular captura, interpreta y guarda offline; el servidor central recibe, valida, conserva la provenance y convierte muchas observaciones en inteligencia.',
+    s('text', { clase: 'panel-titulo', x: 20, y: 22, texto: 'EN CADA CELULAR · CAMPO Y OFFLINE' }),
+    s('text', { clase: 'panel-titulo', x: 520, y: 22, texto: 'EN EL SERVIDOR · CONTROL E INTELIGENCIA' }),
+    caja(20, 34, 205, 62, 'CELULAR A', { detalle: 'Panamá · offline' }),
+    caja(20, 112, 205, 62, 'CELULAR B', { detalle: 'São Paulo · offline' }),
+    caja(20, 190, 205, 62, 'CELULAR C', { detalle: 'Bogotá · offline' }),
+    caja(280, 96, 190, 94, 'STORE LOCAL', { detalle: 'confirmado por humano', clase: 'e-ok' }),
+    caja(520, 96, 190, 94, 'RED DISPONIBLE', { detalle: 'peer autorizado' }),
+    caja(760, 96, 170, 94, 'P2P + NOISE', { detalle: 'lote estructurado' }),
+    caja(980, 96, 160, 94, 'SERVIDOR', { detalle: 'valida y consolida', clase: 'e-ok' }),
+    caja(760, 238, 170, 48, 'ACK', { detalle: 'resultado por id', clase: 'e-ok' }),
+    caja(980, 238, 160, 48, 'REVISIÓN', { detalle: 'humano local', clase: 'e-medio' }),
+    flecha(225, 65, 280, 125, { etiqueta: 'confirmar' }),
+    flecha(225, 143, 280, 143, { etiqueta: 'confirmar' }),
+    flecha(225, 221, 280, 161, { etiqueta: 'confirmar' }),
+    flecha(470, 143, 520, 143, { etiqueta: 'más tarde' }),
+    flecha(710, 143, 760, 143, { etiqueta: 'entregar' }),
+    flecha(930, 143, 980, 143, { etiqueta: 'validar' }),
+    flecha(1060, 190, 1060, 238, { etiqueta: 'no persiste solo' }),
+    flecha(980, 262, 930, 262, { etiqueta: 'resultado' }),
+    s('text', { clase: 'nota-svg', x: 20, y: 306, texto: 'Celular: modelo local + confirmación + cola.  Servidor: ACK + revisión + reconciliación + oportunidades.' }));
+}
+
 /* ══════════════════ Diagrama 5 · la política ══════════════════ */
 
 /**
@@ -447,6 +490,27 @@ export function pintarComoFunciona(seccion) {
       h('span', { texto: 'El LLM entiende. El código decide. El humano confirma. ' }),
       h('span', { clase: 'small', texto: 'Los tres verbos son distintos a propósito, y casi todos los estados de este sistema existen para marcar cuál de los tres actuó.' })),
 
+    bloque('Qué problema del reto resuelve QUÓRUM',
+      h('p', { clase: 'nota', texto: 'El reto no pide solo extraer equipos: pide transformar notas incompletas y contradictorias en una base instalada útil sin sacar información sensible del dispositivo. Esta es la cadena completa entre cada problema y la evidencia que la responde.' }),
+      tabla(['Problema de campo', 'Respuesta de QUÓRUM', 'Qué puede verificar el jurado'], [
+        ['La visita termina en memoria, mensajes o notas inconsistentes.',
+          'Una nota por voz o texto se vuelve un borrador estructurado: cliente, ubicación, modalidad, cantidad, marca, modelo y edad solo cuando aparecen en la evidencia.',
+          'Capturar una nota incompleta, corregirla y confirmar el borrador.'],
+        ['Una persona sabe algo; dos personas pueden contradecirse.',
+          'El sistema separa cada campo, cuenta observadores independientes y conserva el desacuerdo como Sin quórum. Nunca promedia.',
+          'Mostrar dos testimonios que coinciden y un tercero que discrepa.'],
+        ['El dato del cliente es sensible y la conectividad es incierta.',
+          'La inferencia corre localmente. Si una nota identifica al cliente, la política obliga la ruta local; no hay proveedor cloud permitido.',
+          'Apagar Wi‑Fi y ejecutar verify:no-cloud; luego capturar una nota.'],
+        ['Repetir una observación o usar dos teléfonos no debe fabricar confianza.',
+          'El store deduplica por id y el quórum cuenta personas, no dispositivos. Lo recibido por P2P espera revisión humana local.',
+          'Reenviar un testimonio y revisar la cola P2P antes de incorporarlo.'],
+        ['El analista necesita priorizar, no leer cada nota una por una.',
+          'Cliente 360, Panorama, frescura, oportunidad, filtro determinista y CSV convierten evidencia en una decisión explicable.',
+          'Filtrar MR antiguos en Brasil y exportar el CSV local de 19 columnas.'],
+      ]),
+      h('p', { clase: 'nota', texto: 'La diferencia importante: un modelo propone estructura; nunca declara la verdad, suma unidades ni autoriza una salida de datos. Esas decisiones quedan en código y con trazabilidad.' })),
+
     bloque('Quién decide qué',
       tabla(['Actor', 'Le toca', 'NO le toca'], [
         ['Modelo · on-device',
@@ -484,7 +548,23 @@ export function pintarComoFunciona(seccion) {
 
     bloque('Multidispositivo: la trampa del reto',
       conDiagrama(diagramaMultidispositivo(),
-        'El quórum lo dan observadores, no aparatos. Además: un peer que se reconecta reenvía el dataset completo, y el store deduplica por id — la misma observación recibida cinco veces sigue siendo un voto.')),
+        'El quórum lo dan observadores, no aparatos. Un peer puede transportar testimonios, pero quedan en Revisión P2P pendiente hasta que una persona local los confirma; recién entonces entran a la base instalada.')),
+
+    bloque('Conexión offline: cuándo viaja la información',
+      h('p', { clase: 'nota', texto: 'El celular funciona como una libreta inteligente: entiende la visita y conserva la evidencia aunque no haya señal. El servidor entra después, cuando existe una conexión disponible.' }),
+      conDiagrama(diagramaConexionOffline()),
+      tabla(['Momento', 'Qué ocurre', 'Qué recibe el servidor'], [
+        ['En campo · sin red', 'El modelo local transcribe y estructura. La persona corrige y confirma.', 'Nada todavía. La evidencia permanece en el dispositivo.'],
+        ['Recupera conexión', 'El dispositivo anuncia su identidad y envía solo observaciones confirmadas pendientes.', 'Datos estructurados, no audio ni prompt.'],
+        ['Recepción P2P', 'Hyperswarm descubre el peer; Noise cifra el canal y la allowlist controla quién entra.', 'Lote validado por contrato y marcado como proveniente de peer.'],
+        ['Después del envío', 'El servidor responde el resultado. El celular conserva para reintentar lo que no recibió ACK.', 'Recibidas, duplicadas o rechazadas por observación.'],
+        ['Revisión local', 'Una persona confirma o descarta la evidencia recibida.', 'Solo lo confirmado entra al store y actualiza quórum e inteligencia.'],
+      ]),
+      h('ol', { clase: 'lista-explica' },
+        h('li', { texto: 'El transporte no otorga confianza: solo mueve testimonios entre dispositivos autorizados.' }),
+        h('li', { texto: 'Un corte de conexión no debe perder datos: el móvil reintenta y el servidor acepta el mismo id una sola vez.' }),
+        h('li', { texto: '“Offline” describe captura e inferencia local; sincronizar requiere que los dispositivos recuperen una red.' }),
+        h('li', { texto: 'La versión actual del servidor ya valida y deja la evidencia P2P en revisión; el cliente móvil y el ACK incremental están en construcción.' }))),
 
     bloque('Cuando el modelo intenta algo que no le corresponde',
       conDiagrama(diagramaPolitica(),
