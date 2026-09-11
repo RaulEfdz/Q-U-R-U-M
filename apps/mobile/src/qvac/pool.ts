@@ -98,8 +98,12 @@ async function liberarBajoPresion(
  *                                     segmentos sin habla
  *   `temperature: 0`                   determinismo, igual que en el resto
  *                                     del pipeline
- *   `no_speech_thold`                  umbral por encima del cual un segmento
- *                                     se considera sin voz
+ *
+ * ★ `no_speech_thold` NO va en `CONFIG_ASR`: no existe en `whisperConfigSchema`
+ * de `@qvac/sdk` 0.18.2 (`modelConfig` valida con `z.core.$strict`), y tirar
+ * esa clave hacía que `loadModel` rechazara todo el config con
+ * `Unrecognized key: "no_speech_thold"` → transcripción cae en 500/excepción
+ * cada vez que se dicta.
  *
  * `initial_prompt` se queda igual: además del idioma, mete el vocabulario del
  * dominio (siglas de modalidad y las marcas del vocabulario ficticio), que es
@@ -125,7 +129,6 @@ const CONFIG_ASR = {
   suppress_blank: true,
   suppress_nst: true,
   temperature: 0,
-  no_speech_thold: 0.6,
   initial_prompt:
     'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
     'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +

@@ -161,9 +161,12 @@ export async function verificarRuta(modelId: string): Promise<RutaInferencia> {
  *
  * El resto son defensas contra el mismo modo de falla: `suppress_blank` y
  * `suppress_nst` evitan emitir sobre silencio y sobre segmentos sin habla,
- * `temperature: 0` mantiene el determinismo del resto del pipeline, y
- * `no_speech_thold` es el umbral por encima del cual un segmento se considera
- * sin voz.
+ * `temperature: 0` mantiene el determinismo del resto del pipeline.
+ *
+ * ★ `no_speech_thold` NO va acá: no existe en `whisperConfigSchema` de
+ * `@qvac/sdk` 0.18.2 (`modelConfig` valida con `z.core.$strict`) y tirar esa
+ * clave hacía que `loadModel` rechazara todo el config con
+ * `Unrecognized key: "no_speech_thold"` → 500 en cada intento de dictar.
  *
  * Idéntica a `CONFIG_ASR` en `apps/mobile/src/qvac/pool.ts`, a propósito: el
  * mismo modelo falla igual en las dos plataformas.
@@ -188,7 +191,6 @@ const CONFIG_ASR = {
   suppress_blank: true,
   suppress_nst: true,
   temperature: 0,
-  no_speech_thold: 0.6,
   initial_prompt:
     'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
     'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
