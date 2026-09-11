@@ -96,6 +96,7 @@ import { agregarPendiente, contarPendientes, verificarPendientes } from './store
 import { descartarRevisionPeer, obtenerRevisionPeer, listarRevisionesPeer } from './store/revisiones-peer.ts';
 import { reconciliar } from './trust/reconcile.ts';
 import { candidatosFusion } from './trust/entity.ts';
+import { construirInteligencia } from './intelligence/central.ts';
 import { verificarCadena, registrarAuditoria } from './store/audit.ts';
 import * as qvacSdk from '@qvac/sdk';
 import { cargarLLMLocal, cargarLLMDelegado, completar, transcribirLocal } from './qvac/gateway.ts';
@@ -488,6 +489,7 @@ export function proyeccion(obs: Observacion[], grupos: GrupoEquipo[]): Record<st
 
   return {
     grupos,
+    inteligencia: construirInteligencia(grupos, obs),
     candidatosFusion: candidatosFusion(new Map(grupos.map((g) => [g.clave, { cliente: g.cliente }]))),
     totales: {
       testimonios: obs.length,
