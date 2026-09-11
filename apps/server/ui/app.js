@@ -11,6 +11,7 @@ import { pintarCliente, pintarClienteError } from './cliente.js';
 import { pintarPanorama, pintarPanoramaError } from './panorama.js';
 import { pintarAuditoria } from './auditoria.js';
 import { pintarComoFunciona } from './comofunciona.js';
+import { actualizarAyuda, montarAyuda } from './ayuda.js';
 
 let vistaActual = 'capturar';
 
@@ -100,6 +101,7 @@ export function refrescar() {
  */
 function mostrar(vista, { foco = true } = {}) {
   vistaActual = vista;
+  actualizarAyuda(vista);
   const titulo = document.querySelector('#vista-titulo');
   if (titulo) titulo.textContent = { capturar: 'Capturar', cliente: 'Cliente 360', panorama: 'Panorama', auditoria: 'Auditoría', comofunciona: 'Cómo funciona' }[vista] ?? vista;
   document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== vista; });
@@ -156,6 +158,7 @@ function conectarStream() {
 /* ────────────────────────────── Arranque ────────────────────────────── */
 
 montarCapturar(refrescar);
+montarAyuda();
 conectarStream();
 mostrar('capturar', { foco: false });
 refrescar();

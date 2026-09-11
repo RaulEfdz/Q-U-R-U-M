@@ -104,6 +104,25 @@ function selectorVocabulario(obs, def, original) {
   return select;
 }
 
+/**
+ * ¿Hay algún campo marcado inválido en el panel de revisión ahora mismo?
+ *
+ * Antes de este cambio, un valor fuera de rango solo ponía un borde rojo:
+ * sin texto, sin `aria-invalid`, y la corrección NO se mandaba — nada le
+ * avisaba al usuario que su edición se había ignorado y que «Sí, es
+ * correcto — guardar» iba a persistir el valor original del modelo, no el
+ * que escribió. Ahora ese botón se bloquea mientras quede algo inválido.
+ */
+function hayCamposInvalidos() {
+  return !!$('#campos')?.querySelector('.invalido');
+}
+
+function actualizarBotonGuardar() {
+  const boton = $('#confirmar');
+  if (!boton) return;
+  boton.disabled = hayCamposInvalidos();
+}
+
 function campoEditable(obs, def) {
   const original = obs.lote?.[def.llave];
 
@@ -117,6 +136,14 @@ function campoEditable(obs, def) {
   // input numérico, se muestra tal cual y se deja intacto.
   const esRango = Array.isArray(original);
 
+  const idError = `error-${obs.id}-${def.llave}`;
+  // Texto de la restricción, para el mensaje inline y para lectores de
+  // pantalla — no solo un borde rojo, que no dice nada de qué se espera ni
+  // se anuncia con teclado o táctil.
+  const restriccion = def.tipo === 'number'
+    ? `Tiene que ser un entero de ${def.min} a ${def.max}.`
+    : '';
+
   const input = h('input', {
     // `name` explícito: el `label` que lo envuelve ya lo asocia, pero sin
     // nombre el navegador lo reporta como campo no identificable.
@@ -126,6 +153,8 @@ function campoEditable(obs, def) {
     value: original === undefined || original === null ? '' : formatearValor(original),
     placeholder: '—',
     readonly: esRango || undefined,
+    'aria-invalid': 'false',
+    ...(restriccion ? { 'aria-describedby': idError } : {}),
     ...(def.min !== undefined ? { min: String(def.min) } : {}),
     ...(def.max !== undefined ? { max: String(def.max) } : {}),
     ...(def.paso !== undefined ? { step: String(def.paso) } : {}),
@@ -133,7 +162,13 @@ function campoEditable(obs, def) {
     oninput: (e) => {
       if (esRango) return;
       const crudo = e.target.value.trim();
-      if (crudo === '') { anotarCorreccion(obs.id, def.llave, undefined); e.target.classList.remove('editado'); return; }
+      if (crudo === '') {
+        anotarCorreccion(obs.id, def.llave, undefined);
+        e.target.classList.remove('editado', 'invalido');
+        e.target.setAttribute('aria-invalid', 'false');
+        actualizarBotonGuardar();
+        return;
+      }
       if (def.tipo === 'number') {
         const n = Number(crudo);
         // `zRangoEdad` y `lote.cantidad` exigen ENTEROS acotados
@@ -141,6 +176,8 @@ function campoEditable(obs, def) {
         // en el servidor por un "7.5".
         const ok = Number.isInteger(n) && n >= def.min && n <= def.max;
         e.target.classList.toggle('invalido', !ok);
+        e.target.setAttribute('aria-invalid', String(!ok));
+        actualizarBotonGuardar();
         if (!ok) return;
         anotarCorreccion(obs.id, def.llave, n === original ? undefined : n);
       } else {
@@ -151,7 +188,10 @@ function campoEditable(obs, def) {
   });
 
   return h('label', { clase: 'campo-editable' },
-    h('span', { clase: 'etiqueta', texto: def.etiqueta }), input);
+    h('span', { clase: 'etiqueta', texto: def.etiqueta }), input,
+    // Vive siempre en el DOM (para que `aria-describedby` no apunte a nada
+    // cuando está oculto) y solo se ve/anuncia mientras el campo es inválido.
+    restriccion ? h('span', { id: idError, clase: 'campo-restriccion', role: 'alert' }, restriccion) : null);
 }
 
 function tarjetaLote(obs) {
@@ -215,6 +255,25 @@ function pintarRevision(borrador) {
   $('#pendiente').hidden = !pendiente;
   $('#corregido').hidden = true;
   $('#revision').hidden = false;
+  // Borrador nuevo: ningún campo está marcado inválido todavía.
+  actualizarBotonGuardar();
+
+  // El composer (dictado + texto + fecha) se oculta mientras hay algo para
+  // revisar: dos bloques grandes a la vez competían por el foco, y acá solo
+  // hay una decisión por vez — revisar el borrador o seguir dictando, nunca
+  // las dos. Vuelve con `cerrarRevision()`.
+  $('.capturar-centro').hidden = true;
+
+  /*
+   * El panel más importante de la pantalla acababa de reemplazar al
+   * composer, y nada lo anunciaba: `estado('', null)` vacía la región viva
+   * justo en el momento del cambio de estado más grande de la pantalla, y el
+   * foco se quedaba en el botón «Interpretar» que ya no está visible. Un
+   * lector de pantalla no se enteraba de que había algo nuevo para revisar.
+   * `tabindex="-1"` en el HTML lo hace enfocable por script sin sumarlo al
+   * orden de tabulación normal.
+   */
+  $('#revision').focus();
 }
 
 function cerrarRevision() {
@@ -227,6 +286,22 @@ function cerrarRevision() {
   pintar($('#ruta'));
   borradorActual = null;
   correcciones = {};
+  $('.capturar-centro').hidden = false;
+}
+
+/**
+ * «Volver a editar»: distinto de `descartar()`. Libera el borrador en el
+ * servidor (no queda flotando sin dueño) pero NO toca `#texto` — la nota
+ * sigue ahí para corregirla y volver a interpretar, y no se anuncia como
+ * pérdida de datos porque no la hay.
+ */
+async function volverAEditar() {
+  if (borradorActual) {
+    await api('/api/descartar', { borradorId: borradorActual.id }).catch(() => undefined);
+  }
+  cerrarRevision();
+  actualizarComposer();
+  $('#texto').focus();
 }
 
 /* ─────────────────────────── Interpretar ─────────────────────────── */
@@ -318,6 +393,7 @@ async function confirmar() {
     caja.value = '';
     delete caja.dataset.fuente;
     ajustarAlto(caja);          // sin esto el campo queda alto y vacío
+    actualizarComposer();       // con el texto vacío, Interpretar vuelve a ocultarse
     informarGuardado(r);
     alRefrescar();
   } catch (e) {
@@ -615,6 +691,7 @@ async function alternarDictado() {
         caja.value = [caja.value.trim(), (texto ?? '').trim()].filter(Boolean).join(' ');
         caja.dataset.fuente = 'voz';
         ajustarAlto(caja);
+        actualizarComposer();
         caja.focus();
         estado(texto ? 'Transcrito en este equipo. Revisá antes de interpretar.' : 'La transcripción vino vacía.', texto ? 'bueno' : 'aviso');
       } catch (e) {
@@ -671,6 +748,22 @@ function ajustarAlto(caja) {
   caja.style.overflowY = caja.scrollHeight > TOPE ? 'auto' : 'hidden';
 }
 
+/**
+ * «Interpretar» y su atajo solo se muestran con nota escrita o dictada.
+ *
+ * Antes estaban siempre visibles, aunque con el campo vacío apretarlos no
+ * hacía nada más que devolver «Escribí o dictá una nota antes de
+ * interpretar» — un botón permanentemente activo para una acción que todavía
+ * no tiene sentido. Diseño minimalista (NN/g #8) y revelación progresiva
+ * (HIG): con la nota vacía la única acción posible es Dictar o escribir, y
+ * es lo único que queda a la vista.
+ */
+function actualizarComposer() {
+  const hayTexto = $('#texto').value.trim().length > 0;
+  $('#enviar').hidden = !hayTexto;
+  $('#pista-atajo').hidden = !hayTexto;
+}
+
 export function montarCapturar(refrescar) {
   alRefrescar = refrescar;
 
@@ -679,9 +772,11 @@ export function montarCapturar(refrescar) {
 
   const caja = $('#texto');
   ajustarAlto(caja);
-  caja.addEventListener('input', () => ajustarAlto(caja));
+  actualizarComposer();
+  caja.addEventListener('input', () => { ajustarAlto(caja); actualizarComposer(); });
   $('#enviar').onclick = interpretar;
   $('#confirmar').onclick = confirmar;
+  $('#volver').onclick = volverAEditar;
   $('#descartar').onclick = descartar;
   $('#dictar').onclick = alternarDictado;
   // Ctrl/Cmd + Enter interpreta: capturar debe tomar segundos, no minutos.

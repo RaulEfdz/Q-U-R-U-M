@@ -226,7 +226,24 @@ function diagramaEjes() {
 function diagramaMaquina() {
   return lienzo(900, 340,
     'Máquina de estados de un campo',
-    'Sin votos el campo queda Sin datos y nunca se rellena. Con un voto queda Estimado si venía hedgeado o Reportado si era asertivo, nunca Quórum. Con dos o más votos compatibles asciende a Quórum solo si al menos dos son directos y asertivos. Un voto incompatible manda el campo a Sin quórum desde cualquier estado.',
+    /*
+     * `role="img"` oculta a un lector de pantalla TODO el texto interno del
+     * SVG (comportamiento correcto: evita que lea coordenadas y trazos
+     * sueltos) — así que el `<desc>` es la única fuente de las cinco notas
+     * RD-0/RD-1/RD-5/RD-7 dibujadas al costado del diagrama (líneas 255-258
+     * de este archivo) y de qué significa «compatible» acá. Antes describía
+     * solo las transiciones entre cajas y ese texto quedaba invisible para
+     * quien no ve el diagrama — justo la pantalla que existe para explicar
+     * la regla.
+     */
+    'Sin votos el campo queda Sin datos y nunca se rellena (RD-0). Un observador solo, ' +
+    'sin importar cuántas veces repita el mismo dato, nunca da quórum (RD-1): con un voto ' +
+    'el campo queda Estimado si venía hedgeado o Reportado si era asertivo, nunca Quórum. ' +
+    'Con dos o más votos compatibles asciende a Quórum solo si al menos dos son directos y ' +
+    'asertivos (RD-7); si todos los votos hedgean, el techo es Reportado aunque haya muchos ' +
+    '(RD-5). Un voto incompatible manda el campo a Sin quórum desde cualquier estado, y un ' +
+    'voto nuevo puede volver a resolver la disputa dejando un solo clúster. «Compatible» no ' +
+    'es igualdad literal: la edad tolera ±2 años y la marca se normaliza antes de comparar.',
     caja(20, 40, 150, 46, 'Sin datos', { detalle: 'nadie lo reportó', clase: 'e-nulo', glifo: '·' }),
     caja(250, 40, 150, 46, 'Estimado', { detalle: '1 voto, hedgeado', clase: 'e-bajo', glifo: '○' }),
     caja(480, 40, 150, 46, 'Reportado', { detalle: 'dicho, sin corroborar', clase: 'e-medio', glifo: '◐' }),

@@ -303,6 +303,17 @@ input, textarea {
 }
 input.invalido { border-color: var(--sinquorum); background: var(--sinquorum-fondo); }
 input.editado, select.editado { border-color: var(--primario); font-weight: 700; }
+/*
+ * El borde rojo de `.invalido` no le dice a nadie QUÉ se espera, y no lo dice
+ * en absoluto a quien no distingue el color o usa lector de pantalla. Este
+ * texto vive siempre en el DOM (así `aria-describedby` no apunta a nada
+ * cuando está oculto) y solo se muestra junto al input que falló.
+ */
+.campo-restriccion {
+  display: none;
+  margin-top: 4px; font-size: var(--t-chico); color: var(--sinquorum-ink);
+}
+input.invalido + .campo-restriccion { display: block; }
 
 /*
  * Un vocabulario CERRADO se elige, no se escribe (ver `MODALIDADES` en
@@ -528,8 +539,8 @@ tr.conflicto td { background: var(--sinquorum-fondo); border-bottom: 1px solid v
 .dupes { margin: var(--md) 0 0; font-size: var(--t-chico); color: var(--tenue); }
 
 /*
- * LA ÚNICA ANIMACIÓN de la app: el ascenso a quórum, 600 ms. Es el pico
- * del video: `Reportado · 1 testigo` → `QUÓRUM · 2 testigos independientes`.
+ * La buena noticia: el ascenso a quórum, 600 ms. Es el pico del video:
+ * `Reportado · 1 testigo` → `QUÓRUM · 2 testigos independientes`.
  */
 @keyframes ascenso {
   0%   { background: var(--quorum-fondo); transform: translateX(-6px); }
@@ -539,6 +550,22 @@ tr.conflicto td { background: var(--sinquorum-fondo); border-bottom: 1px solid v
 tr.ascenso { animation: ascenso 600ms ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
   tr.ascenso { animation: none; background: var(--quorum-fondo); }
+}
+
+/*
+ * La mala noticia, con la misma cortesía: un campo que discrepa de golpe.
+ * Antes esta transición se veía igual que cualquier repintado rutinario —
+ * el cambio más urgente de notar era el menos señalado de toda la pantalla.
+ * Mismo patrón que `.ascenso` (600 ms, color propio de `Sin quórum`).
+ */
+@keyframes conflictoNuevo {
+  0%   { background: var(--sinquorum-fondo); transform: translateX(-6px); }
+  40%  { background: var(--sinquorum-fondo); transform: none; }
+  100% { background: transparent; transform: none; }
+}
+tr.conflicto-nuevo { animation: conflictoNuevo 600ms ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  tr.conflicto-nuevo { animation: none; background: var(--sinquorum-fondo); }
 }
 
 /* ─────────────────────────── 3 · Panorama ─────────────────────────── */
@@ -631,6 +658,17 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .auditoria-tabla td { font-size: var(--t-chico); }
 .pares { display: flex; flex-wrap: wrap; gap: var(--md); }
 .par i { font-style: normal; color: var(--tenue); }
+/*
+ * Botón, no `title`: el hash y los valores largos de «Detalle» se expanden
+ * con click O con teclado (Enter/Espacio en un `<button>` real), y quedan
+ * enteros en pantalla — un `title` nativo no responde a ninguno de los dos.
+ */
+.hash-expandible, .valor-expandible {
+  font: inherit; color: var(--tenue); background: none; border: none; padding: 0;
+  cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px;
+}
+.hash-expandible:hover, .hash-expandible:focus-visible,
+.valor-expandible:hover, .valor-expandible:focus-visible { color: var(--texto); }
 .chip-inferencia {
   display: inline-flex; align-items: center; gap: var(--sm);
   padding: 1px 7px; font-size: var(--t-chico); font-weight: 700;
@@ -720,11 +758,21 @@ footer {
 .leyenda-estados b:nth-child(5) { color: var(--sinquorum); }
 .leyenda-estados i { color: var(--tenue); }
 
+/*
+ * `.grupo` siempre puede desplazarse horizontalmente: es la red de
+ * seguridad para la columna «Quién lo sostiene» (RD-4, el dato que sostiene
+ * toda la tesis del producto). Antes esto solo se activaba junto con
+ * `width:auto` en el breakpoint de 720px de acá abajo, pero el sidebar recién
+ * colapsa a los 800px — en el rango 721-800px (tablet/laptop chico) la
+ * tabla se quedaba con sus anchos fijos y SIN scroll, así que esa columna
+ * podía quedar recortada en silencio, sin barra que lo delate.
+ */
+.grupo { overflow-x: auto; }
+
 /* Pantallas chicas: la tabla de confianza no se comprime hasta ser
    ilegible, se deja desplazar. */
-@media (max-width: 720px) {
+@media (max-width: 800px) {
   main, header, footer { padding-left: var(--lg); padding-right: var(--lg); }
-  .grupo { overflow-x: auto; }
   .barra { grid-template-columns: 100px 1fr 44px; }
   /* Los anchos fijos de columna dejan de servir acá: sin esto la insignia
      de frescura se parte palabra por palabra en la última columna. */
@@ -790,6 +838,23 @@ body { background: var(--fondo); color: var(--texto); }
 .conexion { font-size: 12px; }
 .modelo-ia { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 9px; color: var(--primario); background: var(--nav-activo); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .avatar { display: inline-grid; place-items: center; width: 30px; height: 30px; color: #fff; background: var(--primario); border-radius: 50%; font-size: 12px; font-weight: 800; }
+.boton-ayuda { display: inline-grid; place-items: center; width: 40px; min-height: 40px; padding: 0; color: var(--primario); background: var(--superficie); border: 1px solid var(--borde-duro); border-radius: 50%; }
+.boton-ayuda:hover { color: var(--primario-hover); background: var(--nav-activo); border-color: #b9cff7; }
+.boton-ayuda .icono { width: 20px; height: 20px; }
+.ayuda-modulo { width: min(520px, calc(100vw - 36px)); padding: 0; color: var(--texto); background: var(--superficie); border: 0; border-radius: 10px; box-shadow: 0 18px 48px rgba(23, 32, 51, .2); }
+.ayuda-modulo::backdrop { background: rgba(23, 32, 51, .48); }
+.ayuda-modulo[open] { display: block; }
+.ayuda-modulo > div { padding: 28px 28px 20px; }
+.ayuda-cabecera { display: flex; align-items: center; gap: 12px; }
+.ayuda-cabecera h2 { margin: 0; font-size: 20px; line-height: 1.25; }
+.ayuda-icono { display: inline-grid; place-items: center; width: 40px; height: 40px; flex: 0 0 auto; color: var(--primario); background: var(--nav-activo); border-radius: 50%; }
+.ayuda-icono .icono { width: 22px; height: 22px; }
+.ayuda-proposito { margin: 18px 0 0; color: var(--texto); font-size: 15px; line-height: 1.5; }
+.ayuda-pasos { display: grid; gap: 12px; margin: 20px 0; padding-left: 25px; color: var(--texto); font-size: 14px; line-height: 1.45; }
+.ayuda-pasos li::marker { color: var(--primario); font-weight: 800; }
+.ayuda-nota { margin: 0; padding: 12px 14px; color: var(--tenue); background: var(--hundida); border-radius: 8px; font-size: 13px; line-height: 1.45; }
+.ayuda-pie { display: flex; justify-content: flex-end; margin: 0; padding: 14px 28px 20px; border-top: 1px solid var(--borde); }
+.ayuda-pie button { min-width: 112px; }
 .app-frame main { width: min(1240px, 100%); min-height: calc(100vh - 148px); margin: 0 auto; padding: 34px 38px 50px; }
 .app-frame footer { padding: 17px 38px 28px; background: var(--superficie); border-top: 1px solid var(--borde); }
 
@@ -850,6 +915,7 @@ td { padding: 11px 12px; }
   .app-frame footer { padding-left: 18px; padding-right: 18px; }
   .marcador { display: none; }
   .modelo-ia { display: none; }
+  .cabecera-meta { gap: 10px; }
   .capturar-intro { display: block; }
   .capturar-intro h2 { font-size: 28px; }
   .modelo-captura { margin-top: 16px; }

@@ -123,6 +123,11 @@
         <circle cx="10.5" cy="10.5" r="6.5" />
         <path d="m15.2 15.2 4.3 4.3" />
       </symbol>
+      <symbol id="ic-ayuda" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M9.7 9.2a2.5 2.5 0 0 1 4.8.9c0 1.9-2.5 2.1-2.5 3.9" />
+        <path d="M12 17h.01" />
+      </symbol>
 
       <!-- ── `workflow`, de Lucide (https://lucide.dev) · licencia ISC ──
            Copiado como path, no cargado de un CDN: la restriccion dura del
@@ -163,9 +168,17 @@
           <span id="marcador" class="marcador num"></span>
           <span id="conexion" class="conexion">conectando…</span>
           <span id="modelo-ia" class="modelo-ia" title="Modelo local usado por la aplicación">IA local · esperando modelo</span>
+          <button id="abrir-ayuda" class="boton-ayuda" type="button" aria-label="Para qué sirve este módulo" aria-haspopup="dialog" aria-controls="ayuda-modulo" title="Para qué sirve este módulo"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-ayuda" xlink:href="#ic-ayuda" /></svg></button>
           <span class="avatar" aria-label="Usuario actual">Q</span>
         </div>
       </header>
+
+      <dialog id="ayuda-modulo" class="ayuda-modulo" aria-labelledby="ayuda-titulo">
+        <div id="ayuda-contenido"></div>
+        <form method="dialog" class="ayuda-pie">
+          <button class="primario" type="submit">Entendido</button>
+        </form>
+      </dialog>
 
   <main>
     <!--
@@ -229,8 +242,14 @@
               <button type="button" id="dictar" class="composer-boton"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-microfono" xlink:href="#ic-microfono" /></svg>Dictar</button>
             </div>
             <div class="composer-der">
-              <span class="pista small">⌘/Ctrl + Enter</span>
-              <button type="button" id="enviar" class="primario">Interpretar</button>
+              <!--
+                Los dos aparecen juntos y solo cuando hay algo que interpretar:
+                con la nota vacía no hay acción que ese botón o ese atajo
+                puedan cumplir, y mostrarlos igual invita a un click que solo
+                devuelve un aviso. Los oculta/muestra `actualizarComposer()`.
+              -->
+              <span id="pista-atajo" class="pista small" hidden>⌘/Ctrl + Enter</span>
+              <button type="button" id="enviar" class="primario" hidden>Interpretar</button>
             </div>
           </div>
         </div>
@@ -271,8 +290,15 @@
       <p id="ruta" class="chip" hidden></p>
 
       <!-- H-03 · paso 12: revisión obligatoria antes de guardar. -->
-      <div id="revision" class="revision" hidden>
-        <h2>Revisá antes de guardar</h2>
+      <!--
+        `tabindex="-1"` + `aria-labelledby`: al abrirse este panel es lo más
+        importante que apareció en la pantalla, y `pintarRevision()` le mueve
+        el foco. Sin esto, un lector de pantalla se quedaba anunciando el
+        botón «Interpretar» que ya no está visible, y nada decía que había
+        un borrador nuevo para revisar.
+      -->
+      <div id="revision" class="revision" tabindex="-1" aria-labelledby="revision-titulo" hidden>
+        <h2 id="revision-titulo">Revisá antes de guardar</h2>
         <p id="resumen" class="resumen"></p>
         <div id="campos"></div>
         <p id="pendiente" class="nota pendiente" hidden>
@@ -285,6 +311,14 @@
         </p>
         <div class="fila">
           <button type="button" id="confirmar" class="primario">Sí, es correcto — guardar</button>
+          <!--
+            El dictado/composer se oculta mientras se revisa (foco en un solo
+            bloque a la vez). Este botón lo trae de vuelta sin perder la nota:
+            libera el borrador en el servidor pero deja el texto tal cual, para
+            corregirlo y reinterpretarlo. Distinto de «Descartar», que además
+            avisa que no se guardó nada.
+          -->
+          <button type="button" id="volver">Volver a editar</button>
           <button type="button" id="descartar">Descartar</button>
         </div>
         <p class="nota">Nada se guarda hasta que vos lo confirmes.</p>

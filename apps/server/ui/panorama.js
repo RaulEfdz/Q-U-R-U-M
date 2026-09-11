@@ -19,8 +19,8 @@
  * consulta no depende de `datos`: reconstruirlo en cada refresco era el bug
  * de raíz, no el síntoma.
  */
-import { h, api, pintar, formatearValor, vacio, error, icono, iconoModalidad } from './dom.js';
-import { claseEstado, insignia } from './estados.js';
+import { h, api, pintar, formatearValor, vacio, error, icono, iconoModalidad, testigos } from './dom.js';
+import { claseEstado, insignia, insigniaFrescura } from './estados.js';
 
 function kpi(valor, etiqueta, clase) {
   return h('div', { clase: ['kpi', clase] },
@@ -145,12 +145,22 @@ function notaNoComputadas(totales) {
 
 function filaResultado(g) {
   const c = g.campos ?? {};
+  // Mismo dato que Cliente 360 ya trata como el eje central para juzgar una
+  // fila (RD-4): quién lo sostiene y hace cuánto se verificó. Sin esto, una
+  // pregunta como «clientes con resonadores de más de 7 años» devolvía un
+  // resultado con badge de estado pero para saber quién lo dijo había que
+  // volver a Cliente 360 y buscar el mismo cliente a mano.
+  const campoTestigos = c.totalUnidades ?? c.modalidad ?? {};
   return h('tr', { clase: claseEstado(g.estadoGeneral) },
     h('td', { texto: g.cliente?.nombre ?? '—' }),
     h('td', { texto: [g.cliente?.ciudad, g.cliente?.pais].filter(Boolean).join(', ') || '—' }),
     h('td', { texto: formatearValor(c.modalidad?.valor) }),
     h('td', { texto: formatearValor(c.marca?.valor) }),
     h('td', { clase: 'num', texto: formatearValor(c.totalUnidades?.valor) }),
+    h('td', { clase: 'quienes' },
+      campoTestigos.estado === 'Sin datos' ? h('span', { clase: 'small', texto: 'nadie lo reportó' })
+        : h('span', { texto: testigos((campoTestigos.observadores ?? []).length) }),
+      insigniaFrescura(campoTestigos)),
     h('td', null, insignia(g.estadoGeneral)),
     h('td', { clase: 'num', texto: String(g.puntaje?.total ?? '—') }));
 }
@@ -159,9 +169,9 @@ function tablaResultados(grupos) {
   if (!grupos.length) return h('p', { clase: 'small', texto: 'El filtro no devolvió clientes.' });
   return h('table', { clase: 'resultados' },
     // `scope="col"`: un lector de pantalla necesita poder nombrar la columna
-    // al leer una celda; siete columnas sueltas no se entienden.
+    // al leer una celda; ocho columnas sueltas no se entienden.
     h('thead', null, h('tr', null,
-      ['Cliente', 'Ubicación', 'Modalidad', 'Marca', 'Unidades', 'Estado', 'Puntaje']
+      ['Cliente', 'Ubicación', 'Modalidad', 'Marca', 'Unidades', 'Testigos', 'Estado', 'Puntaje']
         .map((t) => h('th', {
           scope: 'col',
           clase: t === 'Unidades' || t === 'Puntaje' ? 'num' : '',
@@ -170,12 +180,32 @@ function tablaResultados(grupos) {
     h('tbody', null, grupos.map(filaResultado)));
 }
 
-async function preguntar(cajaTexto, salida) {
+/**
+ * Consulta en vuelo, si hay una. Igual que la fuga de instancias documentada
+ * en `CLAUDE.md` (bug #15, `cargarLLMDelegado` no cachea por request): sin
+ * bloquear el botón/input, un doble click o un Enter repetido mientras el
+ * modelo local todavía piensa dispara una segunda llamada a `/api/consultar`
+ * encima de la primera, y la agrava. `exportar()`, en este mismo archivo, sí
+ * se protege así — esta era la única acción de la pantalla que no lo hacía.
+ */
+let consultaEnCurso = null;
+
+async function preguntar(cajaTexto, salida, boton) {
+  if (consultaEnCurso) return;
   const pregunta = cajaTexto.value.trim();
   if (!pregunta) return;
-  pintar(salida, h('p', { clase: 'estado trabajando', texto: 'Consultando al modelo local…' }));
+
+  const control = new AbortController();
+  consultaEnCurso = control;
+  boton.disabled = true;
+  cajaTexto.disabled = true;
+
+  const cancelar = h('button', { type: 'button', clase: 'small', texto: 'Cancelar' });
+  cancelar.onclick = () => control.abort();
+  pintar(salida, h('p', { clase: 'estado trabajando', texto: 'Consultando al modelo local…' }), cancelar);
+
   try {
-    const r = await api('/api/consultar', { pregunta });
+    const r = await api('/api/consultar', { pregunta }, { senal: control.signal });
     const hijos = [];
     if (r.respuesta) hijos.push(h('p', { clase: 'respuesta', texto: r.respuesta }));
     if (r.bloqueado) {
@@ -201,7 +231,13 @@ async function preguntar(cajaTexto, salida) {
     if (r.resultados) hijos.push(tablaResultados(r.resultados));
     pintar(salida, hijos.length ? hijos : h('p', { clase: 'small', texto: 'El modelo no produjo ningún filtro.' }));
   } catch (e) {
-    pintar(salida, error(e));
+    pintar(salida, control.signal.aborted
+      ? h('p', { clase: 'estado aviso', texto: 'Consulta cancelada.' })
+      : error(e));
+  } finally {
+    boton.disabled = false;
+    cajaTexto.disabled = false;
+    consultaEnCurso = null;
   }
 }
 
@@ -275,8 +311,8 @@ function construir(seccion) {
   // `polite`, que es progreso y no una decisión.
   const salidaConsulta = h('div', { clase: 'salida-consulta', role: 'status', 'aria-live': 'polite' });
   const botonPreguntar = h('button', { clase: 'primario', texto: 'Preguntar' });
-  botonPreguntar.onclick = () => preguntar(cajaConsulta, salidaConsulta);
-  cajaConsulta.onkeydown = (e) => { if (e.key === 'Enter') preguntar(cajaConsulta, salidaConsulta); };
+  botonPreguntar.onclick = () => preguntar(cajaConsulta, salidaConsulta, botonPreguntar);
+  cajaConsulta.onkeydown = (e) => { if (e.key === 'Enter') preguntar(cajaConsulta, salidaConsulta, botonPreguntar); };
 
   const avisoExport = h('p', { clase: 'estado', hidden: true });
   const botonExport = h('button', null,

@@ -22,9 +22,14 @@ import { h, api, pintar, error, icono } from './dom.js';
 const TOPE_VALOR = 240;
 
 function detalle(d) {
-  if (!d || typeof d !== 'object') return h('span', { clase: 'small', texto: '—' });
+  // «Sin detalle»: este registro no trae nada que mostrar. Distinto del
+  // vacío de la columna «Inferencia» (esta acción no es una inferencia,
+  // ver `chipInferencia`) — antes los dos usaban el mismo glifo `—` y un
+  // jurado escaneando la tabla no podía distinguir de un vistazo «no hay
+  // detalle» de «no aplica».
+  if (!d || typeof d !== 'object') return h('span', { clase: 'small', texto: 'sin detalle' });
   const pares = Object.entries(d);
-  if (!pares.length) return h('span', { clase: 'small', texto: '—' });
+  if (!pares.length) return h('span', { clase: 'small', texto: 'sin detalle' });
   return h('span', { clase: 'small pares' },
     pares.map(([k, v]) => {
       const completo = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
@@ -33,11 +38,22 @@ function detalle(d) {
         : completo;
       return h('span', { clase: 'par' },
         h('i', { texto: `${k}=` }),
-        h('span', {
-          texto: recortado,
-          // `title` solo cuando hay algo mas que ver.
-          ...(recortado === completo ? {} : { title: completo }),
-        }));
+        recortado === completo
+          ? h('span', { texto: completo })
+          // Botón expandible, no `title`: ver el valor entero no puede
+          // depender de tener mouse (comentario de `celdaHash`, más abajo).
+          : (() => {
+              const boton = h('button', {
+                type: 'button', clase: 'valor-expandible', 'aria-expanded': 'false',
+                texto: recortado,
+              });
+              boton.onclick = () => {
+                const expandido = boton.getAttribute('aria-expanded') === 'true';
+                boton.textContent = expandido ? recortado : completo;
+                boton.setAttribute('aria-expanded', String(!expandido));
+              };
+              return boton;
+            })());
     }));
 }
 
@@ -69,10 +85,38 @@ function tabla(registros) {
     h('tbody', null, registros.map((r) => h('tr', null,
       h('td', { clase: 'num', texto: hora(r.at) }),
       h('td', null, h('code', { texto: String(r.accion ?? '?') })),
-      h('td', null, chipInferencia(r) ?? h('span', { clase: 'small', texto: '—' })),
+      // Vacía y no `—`: para la mayoría de las filas esta acción simplemente
+      // NO ES una inferencia, que es una condición distinta de «sin detalle»
+      // (columna siguiente) — no un dato que falte.
+      h('td', null, chipInferencia(r)),
       h('td', null, detalle(r.detalle)),
-      h('td', { clase: 'small' },
-        h('code', { texto: `${String(r.hash ?? '').slice(0, 12)}…` }))))));
+      h('td', { clase: 'small' }, celdaHash(r.hash))))));
+}
+
+/**
+ * Un valor truncado que se puede EXPANDER con teclado, no solo con `title`.
+ *
+ * El hash es el único dato con el que el jurado puede cotejar
+ * `data/audit.jsonl` a mano (comentario de arriba, líneas 2-6) — cortarlo a
+ * 12 caracteres sin forma de verlo completo dejaba a esta pantalla sin poder
+ * cumplir la tarea para la que existe. Y un `title` nativo no lo alcanza ni
+ * el teclado ni el táctil: es un botón real, con `aria-expanded`.
+ */
+function celdaHash(hash) {
+  const completo = String(hash ?? '');
+  if (!completo) return h('span', { texto: '—' });
+  const corto = `${completo.slice(0, 12)}…`;
+  const boton = h('button', {
+    type: 'button', clase: 'hash-expandible', 'aria-expanded': 'false',
+    'aria-label': 'Mostrar hash completo',
+  }, h('code', { texto: corto }));
+  boton.onclick = () => {
+    const expandido = boton.getAttribute('aria-expanded') === 'true';
+    boton.firstChild.textContent = expandido ? corto : completo;
+    boton.setAttribute('aria-expanded', String(!expandido));
+    boton.setAttribute('aria-label', expandido ? 'Mostrar hash completo' : 'Ocultar hash completo');
+  };
+  return boton;
 }
 
 /**
@@ -209,9 +253,25 @@ function revisionesPeer(revisiones, alCambiar) {
         return `${cantidad} ${o?.lote?.modalidad ?? 'equipo'} · ${o?.cliente?.nombre ?? 'cliente sin nombre'}`;
       }).join(' · ');
       const confirmar = h('button', { clase: 'primario', texto: 'Confirmar e incorporar' });
-      confirmar.onclick = async () => { await api('/api/revisiones-peer/confirmar', { id: r.id }); alCambiar(); };
       const descartar = h('button', { texto: 'Descartar' });
-      descartar.onclick = async () => { await api('/api/revisiones-peer/descartar', { id: r.id }); alCambiar(); };
+      // Deshabilitar los DOS al entrar a cualquiera de los dos handlers: sin
+      // esto, un doble click bajo la presión de una demo dispara dos
+      // requests contra la misma `id` (confirmar dos veces, o confirmar y
+      // descartar a la vez).
+      confirmar.onclick = async () => {
+        confirmar.disabled = true; descartar.disabled = true;
+        try { await api('/api/revisiones-peer/confirmar', { id: r.id }); alCambiar(); }
+        finally { confirmar.disabled = false; descartar.disabled = false; }
+      };
+      descartar.onclick = async () => {
+        // «Descartar» acá borra un testimonio que un peer sí mandó — no es
+        // el «Descartar» de Capturar, donde nunca hubo nada guardado. Es
+        // irreversible y sin undo, así que pide confirmación explícita.
+        if (!window.confirm('¿Descartar este testimonio recibido por P2P? No se puede deshacer.')) return;
+        confirmar.disabled = true; descartar.disabled = true;
+        try { await api('/api/revisiones-peer/descartar', { id: r.id }); alCambiar(); }
+        finally { confirmar.disabled = false; descartar.disabled = false; }
+      };
       return h('article', { clase: 'revision-peer' },
         h('b', { texto: resumen || 'Testimonio peer sin resumen' }),
         h('p', { clase: 'small', texto: `Peer ${r.clavePeer ?? '—'} · recibido ${r.recibidoEn ?? '—'}` }),
@@ -219,8 +279,26 @@ function revisionesPeer(revisiones, alCambiar) {
     }));
 }
 
-export async function pintarAuditoria(seccion) {
-  pintar(seccion, h('p', { clase: 'estado trabajando', texto: 'Verificando la cadena…' }));
+/**
+ * `primeraVez`: solo entonces se reemplaza la sección por el estado de
+ * carga. En un reclick de «Verificar integridad» el contenido anterior —
+ * las tres tarjetas, la cola P2P, la tabla de 50 registros, y el SCROLL de
+ * quien estaba mirando algo puntual ahí — se queda en pantalla mientras
+ * corre el fetch; antes cada click destruía todo eso por una operación que
+ * conceptualmente es «recalcular 3 indicadores», y en una demo se ve como
+ * que la pantalla se rompió y volvió a cargar.
+ */
+export async function pintarAuditoria(seccion, { primeraVez = true } = {}) {
+  const boton = seccion.querySelector('.integridad button');
+  if (primeraVez) {
+    pintar(seccion, h('p', { clase: 'estado trabajando', texto: 'Verificando la cadena…' }));
+  } else if (boton) {
+    boton.disabled = true;
+    boton.textContent = '';
+    boton.append(icono('integridad'), 'Verificando…');
+  }
+
+  const scrollAntes = window.scrollY;
   let d;
   try {
     d = await api('/api/auditoria');
@@ -234,8 +312,8 @@ export async function pintarAuditoria(seccion) {
   // al más viejo, sin mutar el array de la respuesta.
   const registros = [...(d.registros ?? [])].reverse();
 
-  const boton = h('button', null, icono('integridad'), 'Verificar integridad');
-  boton.onclick = () => pintarAuditoria(seccion);
+  const botonVerificar = h('button', null, icono('integridad'), 'Verificar integridad');
+  botonVerificar.onclick = () => pintarAuditoria(seccion, { primeraVez: false });
 
   pintar(seccion,
     /*
@@ -256,12 +334,16 @@ export async function pintarAuditoria(seccion) {
       detalle: integridad.ok
         ? 'Cada registro encadena con el hash del anterior. Editá data/audit.jsonl a mano y volvé a verificar.'
         : `Se rompe en el registro ${integridad.roto ?? 'desconocido'}. Alguien alteró el archivo.`,
-      boton,
+      boton: botonVerificar,
     }),
     tarjetaObservaciones(d.observaciones),
     tarjetaDescartadas(d.lineasDescartadas),
     tarjetaPendientes(d.integridadPendientes),
-    revisionesPeer(d.revisionesPeer, () => pintarAuditoria(seccion)),
+    revisionesPeer(d.revisionesPeer, () => pintarAuditoria(seccion, { primeraVez: false })),
     h('p', { clase: 'leyenda small', texto: 'Últimos 50 registros, del más reciente al más antiguo. La columna «Inferencia» prueba dónde corrió cada modelo: en este equipo o delegado a un dispositivo autorizado de la red. Nunca en la nube.' }),
     tabla(registros));
+
+  // Un reclick reconstruye el DOM entero: sin esto el scroll volvía siempre
+  // arriba, aunque el contenido sea el mismo que ya se estaba mirando.
+  if (!primeraVez) window.scrollTo(0, scrollAntes);
 }

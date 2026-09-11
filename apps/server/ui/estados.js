@@ -45,10 +45,25 @@ export function insignia(estado) {
     h('span', { texto: estado }));
 }
 
-/** ¿Este cambio de estado es el ASCENSO A QUÓRUM? Es la única transición
- *  animada de toda la app (600 ms, §B.3) y el pico del video. */
+/** ¿Este cambio de estado es el ASCENSO A QUÓRUM? La buena noticia: 600 ms
+ *  (§B.3) y el pico del video. */
 export function esAscensoAQuorum(anterior, actual) {
   return actual === 'Quórum' && anterior !== undefined && anterior !== 'Quórum';
+}
+
+/**
+ * ¿Este cambio de estado es la APARICIÓN de un conflicto nuevo?
+ *
+ * Antes, el ascenso a Quórum era la única transición animada de la pantalla:
+ * la mala noticia —un campo que tenía Reportado/Quórum y pasa a Sin quórum
+ * porque llegó un testimonio que discrepa— se veía exactamente igual que
+ * cualquier repintado rutinario. Para una app cuya tesis es "el conflicto no
+ * debe pasar desapercibido" (`cliente.js`), que el único evento señalado
+ * fuera la buena noticia y no la mala era una asimetría de producto: el
+ * cambio más urgente de notar era el menos notado.
+ */
+export function esNuevoConflicto(anterior, actual) {
+  return actual === 'Sin quórum' && anterior !== undefined && anterior !== 'Sin quórum';
 }
 
 /* ─────────────── Eje de FRESCURA (independiente del anterior) ─────────────── */
