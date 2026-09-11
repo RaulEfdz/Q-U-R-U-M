@@ -171,7 +171,30 @@ function pintarRevision(borrador) {
   borradorActual = borrador;
   correcciones = {};
   $('#resumen').textContent = borrador.resumen ?? '';
-  pintar($('#campos'), (borrador.observaciones ?? []).map(tarjetaLote));
+
+  /*
+   * Borrador SIN lotes: la nota existe y no describe ningún equipo.
+   *
+   * No es un error. «Fui y no vi equipo» es información sobre la base
+   * instalada, y la app móvil ya lo trata así. Antes esta pantalla ni llegaba
+   * a abrirse: el servidor abortaba la extracción y el cartel de error
+   * prometía «se puede guardar igual y quedar pendiente de revisión» sin que
+   * existiera forma de hacerlo. Ahora la promesa es real — se guarda como
+   * pendiente, con su texto, su fecha y su pregunta abierta.
+   *
+   * El botón cambia de etiqueta porque cambia lo que hace: no hay nada que
+   * confirmar como correcto, hay una nota que se archiva para revisar.
+   */
+  const sinLotes = !(borrador.observaciones ?? []).length;
+  pintar($('#campos'), sinLotes
+    ? h('div', { clase: 'vacio' },
+        h('p', { clase: 'vacio-titulo', texto: 'Ningún equipo reconocido en esta nota' }),
+        h('p', { clase: 'vacio-detalle', texto: 'No se va a registrar ningún equipo: un dato que nadie observó no se inventa. La nota se guarda con su fecha y su pregunta abierta, y queda en la lista de pendientes de revisión.' }))
+    : (borrador.observaciones ?? []).map(tarjetaLote));
+
+  $('#confirmar').textContent = sinLotes
+    ? 'Guardar la nota como pendiente'
+    : 'Sí, es correcto — guardar';
 
   const pregunta = borrador.siguientePregunta ?? '';
   const cajaPregunta = $('#pregunta');
@@ -319,8 +342,21 @@ async function confirmar() {
 function informarGuardado(r) {
   const guardadas = r.persistidas ?? 0;
   const perdidas = Array.isArray(r.descartadas) ? r.descartadas.length : (r.descartadas ?? 0);
+
+  // Nota sin equipos: no se persistió ninguna observación y no es una falla.
+  // Decir «Guardado: 0 testimonios» sería técnicamente cierto y leerse como un
+  // error, justo en el caso que este cambio vino a dejar de tratar como error.
+  if (!perdidas && guardadas === 0 && r.pendiente) {
+    estado('Nota guardada como pendiente de revisión. No se registró ningún equipo.', 'bueno');
+    return;
+  }
+
   if (!perdidas) {
-    estado(`Guardado: ${testimonios(guardadas)}.`, 'bueno');
+    estado(
+      guardadas === 0
+        ? 'No se registró ningún equipo con esta nota.'
+        : `Guardado: ${testimonios(guardadas)}.`,
+      guardadas === 0 ? 'aviso' : 'bueno');
     return;
   }
   // Tono `malo`, no `bueno` ni `aviso`: hubo pérdida de datos, y el titular
