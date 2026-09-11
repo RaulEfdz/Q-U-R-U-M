@@ -1,6 +1,6 @@
 # Para retomar — QUÓRUM
 
-> Escrito 2026-09-10 ~12:30. Último commit pusheado: `c728968`. Versión: **v0.4.0**.
+> Escrito 2026-09-10 ~14:50. Último commit pusheado: `400d46d`. Versión: **v0.4.0**.
 > Estado detallado de cada decisión: `BITACORA.md`. Reglas: `CLAUDE.md` de cada app.
 
 ## Arrancá por acá (5 minutos)
@@ -37,26 +37,38 @@ done
 - El dispositivo de pruebas real es un **Pixel 8 Pro** (`husky`, GPU Immortalis-G715), no un Pixel 7 — varias notas viejas dicen "Pixel 7".
 - 31 tests, todos verdes. Typecheck verde en las dos apps.
 - Contraste WCAG AA verificado en la rampa de confianza de las dos superficies.
+- **El extractor extrae.** Dos lotes correctos de una nota real, en 7-14 s.
+- **El dictado por voz existe en las dos superficies** (Fase 11): en el móvil con `expo-audio` + whisper on-device, en escritorio con WebAudio → WAV PCM 16 kHz. Nunca Web Speech API.
+- **El momento del ataque se puede reproducir en vivo**: el modelo intenta `exportar_dataset` y el PEP lo deniega, con el motivo visible y auditado.
+- **50 tests verdes** (eran 31): se agregaron `policy.test.ts` e `injection.test.ts`, que cubren lo que el proyecto presenta como su diferenciador y antes no tenía ni un test.
+- Iconografía propia (15 iconos SVG) compartida entre las dos superficies, sin emojis y sin librerías.
+- Diccionario de errores en la UI: cada falla dice qué pasó y qué hacer, con el comando exacto cuando aplica.
+- Capturas de las cuatro pantallas de escritorio y del móvil en `docs/capturas/`.
 
 ## Qué falta
 
 | Qué | Dónde | Notas |
 |---|---|---|
-| ~~★ EXTRACTOR NO EXTRAE~~ **RESUELTO** (2026-09-10) | `apps/mobile` | `reasoning_budget: 0` por request + `/no_think` en el prompt + `predict` 80→512 + `device:'gpu'`/`gpu_layers:99`. Verificado en Pixel 8 Pro: `think=0`, `dev=gpu`, 2 lotes con cita válida, `ACUERDO`, ~90 s. Ver §El extractor. **Falta**: replicar `/no_think` al server, y el portero (0.8B) no llama la tool. |
+| ~~★ EXTRACTOR NO EXTRAE~~ **RESUELTO** (2026-09-10) | las dos apps | `reasoning_budget: 0` por request + `/no_think` en el prompt + `predict` 80→512 + `device:'gpu'`/`gpu_layers:99`. Verificado por DOS canales independientes: server (`POST /api/observar`, `delegado:false`) y móvil en Pixel 8 Pro (`think=0`, `dev=gpu`, `ACUERDO`, ~90 s). Ver §El extractor. |
 | **Portero (0.8B) no hace tool-calling** | `apps/mobile` | `diagModelo`: `toolCalls=0`, `stop=length`, escribe prosa markdown ("**false** **Razonamiento:**…") y alucina detalle. Se fail-openea a `hayEquipo:true` y el pipeline sigue, pero el portero hoy no aporta. El prompt de few-shot nuevo (`SYSTEM_PORTERO`) no ayudó. Tuning de prompt/modelo, o subir `predict` del portero. |
-| Probar la UI de escritorio contra QVAC real | `apps/server/ui/` | Las cuatro pantallas se recorrieron con datos del seed, pero `/api/transcribir` y `/api/observar` con los modelos cargados no tienen evidencia. Depende del extractor. |
-| **Build de release de mobile** | `apps/mobile` | Nunca se probó. Hoy corre en debug con el JS servido por Metro: si se apaga el WiFi y la app se reinicia, NO arranca — y no por la nube, sino porque no encuentra el bundle. La demo con WiFi apagado lo necesita: `expo run:android --variant release`. |
+| Probar la UI de escritorio contra QVAC real | `apps/server/ui/` | Las cuatro pantallas se recorrieron con datos del seed; `/api/observar` ya tiene evidencia real (ver arriba), falta lo mismo para `/api/transcribir` con los modelos cargados. |
+| **Dictado con voz REAL de una persona** | las dos apps | El flujo funciona de punta a punta y transcribe en menos de 8 s, pero solo se probó grabando SILENCIO — y ahí whisper alucinaba (ver §El dictado). Falta que alguien dicte una nota de verdad y comprobar que el texto sirve. |
+| **Build de release de mobile** | `apps/mobile` | Nunca se probó (el primer intento falló por disco lleno en la Mac). Hoy corre en debug con el JS servido por Metro: si se apaga el WiFi y la app se reinicia, NO arranca — y no por la nube, sino porque no encuentra el bundle. La demo con WiFi apagado lo necesita: `expo run:android --variant release`. |
 | **Audio** | `apps/mobile` | Fase 11. `expo-audio`, NUNCA `expo-av` (removido en SDK 54). |
 | ~~Medir tiempos reales de inferencia~~ **hecho** | `apps/mobile` | Pixel 8 Pro con GPU: portero carga 11 s + infer 10 s (17 tok/s); extractor carga 13 s + infer 40 s (11 tok/s, `ttft` 27 s = prefill de 798 tok); pipeline total ~90 s. Sin GPU (`device` no forzado): ~4.5 min. Instrumentado en `procesarNota` + `diagModelo`. Optimización pendiente: recortar el prompt del `TOOL_EXTRACTOR` para bajar el `ttft`. |
 
 ## ★ El extractor — RESUELTO (2026-09-10)
 
+Era el bloqueante del proyecto y ya no lo es.
+
 **Era:** el pipeline corría completo pero no producía ni un lote. `toolCalls: []`, texto `"<think>\nOkay, let me try to figure out…"`. Qwen3 arrancaba en *thinking mode*, quemaba el `predict` razonando y nunca emitía el tool call.
 
 **El modelo:** `QWEN3_1_7B_INST_Q4` → registro `Qwen3-1.7B-Q4_0` (base, 2025-08-21). Es el **Qwen3 híbrido**, razona por defecto — NO la variante `-2507` non-thinking. El nombre "INST" del constante del SDK engaña.
 
-**Verificado funcionando** en Pixel 8 Pro (2026-09-10 16:47): nota "hospital … 3 equipos de resonancia … 5 años" → extractor emite tool call, `think=0`, 2 lotes, verificador OK, `ACUERDO`. Log en `[QUÓRUM·modelo]`:
-`extractor toolCalls=1 think=0 dev=gpu tok/s=11.2 genTok=140 ttft=26693ms` → 39 s de inferencia.
+**Verificado por dos canales independientes:**
+- **Server:** `POST /api/observar` devuelve dos lotes correctos (`{MR, NovaMed, NM-MR 700, cantidad 3, edad 8}` y `{CT, HelixCare}`) con `delegado: false`. La inferencia tarda **7 a 14 segundos**, no los quince minutos que este archivo decía antes — esos quince minutos eran el síntoma de tener el disco de la Mac al 100%, no del modelo (ver §Riesgos abiertos).
+- **Móvil, Pixel 8 Pro** (2026-09-10 16:47): nota "hospital … 3 equipos de resonancia … 5 años" → extractor emite tool call, `think=0`, 2 lotes, verificador OK, `ACUERDO`. Log en `[QUÓRUM·modelo]`:
+  `extractor toolCalls=1 think=0 dev=gpu tok/s=11.2 genTok=140 ttft=26693ms` → 39 s de inferencia.
 
 **Fix — cuatro cosas (el SDK no expone `enable_thinking`):**
 1. `reasoning_budget: 0` en `generationParams` de `portero.ts` y `extractor.ts` (por request). Doc del schema `$strict`: `0` desactiva el canal de razonamiento.
@@ -66,9 +78,26 @@ done
 
 **NO poner `reasoning_budget` en `modelConfig`** (load-time) → `Cannot read property 'reload' of undefined`. Va solo por request.
 
-`apps/server/src/qvac/gateway.ts` tiene `reasoning_budget: 0` (ya usa `predict 512`); falta `/no_think` en `qvac/extract.ts` y typecheck del server (`node_modules` sin instalar acá).
+`apps/server/src/qvac/gateway.ts` tiene `reasoning_budget: 0` (ya usa `predict 512`) — confirmado, más la verificación de `/api/observar` de arriba. **Falta revisar** si `/no_think` hace falta también en `qvac/extract.ts` (el gateway ya alcanza para que el server extraiga, así que es refuerzo, no bloqueante). Typecheck y los 88 tests del server pasan (`npm install --ignore-scripts && npx tsc --noEmit && npm test`).
 
 **Diagnóstico:** `diagModelo()` (`apps/mobile/src/pipeline/_diag.ts`) loguea al canal `[QUÓRUM·modelo]` por cada llamada: `think=N` (`>0` = razonó igual), `stop=length` (truncado), `dev=cpu|gpu`, `tok/s`, `promptTok`, `genTok`, `ttft`, y el texto crudo si no hubo tool call.
+
+## ★ El dictado — funciona, falta probarlo con voz real
+
+**El flujo completo corre** en las dos superficies (Fase 11): permiso, grabación, whisper on-device, texto en el campo de la nota, en menos de 8 segundos (la primera vez tarda más porque descarga el modelo de 78 MB). Móvil con `expo-audio` (nunca `expo-av`, removido en SDK 54); escritorio reescrito con WebAudio → WAV PCM 16 kHz (`MediaRecorder` da webm/opus a 48 kHz y whisper espera PCM 16 kHz mono — medido, el mismo audio dio `" you"` como webm y la frase completa, 60 veces más rápido, como WAV).
+
+**El problema que apareció, grabando SILENCIO:** whisper devolvió *"You remind me of the one who is on the other side."* quince veces, en inglés, dentro del campo que la persona después confirma como propio. Dos defensas ya aplicadas en las dos superficies:
+
+1. **`prompt` inicial en castellano** con el vocabulario del dominio. El SDK no expone parámetro de idioma (`transcribeParamsSchema` solo acepta `modelId`, `prompt`, `metadata`, `audioChunk`), y sin pista whisper autodetecta.
+2. **Filtro de alucinación determinista**: si una misma frase ocupa la mayor parte de la salida, no es una transcripción. Se descarta y se avisa que no se escuchó voz.
+
+**Lo que falta:** que alguien dicte de verdad. La calidad de la transcripción con voz real sigue sin medir — es lo primero que hay que hacer antes de grabar el video.
+
+## Notas de diagnóstico que costaron tiempo
+
+- **El APK instalado no es debuggable**, así que `run-as` falla y todo lo que se consulte del sandbox de la app devuelve datos falsos (un listado de modelos vacío hizo creer que whisper no estaba descargado). Si hace falta inspeccionar el sandbox, reinstalar un build debug.
+- **Los bounds de los controles se mueven** cuando crece el campo de texto: el botón de dictado pasó de y=2041 a y=1900. Hay que leerlos del `uiautomator dump` en cada paso, nunca reusar una coordenada — lo mismo vale para coordenadas de `adb shell input tap`.
+- **Una demora larga en el primer uso de un modelo es una DESCARGA**, no un cuelgue. Se confirma en el log de la app: `[QVACRegistryClient] Blob download complete`.
 
 ## Cómo levantar la app en el teléfono
 
@@ -114,9 +143,13 @@ Cero inferencia en la nube · nada de Vercel (ni `@qvac/ai-sdk-provider` ni el V
 
 ## Riesgos abiertos
 
-- ~~Espacio en el Pixel 7~~ **resuelto**: se liberaron 18 GB y el extractor ya está descargado en el dispositivo. Dato para el futuro: QVAC guarda cada modelo **dos veces** (`files/.qvac/models` y `files/.qvac/registry-corestore`), así que un modelo de 533 MB ocupa ~1 GB real en el teléfono. Presupuestar el doble de lo que dice la tabla de tamaños.
+- ~~Espacio en el Pixel 7~~ **resuelto**: se liberaron 18 GB y el extractor ya está descargado en el dispositivo. QVAC deja un **pico de disco de cerca del doble** durante la descarga: el modelo pasa por `files/.qvac/registry-corestore` antes de materializarse en `files/.qvac/models`. En reposo NO hay copia duplicada — medido en el Pixel, `models` son 1.4 GB y el corestore 7.1 MB (es una base RocksDB, no un segundo GGUF). Presupuestar el doble del tamaño del modelo para la descarga, y el tamaño real para el reposo. La tabla de `apps/mobile/CLAUDE.md` es de RAM, no sirve como presupuesto de disco.
+- **La Mac se queda sin disco.** Tenía 209 MB libres y eso hacía fallar cualquier build (`No space left on device` al descomprimir el AAR de React Native) y probablemente enlentecía la inferencia por falta de swap. Se liberaron ~9 GB (artefactos de build, caché de Gradle y tres modelos que el proyecto no usa). Vigilarlo antes de cada build: `df -h /System/Volumes/Data`.
 - **10 vulnerabilidades npm moderadas** en `apps/mobile`, todas transitivas de Expo (`uuid` vía `xcode` → `@expo/config-plugins`). Riesgo aceptado: es tooling de build de iOS y el proyecto es Android-only. Revisar si algún día se agrega iOS. `apps/server` tiene 0.
 - **`aleatoriedadDebil()` no está visible en la UI.** Hoy devuelve `false` en el teléfono porque el polyfill está instalado, pero si ese import se reordena o se rompe, la app sigue corriendo con `Math.random()` sin avisar — y de ahí sale el delimitador anti-inyección de `context/spotlight.ts`. Falta un indicador, como el aviso de líneas corruptas que ya tiene Cliente 360.
+- **Trabajo en paralelo en el repo.** Hoy hubo otra sesión commiteando: creó la rama `feat/apk-v0.1-timeout-dictado`, la mergeó a `main` por PR #1 y la borró, y esta sesión estuvo commiteando sobre esa rama sin notarlo. Nada se perdió, pero antes de empezar conviene `git fetch` y `git branch -vv` para saber en qué rama estás.
+- **La paridad de los 10 archivos compartidos se rompió una vez hoy** y no se detectó hasta después de un merge: se endureció `policy/engine.ts` en el server y no se replicó, así que el móvil quedó con una política más débil. Correr el chequeo de paridad DESPUÉS de tocar cualquiera de los diez, no solo al arrancar la sesión.
+- **La demo del ataque muestra `tool-fuera-de-allowlist`, no `intencion-originada-en-modelo`.** Es correcto — la allowlist del agente es la primera capa y ataja antes — pero si el guion del video cuenta la segunda razón, hay que ajustar el guion, no la política. Las dos capas están cubiertas por `test/policy.test.ts`.
 - **Cliente 360 no tiene tests automáticos.** Importa React Native y no corre bajo el runner de Node del server. Su lógica pura (`app/testigos.ts`, el motor de quórum) sí está cubierta; el render está verificado a mano en el dispositivo.
 - **Las métricas del pitch son hipótesis, no resultados.** No hay corrida sobre las 300 notas ciegas. Decir "esperamos", nunca "logramos".
 - **Prioridad escritorio vs. móvil sigue sin decidir** (`ARCHITECTURE.md` §9). Hoy el móvil está más avanzado y ya demostró que el modelo corre en el teléfono, lo cual es el argumento más fuerte del proyecto.

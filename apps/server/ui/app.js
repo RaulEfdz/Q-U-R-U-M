@@ -1,5 +1,5 @@
 /**
- * app.js — cascarón: navegación entre las cuatro pantallas, refresco de
+ * app.js — cascarón: navegación entre las cinco pantallas, refresco de
  * datos y stream de eventos del servidor.
  *
  * Cero dependencias, cero build, cero framework. Módulos ES nativos
@@ -10,6 +10,7 @@ import { montarCapturar } from './capturar.js';
 import { pintarCliente, pintarClienteError } from './cliente.js';
 import { pintarPanorama, pintarPanoramaError } from './panorama.js';
 import { pintarAuditoria } from './auditoria.js';
+import { pintarComoFunciona } from './comofunciona.js';
 
 let vistaActual = 'capturar';
 
@@ -26,6 +27,11 @@ async function repintar() {
   }
   pintarCliente($('#cliente'), d);
   pintarPanorama($('#panorama'), d);
+  if (d.meta?.modeloIA) {
+    $('#modelo-ia').textContent = `IA local · ${d.meta.modeloIA}`;
+    const captura = $('#modelo-captura-label');
+    if (captura) captura.textContent = `IA local · ${d.meta.modeloIA}`;
+  }
   const t = d.totales ?? {};
   $('#marcador').textContent =
     `${t.grupos ?? 0} grupos · ${t.conQuorum ?? 0} con quórum · ${t.sinQuorum ?? 0} sin quórum`;
@@ -42,25 +48,60 @@ const ESPERA_COALESCIDO = 150;
 let temporizador = null;
 let enVuelo = null;
 let pendiente = false;
+/*
+ * Quienes esperan el repintado que está por venir.
+ *
+ * Coalescer significa descartar el temporizador anterior, y antes eso dejaba
+ * colgado para siempre el `resolve` de la promesa que ese temporizador iba a
+ * cumplir. Hoy nadie la espera (`capturar.js` llama `alRefrescar()` sin
+ * `await`), así que no se veía — pero el primer `await refrescar()` que
+ * alguien escribiera se colgaba. Los resolvedores se ACUMULAN: el refresco
+ * que finalmente corre es también el de todos los pedidos que absorbió, así
+ * que cumplirlos a todos es lo correcto, no un parche.
+ */
+let esperando = [];
 
 export function refrescar() {
   if (temporizador) clearTimeout(temporizador);
   return new Promise((resolve) => {
+    esperando.push(resolve);
     temporizador = setTimeout(async () => {
       temporizador = null;
-      if (enVuelo) { pendiente = true; await enVuelo; }
-      enVuelo = repintar();
-      try { await enVuelo; } finally { enVuelo = null; }
-      if (pendiente) { pendiente = false; await repintar(); }
-      resolve();
+      const cumplir = esperando;
+      esperando = [];
+      try {
+        if (enVuelo) { pendiente = true; await enVuelo; }
+        enVuelo = repintar();
+        try { await enVuelo; } finally { enVuelo = null; }
+        if (pendiente) { pendiente = false; await repintar(); }
+      } finally {
+        // `finally`: si el repintado explota, quien espera se entera igual.
+        // Una promesa colgada es peor que un repintado fallido.
+        for (const r of cumplir) r();
+      }
     }, ESPERA_COALESCIDO);
   });
 }
 
 /* ──────────────────────────── Navegación ──────────────────────────── */
 
-function mostrar(vista) {
+/**
+ * `mostrar(vista, { foco })` — cambia de pantalla.
+ *
+ * `foco: true` mueve el foco a la sección que se abre. Sin eso, con teclado
+ * el foco se quedaba en el botón de navegación y había que recorrer el header
+ * entero otra vez para llegar al contenido recién abierto. Se mueve a la
+ * sección y no al primer control de adentro: la sección tiene `aria-label`,
+ * así que el lector de pantalla anuncia a dónde llegó, y no se decide por el
+ * usuario cuál es el control importante.
+ *
+ * En el arranque va `foco: false`: robarle el foco a la página apenas carga
+ * mueve el punto de lectura de quien todavía no pidió nada.
+ */
+function mostrar(vista, { foco = true } = {}) {
   vistaActual = vista;
+  const titulo = document.querySelector('#vista-titulo');
+  if (titulo) titulo.textContent = { capturar: 'Capturar', cliente: 'Cliente 360', panorama: 'Panorama', auditoria: 'Auditoría', comofunciona: 'Cómo funciona' }[vista] ?? vista;
   document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== vista; });
   document.querySelectorAll('nav button').forEach((b) => {
     const activo = b.dataset.vista === vista;
@@ -68,6 +109,12 @@ function mostrar(vista) {
     b.setAttribute('aria-current', activo ? 'page' : 'false');
   });
   if (vista === 'auditoria') pintarAuditoria($('#auditoria'));
+  // «Cómo funciona» no depende de datos, así que se pinta al abrirla y una
+  // sola vez (el módulo lleva su propia guarda): no entra en `repintar()`
+  // porque no hay nada que refrescar, y repintarla perdería la posición de
+  // scroll de quien está leyendo.
+  if (vista === 'comofunciona') pintarComoFunciona($('#comofunciona'));
+  if (foco) $(`#${vista}`)?.focus();
 }
 
 document.querySelectorAll('nav button').forEach((b) => {
@@ -110,5 +157,5 @@ function conectarStream() {
 
 montarCapturar(refrescar);
 conectarStream();
-mostrar('capturar');
+mostrar('capturar', { foco: false });
 refrescar();

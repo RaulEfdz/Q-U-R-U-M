@@ -270,20 +270,28 @@ export async function extraer(
       ],
       stream: false,
       tools: [TOOL_EXTRACTOR],
-      // `reasoning_budget: 0`: sin esto Qwen3 1.7B arranca en modo *thinking*,
-      // razona en prosa (`<think>\nOkay, let me try to figure out…`) y NUNCA
-      // emite el tool call → `toolCalls: []` y `extraer()` devuelve `[]` con el
-      // pipeline entero corriendo bien: era EL bloqueante del proyecto.
-      // Doc del schema: `0` desactiva el canal de razonamiento por request.
-      //
-      // `predict: 512` (no 80): el 80 era copy-paste del portero, que devuelve
-      // `{hayEquipo, motivo}` y le sobra. El extractor emite un tool call con
-      // cliente + N lotes, cada uno con su cita `evidencia` literal — 80 tokens
-      // no alcanzan ni para un lote, el JSON se corta a la mitad y `safeParse`
-      // tira TODO. 512 iguala el default del server (`gateway.ts`). `ctx_size`
-      // del extractor es 2048, así que entra con el prompt.
-      // El schema de `generationParams` es `$strict` — verificado contra
-      // node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts.
+      /*
+       * ★ Dos correcciones, y las dos hacen falta para que el extractor
+       * extraiga — era EL bloqueante del proyecto:
+       *
+       * 1. `reasoning_budget: 0` apaga el modo *thinking* de Qwen3 1.7B. Con
+       *    el thinking activo el modelo razona en prosa dentro de un
+       *    `<think>` (`"Okay, let me try to figure out…"`) y nunca emite el
+       *    tool call — `toolCalls` vuelve vacío y la nota termina como
+       *    `POSIBLE_OMISION_EXTRACTOR` con una pregunta al usuario, en vez de
+       *    con los lotes que el modelo SÍ había entendido. Doc del schema:
+       *    `0` desactiva el canal de razonamiento por request; `$strict`,
+       *    verificado contra
+       *    node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts.
+       *
+       * 2. `predict: 512` (no 80): el 80 es el valor del PORTERO, que
+       *    responde un sí/no y le sobra — copiado acá por error. El
+       *    extractor emite un tool call con cliente + N lotes, cada uno con
+       *    su cita `evidencia` literal: 80 tokens se agotan a mitad del
+       *    primer lote, el JSON llega truncado y `safeParse` tira TODO. 512
+       *    iguala el default del server (`gateway.ts`); `ctx_size` del
+       *    extractor es 2048, así que entra con el prompt.
+       */
       generationParams: { temp: 0, seed: 42, predict: 512, reasoning_budget: 0 },
     });
     final = await run.final;

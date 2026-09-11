@@ -11,7 +11,7 @@
   -->
   <!-- Favicon inline (data URI): sin petición de red, sin archivo extra. Es
        el glifo de `Quórum`, el mismo que usa la interfaz. -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%231a7f5a'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/assets/qorum-favicon.png" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -32,9 +32,12 @@
     implementacion de esta UI en lugar de una decision del producto.
 
     `width/height 0` + `position:absolute` en vez de `hidden`: un contenedor
-    con `display:none` impide que `<use>` resuelva en varios navegadores.
+    con `display:none` impide que `<use>` resuelva en varios navegadores. El
+    `position:absolute` vive en la clase `.sprite` de `style.css` y no en un
+    atributo `style`: la CSP del servidor declara `style-src 'self'`, que
+    bloquea el atributo inline. El comportamiento es el mismo.
   -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
     <defs>
       <!-- ── Modalidades. Sirven para escanear una tabla densa: en Cliente 360
            y Panorama el tipo de equipo se reconoce por forma antes que por
@@ -120,42 +123,151 @@
         <circle cx="10.5" cy="10.5" r="6.5" />
         <path d="m15.2 15.2 4.3 4.3" />
       </symbol>
+
+      <!-- ── `workflow`, de Lucide (https://lucide.dev) · licencia ISC ──
+           Copiado como path, no cargado de un CDN: la restriccion dura del
+           proyecto es que ningun recurso salga de este equipo, y la CSP del
+           servidor (`default-src 'self'`) lo bloquearia igual. Encaja con el
+           resto del set sin retocarlo: viewBox 24x24, trazo uniforme, sin
+           relleno, `currentColor`. -->
+      <symbol id="ic-flujo" viewBox="0 0 24 24">
+        <rect width="8" height="8" x="3" y="3" rx="2" />
+        <path d="M7 11v4a2 2 0 0 0 2 2h4" />
+        <rect width="8" height="8" x="13" y="13" rx="2" />
+      </symbol>
     </defs>
   </svg>
-  <header>
-    <div class="marca">
-      <h1>QUÓRUM</h1>
-      <p class="tesis">La verdad tiene quórum.</p>
-    </div>
-    <div class="cabecera-meta">
-      <span id="marcador" class="marcador num"></span>
-      <span id="conexion" class="conexion">conectando…</span>
-    </div>
-    <nav aria-label="Pantallas">
-      <button type="button" data-vista="capturar" class="activo" aria-current="page"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-capturar" xlink:href="#ic-capturar" /></svg>Capturar</button>
-      <button type="button" data-vista="cliente"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-cliente" xlink:href="#ic-cliente" /></svg>Cliente 360</button>
-      <button type="button" data-vista="panorama"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-panorama" xlink:href="#ic-panorama" /></svg>Panorama</button>
-      <button type="button" data-vista="auditoria"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-auditoria" xlink:href="#ic-auditoria" /></svg>Auditoría</button>
-    </nav>
-  </header>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegación principal">
+      <div class="marca">
+        <img class="marca-logo" src="/assets/qorum-mark.png" alt="" aria-hidden="true" />
+        <div><h1>QUÓRUM</h1><p class="tesis">La verdad tiene quórum.</p></div>
+      </div>
+      <p class="sidebar-label">Workspace</p>
+      <nav aria-label="Pantallas">
+        <button type="button" data-vista="capturar" class="activo" aria-current="page"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-capturar" xlink:href="#ic-capturar" /></svg>Capturar</button>
+        <button type="button" data-vista="cliente"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-cliente" xlink:href="#ic-cliente" /></svg>Cliente 360</button>
+        <button type="button" data-vista="panorama"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-panorama" xlink:href="#ic-panorama" /></svg>Panorama</button>
+        <button type="button" data-vista="auditoria"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-auditoria" xlink:href="#ic-auditoria" /></svg>Auditoría</button>
+        <button type="button" data-vista="comofunciona"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-flujo" xlink:href="#ic-flujo" /></svg>Cómo funciona</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <span class="sidebar-dot" aria-hidden="true"></span>
+        <div><b>Procesamiento local</b><small>Sin inferencia en la nube</small></div>
+      </div>
+    </aside>
+    <div class="app-frame">
+      <header>
+        <div class="breadcrumb"><span>Workspace</span><span>/</span><b id="vista-titulo">Capturar</b></div>
+        <div class="cabecera-meta">
+          <span id="marcador" class="marcador num"></span>
+          <span id="conexion" class="conexion">conectando…</span>
+          <span id="modelo-ia" class="modelo-ia" title="Modelo local usado por la aplicación">IA local · esperando modelo</span>
+          <span class="avatar" aria-label="Usuario actual">Q</span>
+        </div>
+      </header>
 
   <main>
+    <!--
+      `tabindex="-1"` en las cuatro secciones: al cambiar de pestaña el foco se
+      mueve acá (ver `mostrar()` en app.js). No las vuelve navegables con Tab
+      —un tabindex negativo no entra en el orden natural—, solo las hace
+      enfocables por código. Sin esto, con teclado el foco quedaba en el botón
+      de navegación y había que recorrer el header entero otra vez para llegar
+      al contenido de la pantalla recién abierta.
+    -->
     <!-- 1 · CAPTURAR — velocidad: un campo grande, cero formularios. -->
-    <section id="capturar" aria-label="Capturar">
-      <label class="oculto-visual" for="texto">Nota de la visita</label>
-      <textarea id="texto" rows="4" spellcheck="true"
-        placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR de NovaMed, uno como de ocho años y otro más nuevo, y un CT de BluePeak Medical…"></textarea>
+    <section id="capturar" aria-label="Capturar" tabindex="-1">
+      <!--
+        Dos columnas: la nota a la izquierda y, a la derecha, qué va a pasar
+        con ella. Antes esta pantalla era una columna angosta con dos tercios
+        de alto vacío, y cuatro textos explicativos apilados ANTES del primer
+        control (título largo, subtítulo, caja de ayuda y placeholder), que
+        decían casi lo mismo. Ahora la explicación vive al costado, donde no se
+        interpone entre la persona y el campo, y el campo se queda con el
+        espacio — que es lo que §B.2 pide de esta pantalla: velocidad, un campo
+        grande, cero formularios.
 
-      <div class="fila fila-acciones">
-        <label class="campo-fecha">Fecha de la visita
-          <input type="date" id="visita" />
-        </label>
-        <button type="button" id="dictar"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-microfono" xlink:href="#ic-microfono" /></svg>Dictar</button>
-        <button type="button" id="enviar" class="primario">Interpretar</button>
-        <span class="pista small">⌘/Ctrl + Enter</span>
+        El chip del modelo se fue de acá: ya está en la cabecera y estaba
+        DUPLICADO en la misma vista.
+      -->
+      <!--
+        COMPOSER. Un solo contenedor para el campo y sus acciones, en columna
+        centrada — la forma del cuadro de mensaje de un asistente, que es lo
+        que la gente ya sabe usar sin que nadie le explique.
+
+        Antes esto era un título largo, un subtítulo, una caja de ayuda, el
+        campo, y una fila de controles suelta debajo con la fecha, dos botones
+        y una pista, cada uno con su propia altura y su propia línea base: se
+        veía descuadrado porque lo estaba. Acá los controles viven DENTRO de la
+        caja, sobre una sola barra, y el borde de foco envuelve al conjunto.
+      -->
+      <div class="capturar-centro">
+        <div class="capturar-intro">
+          <h2>¿Qué viste hoy?</h2>
+          <p class="capturar-subtitulo">Contalo como se lo contarías a alguien del equipo. Cliente, equipo, marca, cantidad o antigüedad, en cualquier orden.</p>
+        </div>
+
+        <label class="oculto-visual" for="texto">Nota de la visita</label>
+        <div class="composer">
+          <textarea id="texto" rows="4" spellcheck="true"
+            placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR de NovaMed, uno como de ocho años y otro más nuevo, y un CT de BluePeak Medical…"></textarea>
+
+          <div class="composer-barra">
+            <div class="composer-izq">
+              <label class="campo-fecha">
+                <span class="campo-fecha-etiqueta">Visita</span>
+                <!--
+                  Lo llena `capturar.js` con la fecha de HOY al montar. Vacío,
+                  el servidor cae en `capturadaEn` — y RD-6 mide la frescura
+                  desde la visita, no desde el dictado. Cargar el lunes la
+                  recorrida del viernes quedaba fechado mal, y eso mueve el
+                  estado de frescura de todo un grupo.
+                -->
+                <input type="date" id="visita" />
+              </label>
+              <button type="button" id="dictar" class="composer-boton"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ic-microfono" xlink:href="#ic-microfono" /></svg>Dictar</button>
+            </div>
+            <div class="composer-der">
+              <span class="pista small">⌘/Ctrl + Enter</span>
+              <button type="button" id="enviar" class="primario">Interpretar</button>
+            </div>
+          </div>
+        </div>
+
+        <!--
+          Los tres pasos, en una línea. No es decoración: H-03 promete
+          «confirmá, corregí o descartá» y que nada se guarde solo. Decirlo
+          antes de escribir es lo que hace que alguien dicte sin miedo a que el
+          modelo invente algo a sus espaldas. En una línea y no en un panel al
+          costado, que era el elemento que rompía el cuadre de la pantalla.
+        -->
+        <ol class="pasos-captura" aria-label="Qué pasa con tu nota">
+          <li><b>Se interpreta acá.</b> <span>El modelo local, sin nube.</span></li>
+          <li><b>La revisás vos.</b> <span>Con la cita literal de tu nota.</span></li>
+          <li><b>Recién ahí se guarda.</b> <span>Nada se persiste sin tu OK.</span></li>
+        </ol>
       </div>
 
-      <p id="estado-captura" class="estado" hidden></p>
+      <!--
+        Región viva. «Interpretando on-device…», «Grabando…»,
+        «Transcribiendo…» y «Guardado: 2 testimonios» son el ÚNICO indicio de
+        que el sistema está haciendo algo, y sin esto un lector de pantalla no
+        anuncia ninguno: la persona toca «Interpretar» y no pasa nada audible
+        durante minutos. `polite` y no `assertive` porque es progreso, no una
+        decisión: no debe cortar lo que el lector esté leyendo. La banda de
+        denegación por política (`#alerta`) sí es `assertive`, y ahí
+        corresponde.
+      -->
+      <p id="estado-captura" class="estado" role="status" aria-live="polite" hidden></p>
+      <!--
+        Caja de falla de la pantalla: la explica `ui/errores.js` (qué pasó,
+        por qué y qué hacer) y la construye `error()` de `ui/dom.js`. Va
+        FUERA de la región viva de arriba: ahí se anuncia el titular en una
+        línea, y acá se lee el detalle con los pasos, que como lista no cabe
+        en un párrafo anunciado.
+      -->
+      <div id="falla-captura" hidden></div>
       <p id="ruta" class="chip" hidden></p>
 
       <!-- H-03 · paso 12: revisión obligatoria antes de guardar. -->
@@ -180,13 +292,18 @@
     </section>
 
     <!-- 2 · CLIENTE 360 — ★ la que gana. La pinta cliente.js. -->
-    <section id="cliente" aria-label="Cliente 360" hidden></section>
+    <section id="cliente" aria-label="Cliente 360" tabindex="-1" hidden></section>
 
     <!-- 3 · PANORAMA. La pinta panorama.js. -->
-    <section id="panorama" aria-label="Panorama" hidden></section>
+    <section id="panorama" aria-label="Panorama" tabindex="-1" hidden></section>
 
     <!-- 4 · AUDITORÍA. La pinta auditoria.js. -->
-    <section id="auditoria" aria-label="Auditoría" hidden></section>
+    <section id="auditoria" aria-label="Auditoría" tabindex="-1" hidden></section>
+
+    <!-- 5 · CÓMO FUNCIONA — los estados y el flujo, con diagramas. La pinta
+         `comofunciona.js`. Es la única pantalla sin un solo dato de la API:
+         todo lo que dice está escrito en ese archivo. -->
+    <section id="comofunciona" aria-label="Cómo funciona" tabindex="-1" hidden></section>
   </main>
 
   <div id="alerta" class="denegado" role="alert" aria-live="assertive" hidden></div>
@@ -198,6 +315,8 @@
       <i>◷ frescura — eje aparte</i>
     </span>
   </footer>
+    </div>
+  </div>
 
   <script type="module" src="/app.js"></script>
 </body>

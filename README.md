@@ -14,13 +14,13 @@ Requisito duro: inferencia on-device o delegada P2P con QVAC. **Nube prohibida e
 
 | Componente | Versión | Fecha |
 |---|---|---|
-| Monorepo | **v0.4.0** | 2026-09-10 |
-| `apps/server` | v0.4.0 | 2026-09-10 |
-| `apps/mobile` | v0.4.0 | 2026-09-10 |
+| Monorepo | **v0.4.1** | 2026-09-10 |
+| `apps/server` | v0.4.1 | 2026-09-10 |
+| `apps/mobile` | v0.4.1 | 2026-09-10 |
 
 Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las nueve rutas de la API y las cuatro pantallas de escritorio en 127.0.0.1; `apps/mobile` arranca en un Pixel 7 con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`.
 
-**Lo que todavía no funciona:** el extractor entiende la nota pero no emite el tool call — Qwen3 arranca en modo *thinking* y gasta el presupuesto de tokens razonando en prosa. Está diagnosticado y en curso; ver `CONTINUAR.md`.
+**Lo que todavía no está probado:** el dictado por voz funciona de punta a punta y transcribe en menos de 8 segundos, pero solo se verificó grabando silencio. Falta que una persona dicte una nota real. Y el build de release, que es lo que hace falta para la demo sin WiFi, nunca llegó a compilar. Ver `CONTINUAR.md`.
 
 Esquema de versionado: `MAJOR.MINOR.PATCH`. Mientras no exista código, `MINOR` sube con cada revisión de diseño que cambia decisiones; `PATCH` con correcciones puntuales de documentación. La versión de cada app vive en la cabecera de su `CLAUDE.md`.
 
@@ -44,7 +44,215 @@ Cada carpeta tiene `CLAUDE.md` (reglas), `ARCHITECTURE.md` (diseño y diagrama),
 
 ---
 
+## Cómo ejecutar
+
+Todo corre local. No hay servicio en la nube que levantar ni ninguna variable de entorno obligatoria.
+
+### Requisitos
+
+| Qué | Versión | Para qué |
+|---|---|---|
+| Node | **≥ 22.17** (`engines` de `apps/server/package.json`; probado con 25.2.1) | las dos apps |
+| JDK | **17** — `brew install openjdk@17` | build nativo de Android |
+| Android SDK + platform-tools | con `adb` en el `PATH` | `expo run:android`, sembrar datos en el teléfono |
+| Teléfono Android **físico** | Android 12+ (`minSdkVersion: 31`), arm64 | `apps/mobile` |
+
+**El móvil necesita un dispositivo real: los emuladores no corren llama.cpp** (`apps/mobile/CLAUDE.md`). El desarrollo se hizo sobre un Pixel 7; el paquete de la app es `io.qurum.mobile`.
+
+`apps/mobile/package.json` no declara `engines`; su requisito de Node ≥22.17 sale de `apps/mobile/CLAUDE.md`.
+
+```bash
+git clone <url-del-repo> && cd QURUM
+cd apps/server && npm ci
+cd ../mobile  && npm ci
+```
+
+Los dos `.npmrc` tienen `ignore-scripts=true` — no lo saques. Si algún día un addon nativo necesita rebuild, hacelo selectivo (`npm rebuild <pkg> --ignore-scripts=false`), nunca global.
+
+### Los modelos: se bajan solos, pero ocupan el doble de lo que dicen
+
+Nadie descarga GGUF a mano. Las constantes se resuelven contra el SDK **al arrancar** (así un nombre mal escrito falla en el `listen`, no en la primera nota) y el peso se baja la **primera vez que se pide inferencia** — `loadModel()` en `apps/server/src/qvac/gateway.ts` y `apps/mobile/src/qvac/pool.ts`. O sea: `npm start` arranca sin modelos y sin red; la primera nota que interpretes sí necesita red, una única vez.
+
+| Rol | Constante del SDK | Archivo en disco | Tamaño |
+|---|---|---|---|
+| ASR (voz → texto) | `WHISPER_TINY` | `ggml-tiny.bin` | 78 MB |
+| Portero | `QWEN3_5_0_8B_MULTIMODAL_Q4_K_M` | `Qwen3.5-0.8B-Q4_K_M.gguf` | 533 MB |
+| Extractor | `QWEN3_1_7B_INST_Q4` | `Qwen3-1.7B-Q4_0.gguf` | 1057 MB |
+
+Dónde caen: `~/.qvac/models` en la máquina de escritorio, `files/.qvac/models` dentro del sandbox de la app en el teléfono.
+
+★ **Presupuestá el doble de esa tabla en el teléfono.** Al lado de `models` hay un `registry-corestore`, y el peso pasa por ahí antes de materializarse en `models`: un modelo de 533 MB pide del orden de **1 GB** durante la descarga. Quedarse sin espacio a mitad de bajada ya nos pasó una vez. La tabla de `apps/mobile/CLAUDE.md` (~2.1 GB) es de **RAM**, no de disco, y como presupuesto de disco subestima a la mitad. Tené **varios GB libres** antes de la primera corrida.
+
+Para mirar cuánto ocupa hoy en el teléfono:
+
+```bash
+adb shell 'run-as io.qurum.mobile sh -c "du -sh files/.qvac/*"'
+adb shell df -h /data
+```
+
+### Arrancar el server (escritorio)
+
+```bash
+cd apps/server
+npm start          # node --experimental-strip-types src/index.ts
+```
+
+Queda en **http://127.0.0.1:3000**. El host está hardcodeado y deliberadamente **no** se lee de env: un env var es exactamente la forma en que ese invariante se pierde sin que nadie lo note. El puerto sí se puede cambiar.
+
+En consola vas a ver dos líneas:
+
+```
+QUÓRUM en http://127.0.0.1:3000
+sync P2P apagado: QUORUM_PEERS vacío (deny-by-default en el transporte).
+```
+
+La segunda es lo esperado, no un error: el sync P2P es opt-in por allowlist.
+
+Variables de entorno, **todas opcionales** (`apps/server/src/index.ts`):
+
+| Variable | Default | Qué hace |
+|---|---|---|
+| `QUORUM_PUERTO` | `3000` | puerto de escucha |
+| `QUORUM_MODELO` | `QWEN3_1_7B_INST_Q4` | extractor |
+| `QUORUM_ASR` | `WHISPER_TINY` | transcripción |
+| `QUORUM_OBSERVADOR` | `Field User 01` | quién firma las observaciones que se capturen |
+| `QUORUM_DISPOSITIVO` | `dispositivo-a` | id de dispositivo |
+| `QUORUM_PEERS` | vacío | allowlist de claves públicas hex de peers. **Vacía = ningún peer entra** |
+| `QUORUM_PEER_PUBKEY` | — | peer al que delegar inferencia |
+| `BOOTSTRAP` | — | nodos DHT `host:puerto`, separados por coma |
+
+Las cuatro pantallas, en la barra de navegación:
+
+| Pantalla | Qué se ve |
+|---|---|
+| **Capturar** | un campo de texto grande, `Dictar` (el navegador solo **graba** con `MediaRecorder`; transcribe whisper local vía `/api/transcribir`) e `Interpretar`. Lo extraído aparece abajo como «Revisá antes de guardar», **editable**, con `Sí, es correcto — guardar` y `Descartar`. Nada toca el disco hasta ese botón. |
+| **Cliente 360** | la reconciliación agrupada por cliente: confianza **por campo**, `Sin quórum` mostrando todas las versiones en conflicto y quién sostiene cada una (nunca un promedio), cohortes de edad como composición y frescura como eje aparte. |
+| **Panorama** | KPIs, distribución por país y modalidad en barras, candidatos a duplicado con su nota de revisión humana, la consulta en lenguaje natural (`/api/consultar` — el modelo solo traduce la pregunta a un filtro; el filtro lo corre código determinista) y `Exportar CSV (esquema del workbook, 19 columnas)`. |
+| **Auditoría** | la cadena de hashes con su botón `Verificar integridad`, y cada llamada de inferencia con su `delegado` a la vista. |
+
+### Sembrar los datos de demo (server)
+
+`apps/server/data/seed.json` tiene las **23 observaciones** que producen los cuatro estados de quórum, y es el único archivo de `data/` que se versiona.
+
+**No hay script que lo cargue.** `apps/server/CLAUDE.md` lista un `scripts/seed.ts` en la estructura *prevista*, pero no existe: en `scripts/` solo está `verify-no-cloud.sh`. Y el store no lee el seed: lee **`data/observaciones.jsonl`**, un JSON por línea, no un array (`apps/server/src/store/observations.ts`, `RUTA = 'data/observaciones.jsonl'`). Hay que convertirlo una vez, desde `apps/server`:
+
+```bash
+cd apps/server
+node -e "const s=require('./data/seed.json');require('node:fs').writeFileSync('data/observaciones.jsonl',s.map(o=>JSON.stringify(o)).join('\n')+'\n')"
+```
+
+Con `jq`, lo mismo en una línea: `jq -c '.[]' data/seed.json > data/observaciones.jsonl`.
+
+Dos cosas a tener en cuenta:
+
+- El store es **append-only con dedup por `id`**, pero el comando de arriba **sobrescribe** el archivo. Si ya tenés observaciones capturadas y querés sumar el seed en vez de reemplazarlo, usá `>>`.
+- `data/` es ruta **relativa al cwd**: tanto el comando como `npm start` tienen que correrse desde `apps/server`.
+
+Con el server arriba, para comprobar que el motor las está leyendo:
+
+```bash
+curl -s http://127.0.0.1:3000/api/base-instalada | head -c 200
+```
+
+### Arrancar la app móvil (Android)
+
+Teléfono conectado por USB con depuración activada — `adb devices` lo tiene que listar. Después:
+
+```bash
+cd apps/mobile
+JAVA_HOME=/opt/homebrew/opt/openjdk@17 \
+ANDROID_HOME=$HOME/Library/Android/sdk \
+npx expo run:android
+```
+
+**`JAVA_HOME` hay que pasarlo siempre**: el JDK quedó keg-only, sin symlink al sistema. `android/` no se versiona, así que la primera corrida hace el prebuild sola y se toma su tiempo (Gradle, NDK, CMake). Dejá el proceso abierto: sirve el bundle de Metro.
+
+Dos pestañas: **Capturar** y **Clientes** (Cliente 360).
+
+Para sembrar la demo en el teléfono está `dev/sembrar-demo.ts`, que genera 9 observaciones cubriendo `Quórum`, `Sin quórum`, cohortes y `Estimado`. No es una vía para saltarse la confirmación humana: escribe el archivo del store **por fuera** de la app, y el código de la app sigue teniendo un único punto de escritura.
+
+```bash
+cd apps/mobile
+# 1. el observadorId de ESTE teléfono, para que la UI te etiquete como "Vos"
+adb shell run-as io.qurum.mobile cat files/identidad.json
+# 2. pegalo en la constante VOS de dev/sembrar-demo.ts
+# 3. generar y empujar
+node --experimental-strip-types dev/sembrar-demo.ts /tmp/obs.jsonl
+adb push /tmp/obs.jsonl /data/local/tmp/obs.jsonl
+adb shell "run-as io.qurum.mobile sh -c 'cat /data/local/tmp/obs.jsonl > files/observaciones.jsonl'"
+adb shell am force-stop io.qurum.mobile && adb shell am start -n io.qurum.mobile/.MainActivity
+```
+
+Para capturar la pantalla — sin colapsar la barra de estado, la captura sale negra:
+
+```bash
+adb shell cmd statusbar collapse
+adb exec-out screencap -p > /tmp/x.png
+```
+
+### Verificar cumplimiento
+
+```bash
+cd apps/server
+npm run verify:no-cloud     # bash scripts/verify-no-cloud.sh
+```
+
+Siete controles, cada uno con su `OK` o `FALLO` en pantalla:
+
+1. **Proveedores de inferencia cloud** en el código (OpenAI, Anthropic, Gemini, Groq, Together, Replicate, HF Inference, Bedrock…).
+2. **Vercel** y el Vercel AI SDK, incluido `@qvac/ai-sdk-provider` y el paquete `ai`.
+3. **Web Speech API** — busca el *uso* (constructor, acceso por `window`), no la mención.
+4. **Marcas reales**: (4a) competencia y modelos reales; (4b) `philips` en `data/`, sin excepciones; (4c) `philips` en el código solo como identificador, ruta de módulo o esquema de export; (4d) verificación **positiva** con Node — toda `marca` de `data/` tiene que estar en `MARCAS_DUMMY`.
+5. **Dependencias con script de instalación** (`hasInstallScript`) y `ignore-scripts=true` en `.npmrc`.
+6. **`npm audit --audit-level=high`**.
+7. **Egress**: ninguna URL absoluta fuera de localhost.
+
+Esperado: `RESULTADO: 7/7 controles en verde` y exit 0. Sin red, el control 6 no puede consultar el registro y sale como **AVISO**, no como fallo: el script termina en 0 igual. Correrlo con red antes de entregar.
+
+### Correr los tests y el typecheck
+
+```bash
+cd apps/server && npx tsc --noEmit && npm test     # esperado: 31/31, exit 0
+cd ../mobile   && npx tsc --noEmit                 # esperado: exit 0
+```
+
+★ **Nunca leas un exit code a través de un pipe.** `npx tsc --noEmit | head` devuelve el exit de `head`, que es **siempre 0**: el build se rompió una vez justo así, sin que nadie se enterara. Corré el comando solo y después `echo $?`.
+
+El typecheck verde tampoco es evidencia de que la app funcione: no ve un `import` de `node:crypto` que Metro sí rechaza, ni un render roto. Después de tocar UI, mirá la pantalla.
+
+Para chequear que los diez archivos del núcleo compartido siguen idénticos entre las dos apps, el bucle de `CONTINUAR.md` §Arrancá por acá.
+
+### Problemas conocidos al arrancar
+
+- **Cambiaste una dependencia nativa → hay que volver a correr el prebuild.** `expo run:android` **no** lo vuelve a correr si `android/` ya existe, y el worker bundle de QVAC queda atado a la versión anterior: «Could not load bundle». `npx expo prebuild` ya recrea las carpetas nativas por defecto en esta versión del CLI (`--clean` se acepta pero es un no-op; lo que cambia el comportamiento es `--no-clean`).
+- **`react-native-bare-kit` está pineado en `0.14.5` y no se puede subir.** La 0.15.0 linkea `libbare-kit.so` contra `libnativehelper.so`, interno de la ART APEX y bloqueado para apps desde Android 10: tumba el registro entero de TurboModules y RN muere con `PlatformConstants could not be found`, que es colateral y no la causa. Issue upstream `holepunchto/react-native-bare-kit#48`, cerrado *not planned*. Un `npm update` sin `--save-exact` reintroduce el crash.
+- **La app corre hoy en *debug*, con el JS servido por Metro.** Si apagás el WiFi y la app se reinicia, **no arranca** — y eso **no** es porque dependa de la nube, sino porque no encuentra el bundle en la máquina de desarrollo. Para una demo sin red hace falta un build de release (`npx expo run:android --variant release`), que todavía **no se probó**.
+- **El extractor entiende la nota pero no emite el tool call** (ver §Versión arriba). El server responde «El modelo no produjo una extracción utilizable» y el teléfono muestra «Sin equipo estructurado». Las pantallas de consulta sí se pueden recorrer completas con los datos del seed.
+- **Sin `QUORUM_PEERS`, el sync P2P no arranca.** Es deny-by-default en el transporte, no una falla.
+
+---
+
 ## Historial de cambios
+
+### v0.4.1 — 2026-09-10
+
+Cierre de la sesión: el bloqueante del proyecto resuelto, dictado por voz en las dos superficies, y los tests de seguridad que faltaban.
+
+**El extractor extrae.** Qwen3 arrancaba en modo *thinking* y gastaba el presupuesto de tokens razonando en prosa sin llegar a emitir el tool call — la única vía por la que devuelve estructura. `reasoning_budget: 0`, más subir `predict` de 80 a 512 en el extractor de mobile (80 es el valor del portero, que responde un sí/no). Verificado: dos lotes correctos en 7-14 s.
+
+**Dictado por voz (Fase 11)** en móvil con `expo-audio` + whisper on-device, y reescrito en escritorio con WebAudio a WAV PCM 16 kHz — `MediaRecorder` produce webm/opus y whisper devolvía `" you"` con eso. Nunca Web Speech API.
+
+**Whisper alucinaba en inglés** sobre audio sin voz: quince repeticiones de una frase inventada en el campo que la persona confirma como propio. Ahora lleva `prompt` inicial en castellano con el vocabulario del dominio, y un filtro determinista de repetición que descarta la salida y avisa.
+
+**El momento del ataque ya se puede reproducir.** `TOOL_EXPORTAR` estaba definida y no se le ofrecía al modelo, así que la inyección del peer no tenía forma de intentar el export y el banner de denegación era código muerto.
+
+**31 → 50 tests.** `test/policy.test.ts` e `injection.test.ts`, que cubren la defensa en capas y el spotlighting. Destaparon que `SecurityContext.principal` no se consultaba en ninguna regla: lo único que separaba el export legítimo del inyectado era un string.
+
+**La cadena de auditoría se bifurcaba sola** con dos escritores sobre el mismo `data/`, y reportaba integridad rota sin que nadie alterara nada.
+
+**Diccionario de errores en la UI**: cada falla dice qué pasó y qué hacer, con el comando exacto. Distingue estado esperado de falla real.
+
+**Iconografía propia** de 15 iconos SVG compartida entre las dos superficies, sin emojis ni librerías, y neutros tintados hacia el hue de marca en vez del crema por defecto.
 
 ### v0.4.0 — 2026-09-10
 

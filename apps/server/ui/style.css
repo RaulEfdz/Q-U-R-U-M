@@ -1,4 +1,45 @@
 /*
+ * ─────────────────────── Tipografía: IBM Plex, servida local ───────────────────────
+ *
+ * IBM Plex Sans para texto e IBM Plex Mono para código y cifras. Licencia
+ * SIL Open Font License 1.1 (ver `ui/fuentes/LICENSE.txt`).
+ *
+ * ★ Los .woff2 están EN ESTE REPO y se sirven desde 127.0.0.1. Nada de Google
+ * Fonts, nada de @import, nada de CDN: la restricción dura del proyecto es que
+ * ningún recurso salga de este equipo, un webfont remoto le avisaría al
+ * proveedor cada vez que alguien abre la interfaz, y la CSP del servidor
+ * (`default-src 'self'`) lo bloquearía sin decir nada.
+ *
+ * `font-display: block` y no `swap`: con la fuente local el archivo tarda
+ * milisegundos, y un `swap` produciría un parpadeo de tipografía en el arranque
+ * — visible y feo en la grabación del video.
+ *
+ * Tres pesos, no nueve: 400 para texto, 500 para etiquetas y cifras, 600 para
+ * títulos. La regla del proyecto es una familia y tres tamaños; sumar pesos
+ * intermedios sería ornamento y peso de descarga.
+ */
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fuentes/IBMPlexSans-Regular.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: block;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fuentes/IBMPlexSans-Medium.woff2") format("woff2");
+  font-weight: 500; font-style: normal; font-display: block;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fuentes/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: block;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fuentes/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: block;
+}
+
+/*
  * style.css — QUÓRUM escritorio.
  *
  * Decisiones, no gustos (doc maestro §B.3):
@@ -39,7 +80,7 @@
    *
    * Los valores de §II.20 estan elegidos como color de identidad (glifo,
    * borde, franja) y varios no llegan a 4.5:1 como texto: medido sobre
-   * `--hundida` (#eeece7), el peor fondo donde aparecen, `--reportado` da
+   * `--hundida` (#e9ecf1), el peor fondo donde aparecen, `--reportado` da
    * 2.76 y `--sindatos` 2.85, y `--quorum` queda en 4.21. `Reportado` es
    * ademas el estado MAS frecuente en datos reales — un solo testigo — asi
    * que la etiqueta mas repetida de la interfaz era la menos legible.
@@ -47,7 +88,7 @@
    * No se cambia la rampa: se deriva. Mismo hue y mismo croma en OKLCH,
    * bajando solo la luminosidad hasta pasar AA. El estado conserva su
    * identidad cromatica y el texto se puede leer en un proyector.
-   * Ratios sobre #eeece7 / #ffffff:
+   * Ratios sobre #e9ecf1 / #ffffff:
    *   quorum    4.58 / 5.41      reportado  4.59 / 5.42
    *   estimado  4.55 / 5.37      sindatos   4.58 / 5.41
    *   sinquorum 4.84 / 5.72
@@ -58,14 +99,23 @@
   --sindatos-ink:  #6d6a61;
   --sinquorum-ink: #b0413e;   /* ya pasaba: sin cambio */
 
-  /* Superficies y tinta (coherentes con apps/mobile/src/app/theme.ts). */
-  --fondo:      #f7f6f3;
+  /*
+   * Superficies y tinta (coherentes con apps/mobile/src/app/theme.ts).
+   *
+   * ★ Neutros tintados hacia el HUE DEL AZUL DE MARCA, no hacia el cálido.
+   * El fondo era `#f7f6f3` — crema cálido, el neutro por defecto de casi
+   * cualquier interfaz generada — y no decía nada sobre este producto. Ahora
+   * el mismo valor de luminosidad lleva su croma mínima hacia el hue de
+   * `--primario`. Se movió el HUE, no la luminosidad: los contrastes
+   * verificados no cambian.
+   */
+  --fondo:      #f4f6f9;
   --superficie: #ffffff;
-  --hundida:    #eeece7;
-  --borde:      #d8d5cd;
-  --borde-duro: #b9b5aa;
-  --texto:      #1c1b18;
-  --tenue:      #55524a;    /* oscuro de verdad: legible en proyector */
+  --hundida:    #e9ecf1;
+  --borde:      #d1d6dd;
+  --borde-duro: #b1b6bc;
+  --texto:      #191b1e;
+  --tenue:      #4f5257;    /* oscuro de verdad: legible en proyector */
 
   --primario:   #1a4d8f;    /* acción, no confianza */
   --primario-texto: #ffffff;
@@ -121,11 +171,30 @@
   outline-offset: 2px;
 }
 
+/*
+ * La sección que se abre recibe el foco al cambiar de pantalla (ver
+ * `mostrar()` en app.js), y ahí el anillo NO corresponde: encuadraría la
+ * pantalla entera con un rectángulo de 900 px que se lee como un error.
+ * Quien navega con teclado ya tiene la señal donde importa —el botón de la
+ * pestaña queda marcado y el lector de pantalla anuncia la sección por su
+ * `aria-label`—, y el foco sigue ahí para que el próximo Tab entre al
+ * contenido en vez de volver a recorrer el header.
+ */
+main > section:focus { outline: none; }
+
+/*
+ * Sprite de iconos de `index.html`. Sacado del atributo `style` inline por la
+ * CSP (`style-src 'self'`), con el mismo comportamiento de antes: fuera del
+ * flujo y de tamaño cero, pero NO `display:none` — un contenedor oculto así
+ * impide que `<use>` resuelva los símbolos en varios navegadores.
+ */
+.sprite { position: absolute; }
+
 html { background: var(--fondo); }
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: var(--t-cuerpo);
   line-height: 1.4;
   color: var(--texto);
@@ -151,8 +220,12 @@ body {
 .con-icono { display: inline-flex; align-items: center; gap: var(--md); }
 
 .num { font-variant-numeric: tabular-nums; }   /* columnas alineadas */
+
+.revisiones-peer { margin-top: var(--lg); }
+.revision-peer { margin-top: var(--sm); padding: var(--md); border: 1px solid var(--borde); border-radius: 8px; }
+.revision-peer .acciones { display: flex; gap: var(--sm); margin-top: var(--sm); flex-wrap: wrap; }
 .small { font-size: var(--t-chico); color: var(--tenue); }
-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--t-chico); }
+code { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--t-chico); }
 .glifo { font-style: normal; }
 .oculto-visual {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -229,7 +302,21 @@ input, textarea {
   padding: 6px 8px;
 }
 input.invalido { border-color: var(--sinquorum); background: var(--sinquorum-fondo); }
-input.editado { border-color: var(--primario); font-weight: 700; }
+input.editado, select.editado { border-color: var(--primario); font-weight: 700; }
+
+/*
+ * Un vocabulario CERRADO se elige, no se escribe (ver `MODALIDADES` en
+ * capturar.js). El select toma exactamente la caja de un input para que la
+ * grilla de campos editables no se parta en dos patrones visuales, y comparte
+ * la marca `.editado`: el borde de acción significa «esto lo cambió el
+ * humano», sin importar con qué control lo cambió.
+ */
+select {
+  font: inherit; font-size: var(--t-cuerpo); color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde-duro); border-radius: 3px;
+  padding: 6px 8px;
+}
 
 .fila { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--md); }
 .fila-acciones { margin-top: var(--md); }
@@ -259,6 +346,9 @@ input.editado { border-color: var(--primario); font-weight: 700; }
 .estado.malo { color: var(--denegado); font-weight: 700; }
 .estado.aviso { color: var(--texto); font-weight: 700; }
 .estado.trabajando { color: var(--tenue); }
+/* Los segundos de una espera larga: señal de vida, en tinta tenue y cifras
+   tabulares para que el número no salte de ancho al cambiar. */
+.estado .contador { color: var(--tenue); font-weight: 400; font-variant-numeric: tabular-nums; }
 
 .revision {
   margin-top: var(--xl); padding: var(--lg);
@@ -463,6 +553,12 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .kpi span { font-size: var(--t-chico); color: var(--tenue); }
 .kpi.ok b { color: var(--quorum-ink); }
 .kpi.sinquorum b { color: var(--sinquorum-ink); }
+/* Un total que excluye unidades tiene que decirlo pegado al total, no en una
+   nota al pie. Glifo + etiqueta + color, como cualquier estado de quórum. */
+.nota.no-computadas {
+  display: inline-flex; align-items: baseline; gap: var(--sm);
+  margin: calc(-1 * var(--lg)) 0 var(--xl); color: var(--sinquorum-ink); font-weight: 700;
+}
 
 .bloque {
   margin-bottom: var(--xxl); padding: var(--lg);
@@ -479,7 +575,16 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 
 /* Barras: `div` con porcentaje. Sin librería de gráficos, sin mapa. */
 .barras { display: flex; flex-direction: column; gap: var(--xs); }
-.barra { display: grid; grid-template-columns: 150px 1fr 56px; align-items: center; gap: var(--md); }
+/* Cuarta columna `auto`: cuando ninguna fila trae unidades en disputa queda
+   vacía y no ocupa nada, así que la distribución se ve igual que siempre. */
+.barra { display: grid; grid-template-columns: 150px 1fr 56px auto; align-items: center; gap: var(--md); }
+/* Lo que NO entró en la barra. Lleva el glifo ▲ y su etiqueta: el color de
+   `Sin quórum` acompaña, nunca informa solo. */
+.barra-fuera {
+  display: inline-flex; align-items: center; gap: var(--sm);
+  font-size: var(--t-chico); font-weight: 700; color: var(--sinquorum-ink);
+  white-space: nowrap;
+}
 .barra-etiqueta { font-size: var(--t-chico); }
 .barra-pista { display: block; height: 14px; background: var(--hundida); }
 .barra-pista i { display: block; height: 100%; background: var(--primario); }
@@ -514,6 +619,11 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .integridad.ok b { color: var(--quorum-ink); }
 .integridad.sinquorum { border-color: var(--denegado); background: var(--sinquorum-fondo); }
 .integridad.sinquorum .glifo, .integridad.sinquorum b { color: var(--denegado); }
+/* «No me lo informaron» no es «está sano»: tercer tratamiento, en el neutro
+   de `Sin datos`, para no afirmar salud sin dato. */
+.integridad.nulo { border-color: var(--borde-duro); }
+.integridad.nulo .glifo { color: var(--sindatos); }
+.integridad.nulo b { color: var(--sindatos-ink); }
 .glifo.grande { font-size: 26px; }
 .integridad p { margin: 2px 0 0; }
 
@@ -554,6 +664,40 @@ tr.ascenso { animation: ascenso 600ms ease-out 1; }
 .vacio-titulo { margin: 0; font-weight: 700; }
 .vacio-detalle { margin: var(--md) auto 0; max-width: 62ch; font-size: var(--t-chico); color: var(--tenue); }
 
+/*
+ * Caja de error legible (ver `ui/errores.js`). Dos tratamientos:
+ *
+ *  `.estado` — situaciones ESPERADAS que no son fallas del producto: el
+ *    servidor no está levantado, el modelo todavía se descarga, no hay
+ *    permiso de micrófono. Fondo hundido y tinta normal: informa sin alarmar.
+ *  `.grave` — lo que sí pide una decisión. Ahí sí entra el rojo.
+ *
+ * El rojo de `--sinquorum` se usa acá para un error de la INTERFAZ, no para un
+ * nivel de confianza sobre un dato. Es la excepción declarada a «el color
+ * codifica confianza y nada más», y por eso está acotada a `.grave`.
+ */
+.error-caja.estado {
+  background: var(--hundida);
+  border: 1px solid var(--borde-duro);
+}
+.error-titulo { display: block; font-size: var(--t-cuerpo); }
+.error-explicacion {
+  margin: var(--xs) 0 0; font-size: var(--t-chico); color: var(--tenue);
+  max-width: 68ch;
+}
+.error-pasos {
+  margin: var(--md) 0 0; padding-left: var(--xl);
+  font-size: var(--t-chico); max-width: 68ch;
+}
+.error-pasos li { margin-bottom: var(--xs); }
+.error-tecnico { margin-top: var(--md); font-size: var(--t-chico); }
+.error-tecnico summary { color: var(--tenue); cursor: pointer; }
+.error-tecnico code {
+  display: block; margin-top: var(--sm); padding: var(--sm);
+  background: var(--hundida); color: var(--tenue);
+  overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+}
+
 .error-caja {
   padding: var(--lg); color: var(--denegado);
   background: var(--sinquorum-fondo); border: 1px solid var(--sinquorum);
@@ -589,3 +733,427 @@ footer {
   .frescura { white-space: nowrap; }
   .puntaje-caja { text-align: left; }
 }
+
+/* ──────────────────── QUÓRUM / workspace shell ────────────────────
+ * Reemplaza la composición de documento por un espacio de trabajo de
+ * escritorio: navegación persistente, contexto arriba y contenido en cards.
+ * La lógica de datos y los estados semánticos de arriba permanecen intactos.
+ */
+:root {
+  --fondo: #f6f8fc;
+  --superficie: #ffffff;
+  --hundida: #f0f3f8;
+  --borde: #e1e6ef;
+  --borde-duro: #cbd3df;
+  --texto: #172033;
+  --tenue: #687386;
+  --primario: #2d64d8;
+  --primario-hover: #2456bc;
+  --rail: #ffffff;
+  --nav-activo: #edf3ff;
+  --xs: 4px; --sm: 8px; --md: 12px; --lg: 18px; --xl: 28px; --xxl: 42px;
+}
+
+body { background: var(--fondo); color: var(--texto); }
+.app-shell { min-height: 100vh; display: flex; }
+.sidebar {
+  width: 238px; flex: 0 0 238px; min-height: 100vh; display: flex; flex-direction: column;
+  padding: 28px 16px 20px; background: var(--rail); border-right: 1px solid var(--borde);
+}
+.sidebar .marca { align-items: center; gap: 11px; padding: 0 12px 34px; }
+.sidebar .marca h1 { font-size: 18px; letter-spacing: .11em; line-height: 1; }
+.sidebar .tesis { margin-top: 5px; font-size: 12px; }
+.marca-logo { width: 31px; height: 31px; object-fit: contain; display: block; }
+.sidebar-label { margin: 0 12px 10px; color: #596579; font-size: 12px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.sidebar nav button {
+  width: 100%; min-height: 44px; justify-content: flex-start; gap: 12px; padding: 10px 12px;
+  border: 0; border-radius: 8px; color: var(--tenue); font-size: 13px; font-weight: 600;
+}
+.sidebar nav button:hover { color: var(--texto); background: #f5f7fb; }
+.sidebar nav button.activo { color: var(--primario); background: var(--nav-activo); border: 0; }
+.sidebar nav button.activo::before { content: ''; width: 3px; height: 22px; margin-left: -12px; margin-right: 1px; background: var(--primario); border-radius: 0 3px 3px 0; }
+.sidebar-bottom { display: flex; align-items: center; gap: 10px; margin: auto 8px 0; padding: 14px 12px; color: var(--tenue); border-top: 1px solid var(--borde); font-size: 12px; }
+.sidebar-bottom b, .sidebar-bottom small { display: block; }
+.sidebar-bottom b { color: var(--texto); font-size: 12px; }
+.sidebar-bottom small { margin-top: 3px; font-size: 12px; }
+.sidebar-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--quorum); }
+.app-frame { min-width: 0; flex: 1; }
+.app-frame > header {
+  min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: var(--lg);
+  padding: 0 38px; background: var(--superficie); border-bottom: 1px solid var(--borde);
+}
+.breadcrumb { display: flex; align-items: center; gap: 10px; color: #9aa3b2; font-size: 12px; }
+.breadcrumb b { color: var(--texto); font-size: 13px; }
+.cabecera-meta { align-items: center; gap: 18px; }
+.marcador { color: var(--tenue); font-size: 12px; }
+.conexion { font-size: 12px; }
+.modelo-ia { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 9px; color: var(--primario); background: var(--nav-activo); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.avatar { display: inline-grid; place-items: center; width: 30px; height: 30px; color: #fff; background: var(--primario); border-radius: 50%; font-size: 12px; font-weight: 800; }
+.app-frame main { width: min(1240px, 100%); min-height: calc(100vh - 148px); margin: 0 auto; padding: 34px 38px 50px; }
+.app-frame footer { padding: 17px 38px 28px; background: var(--superficie); border-top: 1px solid var(--borde); }
+
+/* Hero and content blocks */
+#capturar > #texto {
+  width: min(100%, 880px); min-height: 168px; padding: 22px 24px; font-size: 20px; line-height: 1.45;
+  border: 1px solid var(--borde); border-radius: 10px; box-shadow: 0 5px 18px rgba(0, 0, 0, .04);
+}
+#capturar { max-width: 980px; }
+.capturar-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.capturar-intro h2 { margin: 0; color: var(--texto); font-size: 32px; line-height: 1.15; letter-spacing: -.035em; }
+.capturar-subtitulo { max-width: 620px; margin: 10px 0 0; color: var(--tenue); font-size: 15px; line-height: 1.5; }
+.modelo-captura { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; margin-top: 6px; padding: 8px 11px; color: var(--primario); background: var(--superficie); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.modelo-punto { width: 7px; height: 7px; border-radius: 50%; background: var(--quorum); }
+.capturar-ayuda { display: flex; align-items: flex-start; gap: 10px; width: min(100%, 880px); margin-top: 12px; padding: 12px 14px; color: var(--tenue); background: var(--superficie); border: 1px solid var(--borde); border-radius: 8px; font-size: 12.5px; line-height: 1.4; }
+.capturar-ayuda b { color: var(--texto); }
+.capturar-ayuda-icono { display: inline-grid; place-items: center; width: 20px; height: 20px; flex: 0 0 auto; color: var(--primario); background: var(--nav-activo); border-radius: 50%; font-size: 12px; }
+#capturar > #texto:focus { border-color: var(--primario); box-shadow: 0 0 0 3px rgba(45, 100, 216, .12); }
+.fila-acciones { align-items: center; margin-top: 15px; gap: 10px; }
+button { min-height: 40px; padding: 8px 15px; border-color: var(--borde-duro); border-radius: 7px; }
+button.primario { background: var(--primario); border-color: var(--primario); }
+button.primario:hover:not(:disabled) { background: var(--primario-hover); }
+input, textarea, select { border-radius: 7px; border-color: var(--borde-duro); }
+.revision, .grupo, .bloque, .integridad-caja { border-radius: 10px; box-shadow: 0 4px 16px rgba(0, 0, 0, .045); }
+.revision { max-width: 980px; padding: 22px; }
+.revision h2 { color: var(--primario); }
+.grupo { padding: 22px; margin-bottom: 18px; }
+.grupo::before { content: 'BASE INSTALADA'; display: block; margin: -4px 0 14px; color: #596579; font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+.cliente-cabecera { margin-bottom: 22px; padding-bottom: 14px; }
+.cliente-nombre { font-size: 28px; }
+.grupo-cabecera { padding-bottom: 16px; }
+.puntaje { color: var(--primario); }
+.oportunidad { border-radius: 999px; padding: 5px 10px; }
+.badge { padding: 3px 9px; border-radius: 999px; }
+th { padding: 10px 12px; border-bottom-color: var(--borde-duro); }
+td { padding: 11px 12px; }
+.confianza tr.sangrada { background: #f8fafd; }
+.barra-pista { height: 9px; background: var(--hundida); border-radius: 999px; }
+.barra-pista i { background: var(--primario); border-radius: 999px; }
+.kpi { border: 1px solid var(--borde); border-radius: 10px; background: var(--superficie); box-shadow: 0 4px 16px rgba(0, 0, 0, .045); }
+.grupo .puntaje-caja { padding-left: 16px; border-left: 1px solid var(--borde); }
+.grupo .desglose { max-width: 260px; }
+.modelo-card { display: inline-flex; width: fit-content; margin-left: 10px; padding: 3px 8px; color: var(--primario); background: var(--nav-activo); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none; vertical-align: middle; }
+.kpi b { color: var(--primario); }
+.respuesta, .filtro, .salida-consulta { border-radius: 8px; }
+.vacio { border-radius: 10px; background: var(--superficie); }
+
+@media (max-width: 800px) {
+  .app-shell { display: block; }
+  .sidebar { width: 100%; min-height: auto; padding: 14px 16px 8px; border-right: 0; border-bottom: 1px solid var(--borde); }
+  .sidebar .marca { padding: 0 4px 14px; }
+  .sidebar-label, .sidebar-bottom { display: none; }
+  .sidebar nav { flex-direction: row; overflow-x: auto; }
+  .sidebar nav button { width: auto; flex: 0 0 auto; min-height: 40px; }
+  .sidebar nav button.activo::before { display: none; }
+  .app-frame > header { min-height: 58px; padding: 0 18px; }
+  .app-frame main { padding: 24px 18px 36px; }
+  .app-frame footer { padding-left: 18px; padding-right: 18px; }
+  .marcador { display: none; }
+  .modelo-ia { display: none; }
+  .capturar-intro { display: block; }
+  .capturar-intro h2 { font-size: 28px; }
+  .modelo-captura { margin-top: 16px; }
+}
+
+/* ══════════════════ Pantalla 5 · Cómo funciona (estados y flujo) ══════════════════
+ *
+ * Los diagramas son SVG dibujado en `comofunciona.js`. Todo el color sale de
+ * la rampa de confianza y de los neutros que ya existen: un diagrama que
+ * introdujera color propio rompería el invariante de que el color codifica
+ * confianza y nada más.
+ *
+ * Las clases van acá y no como atributos de presentación en el SVG por dos
+ * razones: el tema vive en un solo lugar, y `style` inline está bloqueado por
+ * la CSP del servidor (`style-src 'self'`).
+ */
+
+.explica .lista-explica { margin: var(--md) 0 0; padding-left: 1.3em; }
+.explica .lista-explica li { margin-bottom: var(--sm); max-width: 78ch; }
+.explica td { vertical-align: top; }
+
+.diagrama-caja { margin-top: var(--md); }
+
+/* El único lugar de la app donde se permite scroll horizontal: un diagrama
+ * comprimido hasta caber en 380 px no explica nada. */
+.diagrama-scroll { overflow-x: auto; }
+
+.diagrama {
+  display: block;
+  width: 100%;
+  min-width: 680px;          /* por debajo de esto, se desplaza */
+  height: auto;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+
+.diagrama-pie {
+  margin: var(--sm) 0 0;
+  font-size: var(--t-chico);
+  color: var(--tenue);
+  max-width: 92ch;
+}
+
+/* ── Nodos ── */
+.diagrama .nodo rect,
+.diagrama .nodo polygon {
+  fill: var(--hundida);
+  stroke: var(--borde-duro);
+  stroke-width: 1;
+}
+.diagrama .nodo-titulo { font-size: 12px; font-weight: 600; fill: var(--texto); }
+.diagrama .nodo-detalle { font-size: 10.5px; fill: var(--tenue); }
+.diagrama .izq { text-anchor: start; }
+.diagrama .glifo-svg { font-size: 13px; fill: var(--tenue); }
+
+/* Un estado del eje de quórum lleva SU color, y además su glifo: el color
+ * nunca es el único portador de significado, tampoco en un diagrama. */
+.diagrama .e-ok rect        { fill: var(--quorum-fondo); stroke: var(--quorum); }
+.diagrama .e-ok .glifo-svg  { fill: var(--quorum-ink); }
+.diagrama .e-medio rect     { stroke: var(--reportado); }
+.diagrama .e-medio .glifo-svg { fill: var(--reportado-ink); }
+.diagrama .e-bajo rect      { stroke: var(--estimado); }
+.diagrama .e-bajo .glifo-svg { fill: var(--estimado-ink); }
+.diagrama .e-nulo rect      { stroke: var(--sindatos); }
+.diagrama .e-nulo .glifo-svg { fill: var(--sindatos-ink); }
+.diagrama .e-sinquorum rect { fill: var(--sinquorum-fondo); stroke: var(--sinquorum); }
+.diagrama .e-sinquorum .glifo-svg { fill: var(--sinquorum-ink); }
+
+/* Frescura: tinta neutra y borde punteado, igual que la insignia ◷ de las
+ * otras pantallas. No entra en la rampa. */
+.diagrama .frescura-nodo rect { fill: var(--superficie); stroke: var(--borde-duro); stroke-dasharray: 3 2; }
+
+/* Un nodo inerte: existe en el contrato pero nada lo produce hoy. */
+.diagrama .inerte rect { fill: var(--superficie); stroke-dasharray: 2 3; }
+.diagrama .inerte .nodo-titulo { fill: var(--tenue); }
+
+/* ── Aristas ── */
+.diagrama .arista { stroke: var(--borde-duro); stroke-width: 1.4; }
+.diagrama .arista.deny { stroke: var(--sinquorum); stroke-dasharray: 5 3; }
+.diagrama .punta { fill: var(--borde-duro); }
+.diagrama .punta-deny { fill: var(--sinquorum); }
+.diagrama .arista-etiqueta { font-size: 10px; fill: var(--tenue); }
+.diagrama .arista-etiqueta.deny { fill: var(--sinquorum-ink); }
+.diagrama .escalera { stroke: var(--borde-duro); stroke-width: 1.2; }
+
+/* ── Paneles y carriles ── */
+.diagrama .panel { fill: var(--superficie); stroke: var(--borde); }
+.diagrama .panel.ok-suave { stroke: var(--quorum); }
+.diagrama .panel.alerta-suave { stroke: var(--reportado); }
+.diagrama .panel.conflicto-suave { stroke: var(--sinquorum); }
+.diagrama .panel-titulo { font-size: 11.5px; font-weight: 600; fill: var(--texto); letter-spacing: 0.04em; }
+.diagrama .panel-sub { font-size: 10px; fill: var(--tenue); }
+.diagrama .panel-pie { font-size: 10px; fill: var(--tenue); }
+
+.diagrama .carril rect { fill: var(--fondo); stroke: var(--borde); }
+.diagrama .carril-etiqueta { font-size: 10.5px; font-weight: 600; fill: var(--tenue); letter-spacing: 0.06em; }
+
+.diagrama .nota-svg { font-size: 10.5px; fill: var(--tenue); }
+.diagrama .nota-svg.deny { fill: var(--sinquorum-ink); }
+
+/* La leyenda de estados reusa las insignias reales de la app, no una copia:
+ * si cambia el tratamiento de un estado, cambia acá también. */
+.estados-leyenda { display: flex; flex-wrap: wrap; gap: var(--md); margin-top: var(--md); }
+
+/* ══════════════════ Capturar · el composer ══════════════════
+ *
+ * Un solo contenedor para el campo y sus acciones, centrado en columna. La
+ * forma del cuadro de mensaje de un asistente: la gente ya sabe usarla sin que
+ * nadie le explique, y resuelve de raíz el desalineado que tenía esta pantalla
+ * — antes la fecha, los dos botones y la pista eran cuatro elementos sueltos
+ * en una fila, cada uno con su altura y su línea base.
+ *
+ * Nota sobre las reglas del proyecto: el encabezado de esta hoja pide
+ * «ornamento cero, sin bordes redondeados grandes». Acá hay un radio de 14px
+ * y un anillo de foco, a pedido explícito. No es ornamento gratuito: el radio
+ * es lo que hace leer el campo y su barra como UNA superficie en vez de dos
+ * cosas apiladas, que es el punto del composer.
+ */
+.capturar-centro {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+/* `display: block` explícito: el reskin declara `.capturar-intro` como flex de
+ * dos columnas, y con el composer eso dejaba el título a la izquierda y el
+ * subtítulo a la derecha, en dos líneas base distintas. */
+.capturar-intro { display: block; margin-bottom: var(--xl); text-align: center; }
+.capturar-intro h2 { margin: 0; }
+.capturar-subtitulo {
+  margin: var(--sm) auto 0;
+  max-width: 58ch;
+}
+
+.composer {
+  border: 1px solid var(--borde-duro);
+  border-radius: 14px;
+  background: var(--superficie);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+/* El anillo envuelve al CONJUNTO, no al textarea: es lo que comunica que el
+ * campo y su barra son una sola cosa. */
+.composer:focus-within {
+  border-color: var(--primario);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primario) 18%, transparent);
+}
+
+/* El textarea pierde su propio marco: el marco es el del composer. */
+.composer #texto {
+  display: block;
+  width: 100%;
+  min-height: 132px;
+  max-height: 420px;
+  padding: var(--lg) var(--lg) var(--md);
+  border: 0;
+  border-radius: 14px 14px 0 0;
+  background: transparent;
+  resize: none;                 /* crece solo, ver `ajustarAlto` */
+  font-size: var(--t-grande);
+  line-height: 1.45;
+}
+.composer #texto:focus { outline: none; }
+
+.composer-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--md);
+  flex-wrap: wrap;
+  padding: var(--md) var(--md) var(--md) var(--lg);
+  border-top: 1px solid var(--borde);
+}
+
+.composer-izq,
+.composer-der { display: flex; align-items: center; gap: var(--md); }
+
+/* La fecha deja de ser un campo con etiqueta arriba —que era lo que rompía la
+ * línea base de la fila— y pasa a leerse en una sola línea, como un dato del
+ * composer y no como un formulario. */
+.composer .campo-fecha {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sm);
+}
+.campo-fecha-etiqueta { font-size: var(--t-chico); color: var(--tenue); }
+.composer .campo-fecha input {
+  padding: 5px var(--sm);
+  font-size: var(--t-chico);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+/* Dictar es secundario en jerarquía pero central en el producto: se queda
+ * visible, sin competir con el primario. */
+.composer-boton {
+  border-radius: 999px;
+  padding: 7px var(--md);
+  font-size: var(--t-chico);
+}
+.composer-boton.grabando { border-color: var(--sinquorum); color: var(--sinquorum-ink); }
+
+.composer-der .primario { border-radius: 999px; padding: 8px var(--lg); }
+.composer-der .pista { white-space: nowrap; }
+
+/* Los tres pasos, en una línea bajo el composer. */
+.pasos-captura {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lg);
+  margin: var(--lg) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: paso;
+}
+.pasos-captura li {
+  font-size: var(--t-chico);
+  color: var(--tenue);
+  padding-top: var(--sm);
+  border-top: 2px solid var(--borde);
+  counter-increment: paso;
+}
+.pasos-captura b { display: block; color: var(--texto); }
+.pasos-captura b::before { content: counter(paso) " · "; color: var(--tenue); font-weight: 500; }
+.pasos-captura li:last-child { border-top-color: var(--quorum); }
+.pasos-captura li:last-child b { color: var(--quorum-ink); }
+
+/*
+ * Pantalla chica. Medido con redimensionado real: a 500 px la barra se partía
+ * en dos filas y los controles quedaban a 52 px de desalineación entre una y
+ * otra. La solución no es apretar todo, es sacar lo que ahí no sirve.
+ */
+@media (max-width: 720px) {
+  .pasos-captura { grid-template-columns: minmax(0, 1fr); gap: var(--md); }
+
+  /* La pista de teclado se va: `⌘/Ctrl + Enter` no significa nada en un
+   * teléfono, y era justo el elemento que forzaba el salto de línea. El atajo
+   * sigue funcionando para quien tenga teclado. */
+  .composer-der .pista { display: none; }
+
+  .composer-barra { flex-wrap: nowrap; padding-left: var(--md); gap: var(--sm); }
+  .composer-izq { min-width: 0; gap: var(--sm); }
+  .composer-der { margin-left: auto; }
+
+  /* La etiqueta «Visita» cede antes que el campo: la fecha es el dato, su
+   * rótulo se deduce del formato. */
+  .campo-fecha-etiqueta { display: none; }
+  .composer .campo-fecha input { width: 100%; min-width: 0; }
+  .composer-boton { padding: 7px var(--sm); }
+  .composer #texto { font-size: var(--t-cuerpo); padding: var(--md); }
+}
+
+/* Muy angosto: el texto de los botones se conserva —un icono solo obliga a
+ * adivinar— y lo que se reduce es el aire, no la información. */
+@media (max-width: 420px) {
+  .composer-der .primario { padding: 8px var(--md); }
+}
+
+/* ══════════════════ Reparto del alto: el sobrante va arriba Y abajo ══════════════════
+ *
+ * Medido a 1440×900: quedaban 266 px muertos al pie de Capturar. La causa no
+ * era el margen de la pantalla, era el armazón: `.app-frame` y `main` eran
+ * bloques de alto fijo, así que todo el sobrante se acumulaba abajo del
+ * contenido en vez de repartirse.
+ *
+ * Ahora el marco es una columna flex de alto de viewport y `main` se estira.
+ * La pantalla visible recibe ese alto y decide qué hacer con él — para las
+ * tablas y los diagramas, nada (siguen arriba); para Capturar, centrar.
+ */
+.app-frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.app-frame main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  /*
+   * `min-height: 0` anula el mínimo fijo de 680 px que traía el reskin. Con el
+   * marco repartiendo el alto, ese número ya no describe nada: el alto
+   * disponible real a 1440×900 es 657, así que el mínimo forzaba 23 px de más
+   * y aparecía una barra de scroll vertical en una pantalla que entra
+   * completa. Un mínimo en píxeles fijos y un layout que reparte el alto no
+   * pueden coexistir: gana el layout.
+   */
+  min-height: 0;
+}
+
+/* Solo la pantalla visible es item flex: las ocultas llevan `hidden`. */
+main > section:not([hidden]) { flex: 1 1 auto; }
+
+/*
+ * Capturar, como el estado vacío de un chat: el composer queda en el centro
+ * óptico y el aire se reparte arriba y abajo por igual. Cuando aparece el
+ * panel de revisión el contenido crece y el centrado cede solo — sin salto,
+ * porque es el mismo contenedor.
+ */
+#capturar {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* El campo aprovecha el alto disponible en vez de quedarse en un mínimo fijo,
+ * con tope para que en una pantalla alta no se vuelva un lienzo vacío. */
+.composer #texto { min-height: clamp(132px, 24vh, 300px); }

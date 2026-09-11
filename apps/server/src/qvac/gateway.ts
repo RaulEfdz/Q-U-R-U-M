@@ -150,10 +150,97 @@ export async function verificarRuta(modelId: string): Promise<RutaInferencia> {
   };
 }
 
+/**
+ * ★ Configuración de whisper. Lo importante es `language: 'es'`.
+ *
+ * Sin esto whisper AUTODETECTA el idioma, y con audio corto o flojo elige mal:
+ * medido en el teléfono, sobre una grabación en silencio devolvió una frase en
+ * INGLÉS repetida quince veces. El `initial_prompt` en castellano ayuda pero es
+ * solo una pista — el idioma se fija acá, al cargar el modelo, y
+ * `detect_language: false` apaga la detección para que no lo pise.
+ *
+ * El resto son defensas contra el mismo modo de falla: `suppress_blank` y
+ * `suppress_nst` evitan emitir sobre silencio y sobre segmentos sin habla,
+ * `temperature: 0` mantiene el determinismo del resto del pipeline, y
+ * `no_speech_thold` es el umbral por encima del cual un segmento se considera
+ * sin voz.
+ *
+ * Idéntica a `CONFIG_ASR` en `apps/mobile/src/qvac/pool.ts`, a propósito: el
+ * mismo modelo falla igual en las dos plataformas.
+ */
+const CONFIG_ASR = {
+  /*
+   * ★ `translate: false` — ESTE era el problema real.
+   *
+   * whisper tiene dos tareas: `transcribe` (texto en el idioma hablado) y
+   * `translate` (traduce SIEMPRE al inglés). Sin declararlo, tomaba el default
+   * y traducía: se le hablaba en español y devolvía inglés. No era detección
+   * de idioma fallando — era el modelo haciendo bien un trabajo que nadie le
+   * pidió.
+   *
+   * Con `language: 'es'` sin `translate: false`, whisper entiende que la
+   * ENTRADA es español y traduce la salida al inglés igual. Los dos parámetros
+   * hacen falta: uno dice en qué idioma se habla, el otro que no lo traduzca.
+   */
+  translate: false,
+  language: 'es',
+  detect_language: false,
+  suppress_blank: true,
+  suppress_nst: true,
+  temperature: 0,
+  no_speech_thold: 0.6,
+  initial_prompt:
+    'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
+    'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
+    'Marcas: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.',
+} as const;
+
 export async function cargarASR(modelSrc: ModeloASR): Promise<string> {
   if (cacheASR) return cacheASR;
-  cacheASR = await loadModel({ modelSrc, modelType: 'whisper' } as LoadModelOptions);
+  cacheASR = await loadModel({
+    modelSrc, modelType: 'whisper', modelConfig: CONFIG_ASR,
+  } as LoadModelOptions);
   return cacheASR;
+}
+
+/**
+ * Prompt inicial de whisper. El SDK no expone parámetro de idioma (solo
+ * `modelId`, `prompt`, `metadata` y `audioChunk`), y sin ninguna pista whisper
+ * AUTODETECTA: medido en el teléfono, con audio flojo eligió inglés y devolvió
+ * una frase en inglés repetida quince veces sobre una grabación en silencio.
+ *
+ * El prompt ancla el idioma en castellano y mete el vocabulario del dominio,
+ * que es lo que un modelo tiny no conoce: las siglas de modalidad y las marcas
+ * del vocabulario ficticio.
+ */
+const PROMPT_ASR =
+  'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
+  'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
+  'Marcas: NovaMed, Aurelia Health, BluePeak Medical, Orion Imaging, HelixCare, Zenith MedTech.';
+
+/**
+ * Whisper ALUCINA con audio sin voz: devuelve una frase corta repetida muchas
+ * veces. Es un modo de falla conocido del modelo, no algo que el prompt
+ * arregle. Medido en el Pixel: «You remind me of the one who is on the other
+ * side.» quince veces seguidas sobre silencio.
+ *
+ * La detección va en el CÓDIGO y es determinista — mismo criterio que el resto
+ * del proyecto. Si una misma frase ocupa la mayor parte de la salida, no es
+ * una transcripción: meterle a la persona quince frases inventadas en una nota
+ * que después va a confirmar como propia es peor que no transcribir nada.
+ *
+ * Idéntica a la de `apps/mobile/src/pipeline/dictar.ts`, a propósito: el mismo
+ * modelo falla igual en las dos plataformas.
+ */
+function pareceAlucinacion(texto: string): boolean {
+  const frases = texto.split(/[.!?]+/)
+    .map((f) => f.trim().toLowerCase())
+    .filter((f) => f.length > 8);
+  if (frases.length < 4) return false;
+  const cuenta = new Map<string, number>();
+  for (const f of frases) cuenta.set(f, (cuenta.get(f) ?? 0) + 1);
+  const masRepetida = Math.max(...cuenta.values());
+  return masRepetida >= 4 && masRepetida / frases.length >= 0.6;
 }
 
 export async function transcribirLocal(audioPath: string, modelSrc: ModeloASR): Promise<string> {
@@ -161,7 +248,10 @@ export async function transcribirLocal(audioPath: string, modelSrc: ModeloASR): 
   // El campo es `audioChunk` (string ruta o Buffer), no `audio` — y sin
   // `metadata:true` el overload resuelve directo a `Promise<string>`, sin
   // envoltorio `{ text }` que castear.
-  return await transcribe({ modelId, audioChunk: audioPath });
+  const crudo = String(await transcribe({ modelId, audioChunk: audioPath, prompt: PROMPT_ASR }) ?? '').trim();
+  // Se devuelve vacío en vez de la alucinación: la UI ya trata el texto vacío
+  // como «la transcripción vino vacía», que es exactamente lo que pasó.
+  return pareceAlucinacion(crudo) ? '' : crudo;
 }
 
 /** Completion con presupuesto. Devuelve tool calls SIN ejecutarlas:
@@ -174,13 +264,24 @@ export async function completar(params: {
   const run = completion({
     modelId: params.modelId, history: params.history, stream: false,
     ...(params.tools ? { tools: params.tools } : {}),
-    // temp 0 + seed fijo = reproducibilidad de la demo.
-    // `reasoning_budget: 0`: Qwen3 (portero y extractor) arranca en modo
-    // *thinking* y quema el presupuesto de `predict` razonando en prosa sin
-    // emitir el tool call — `toolCalls: []`, y el extractor devuelve vacío con
-    // todo el pipeline corriendo bien (CONTINUAR.md §El extractor). El schema
-    // de `generationParams` es `$strict`: solo temp/top_p/top_k/predict/seed/
-    // penalties/reasoning_budget/remove_thinking_from_context.
+    /*
+     * temp 0 + seed fijo = reproducibilidad de la demo.
+     *
+     * ★ `reasoning_budget: 0` apaga el modo *thinking* de Qwen3 (portero y
+     * extractor), y es lo que hacía que el extractor NO extrajera nada: sin
+     * esto el modelo entiende la nota perfectamente pero gasta todo el
+     * presupuesto de `predict` razonando en prosa dentro de un bloque
+     * `<think>` y nunca llega a emitir el tool call — `toolCalls` vuelve
+     * vacío y el pipeline responde "El modelo no produjo una extracción
+     * utilizable" con todo lo demás corriendo bien (CONTINUAR.md §El
+     * extractor). Sin esto no hay captura ni consulta — el tool calling es
+     * la única vía por la que el modelo devuelve estructura.
+     *
+     * El schema de `generationParams` es `$strict` (verificado contra
+     * `@qvac/sdk/dist/schemas/completion-stream.d.ts`): solo entran temp,
+     * top_p, top_k, predict, seed, las penalties, reasoning_budget y
+     * remove_thinking_from_context.
+     */
     generationParams: { temp: 0, seed: 42, predict: params.maxTokens ?? 512, reasoning_budget: 0 },
   });
   // CompletionFinal.contentText / .toolCalls son campos requeridos del SDK

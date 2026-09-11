@@ -2,7 +2,7 @@
   "expo": {
     "name": "QUÓRUM",
     "slug": "qurum-mobile",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,12 +18,19 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "QUÓRUM usa el micrófono para dictar la nota de la visita. El audio se transcribe en este teléfono y no sale del dispositivo."
+        }
+      ],
       [
         "expo-build-properties",
         {

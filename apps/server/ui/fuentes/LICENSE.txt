@@ -1,0 +1,14 @@
+IBM Plex Sans e IBM Plex Mono
+Copyright (c) 2017 IBM Corp.
+SIL Open Font License 1.1 — https://scripts.sil.org/OFL
+
+Estos .woff2 se sirven DESDE ESTE EQUIPO a propósito.
+
+La restricción dura del proyecto es que ningún recurso salga de la máquina:
+nada de Google Fonts, nada de @import, nada de CDN. Un webfont remoto le
+avisaría al proveedor cada vez que alguien abre la interfaz, y además la CSP
+del servidor (`default-src 'self'`) lo bloquearía sin decir nada.
+
+Se bajaron una sola vez de cdn.jsdelivr.net (paquetes npm @ibm/plex-sans y
+@ibm/plex-mono) y quedaron versionados acá. Si hay que actualizarlos, se
+vuelven a bajar a mano y se commitean: no hay paso de build que los traiga.

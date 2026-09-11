@@ -1,12 +1,14 @@
 {
   "name": "qurum-mobile",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "main": "index.ts",
   "dependencies": {
     "@noble/hashes": "2.4.0",
     "@qvac/sdk": "0.18.2",
     "bare-link": "3.3.0",
+    "buffer": "6.0.3",
     "expo": "~57.0.21",
+    "expo-audio": "57.0.4",
     "expo-build-properties": "^57.0.17",
     "expo-crypto": "57.0.2",
     "expo-device": "57.0.1",
@@ -17,6 +19,7 @@
     "react-native": "0.86.3",
     "react-native-bare-kit": "0.14.5",
     "react-native-safe-area-context": "5.7.0",
+    "react-native-svg": "15.14.0",
     "zod": "3.25.76"
   },
   "devDependencies": {

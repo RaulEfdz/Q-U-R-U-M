@@ -12,12 +12,23 @@
  * proyecto, no un gusto de esta pantalla.
  */
 export const color = {
-  fondo: '#f7f6f3',
+  /*
+   * ★ Neutros tintados hacia el HUE DEL AZUL DE MARCA, no hacia el cálido.
+   *
+   * El fondo era `#f7f6f3` — crema cálido, el neutro por defecto de casi
+   * cualquier interfaz generada — y no decía nada sobre este producto. Ahora
+   * el mismo valor de luminosidad lleva su croma mínima hacia el hue de
+   * `primario`, así que la superficie lee clínica y propia en vez de genérica.
+   * Se movió el HUE, no la luminosidad: los contrastes verificados no cambian
+   * (texto 15.94:1 sobre el fondo, tenue 7.25:1, y las tintas de estado
+   * siguen entre 4.54 y 4.83 sobre `superficieHundida`).
+   */
+  fondo: '#f4f6f9',
   superficie: '#ffffff',
-  superficieHundida: '#eeece7',
-  borde: '#d8d5cd',
-  texto: '#1c1b18',
-  textoTenue: '#55524a', // suficientemente oscuro para sol directo — nunca #999+
+  superficieHundida: '#e9ecf1',
+  borde: '#d1d6dd',
+  texto: '#191b1e',
+  textoTenue: '#4f5257', // suficientemente oscuro para sol directo — nunca #999+
   textoInvertido: '#ffffff',
 
   primario: '#1a4d8f',
@@ -35,7 +46,7 @@ export const color = {
    *
    * Los valores de §II.20 están elegidos como color de identidad (glifo,
    * borde, franja) y varios no llegan a 4.5:1 como texto. Medido sobre
-   * `superficieHundida` (#eeece7), el peor fondo donde aparecen:
+   * `superficieHundida` (#e9ecf1), el peor fondo donde aparecen:
    * `reportado` da 2.76 y `sinDatos` 2.85 — bien por debajo del mínimo — y
    * `quorum` queda en 4.21. Y esta app se usa A SOL DIRECTO, que es donde
    * el contraste real importa más, no menos. `reportado` es además el
@@ -43,7 +54,7 @@ export const color = {
    * etiqueta más repetida de la interfaz era la menos legible.
    *
    * No se cambia la rampa: se deriva. Mismo hue y mismo croma en OKLCH,
-   * bajando solo la luminosidad hasta pasar AA. Ratios sobre #eeece7:
+   * bajando solo la luminosidad hasta pasar AA. Ratios sobre #e9ecf1:
    *   quorumTinta 4.58 · reportadoTinta 4.59 · sinDatosTinta 4.58
    * `estimado` y `sinQuorum` ya pasaban y quedan igual, sin token propio.
    */

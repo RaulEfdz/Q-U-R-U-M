@@ -119,13 +119,15 @@ export async function portero(nota: string): Promise<Veredicto> {
       ],
       stream: false,
       tools: [TOOL_PORTERO],
-      // `reasoning_budget: 0`: Qwen3 arranca en modo *thinking* y gasta todo
-      // el presupuesto de `predict` razonando en prosa (`<think>…`) sin llegar
-      // a emitir el tool call — `toolCalls: []` y el fail-open de abajo lo
-      // enmascara como "portero sin respuesta valida" → hayEquipo:true siempre.
-      // Doc del schema: `0` desactiva el canal de razonamiento para este
-      // request (equivale al config de load-time pero por llamada). El schema
-      // de `generationParams` es `$strict` — verificado contra
+      // ★ `reasoning_budget: 0` apaga el modo *thinking* de Qwen3: sin esto
+      // el modelo gasta el presupuesto de `predict` razonando en prosa
+      // (`<think>…`) sin llegar a emitir el tool call — `toolCalls: []` y el
+      // fail-open de abajo lo enmascara como "portero sin respuesta valida"
+      // → hayEquipo:true siempre. 80 tokens alcanzan para la decisión del
+      // portero (a diferencia del extractor, que necesita mucho más — ver
+      // extractor.ts). Doc del schema: `0` desactiva el canal de
+      // razonamiento por request (equivale al config de load-time pero por
+      // llamada); `$strict`, verificado contra
       // node_modules/@qvac/sdk/dist/schemas/completion-stream.d.ts.
       generationParams: { temp: 0, seed: 42, predict: 80, reasoning_budget: 0 },
     });
