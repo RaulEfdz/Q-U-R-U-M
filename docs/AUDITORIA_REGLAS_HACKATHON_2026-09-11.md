@@ -10,16 +10,16 @@ Fuentes oficiales:
 
 ## Veredicto
 
-**El producto cumple el requisito técnico en el código y en la prueba física realizada, pero la entrega todavía no puede declararse completamente conforme.** Faltan cerrar tres condiciones externas: subir los cambios locales, garantizar acceso del jurado al repositorio privado y entregar/probar el enlace del video en español de máximo cinco minutos.
+**El producto cumple el requisito técnico en el código y en la prueba física realizada, pero la entrega todavía no puede declararse completamente conforme.** El código verificado ya está publicado en `origin/rf/dev` y fusionado en `origin/main`. Faltan cerrar las condiciones externas: garantizar acceso del jurado al repositorio privado, entregar/probar el video en español de máximo cinco minutos y completar el envío en TryDojo.
 
 ## Matriz de cumplimiento
 
 | Regla | Estado | Evidencia | Acción pendiente |
 |---|---|---|---|
 | Usar QVAC | Cumple | `@qvac/sdk` ejecuta `loadModel`, `completion` y `transcribe` en `apps/mobile`; el servidor también integra el SDK. | Mostrarlo funcionando en el video. |
-| Inferencia en dispositivo o delegada P2P | Cumple | `getLoadedModelInfo().isDelegated !== false` falla cerrado para ruta local. El Pixel 7 ejecuta el cliente nativo. | Grabar una corrida local claramente identificable. |
+| Inferencia en dispositivo o delegada P2P | Cumple | `getLoadedModelInfo().isDelegated !== false` falla cerrado para ruta local. El Pixel 8 Pro ejecuta el cliente nativo. | Grabar una corrida local claramente identificable. |
 | Ninguna inferencia en la nube | Cumple en código | `apps/server`: `npm run verify:no-cloud` → 7/7. Escaneo adicional de `apps/server` y `apps/mobile`: ningún proveedor cloud, Web Speech API ni URL ejecutable externa de inferencia. | Mantener este control en la toma final. |
-| P2P genuino | Cumple | Hyperswarm móvil-servidor probado en Pixel 7; `hello_ack` real en 83 ms. Allowlist fail-closed, ACK por lote, idempotencia, reintentos y vínculo de identidad por sesión. | No prometer funcionamiento en LAN totalmente aislada: el descubrimiento usa DHT salvo bootstrap propio. |
+| P2P genuino | Cumple | Hyperswarm móvil-servidor probado en Pixel 8 Pro; `hello_ack` real en 83 ms. Allowlist fail-closed, ACK por lote, idempotencia, reintentos y vínculo de identidad por sesión. | No prometer funcionamiento en LAN totalmente aislada: el descubrimiento usa DHT salvo bootstrap propio. |
 | Producto sustancial construido en 48 horas | Cumple según historial | README declara la base previa; primer commit dentro de la ventana y dependencias/origen enumerados. | No borrar esa declaración. |
 | Repositorio accesible al jurado | No verificable | GitHub reporta `RaulEfdz/Q-U-R-U-M` como **PRIVATE**. | Invitar al jurado o hacer público el repositorio y probar acceso en sesión privada. |
 | Entrega antes de las 08:00 | Pendiente | A las 00:36 seguía dentro de plazo. | Enviar repo y video en TryDojo antes de las 08:00; no hay prórroga. |
@@ -36,8 +36,8 @@ apps/server  npm run typecheck  → OK
 apps/server  npm test           → 117/117
 apps/server  npm run verify:no-cloud → 7/7
 núcleo compartido server/mobile → diff byte a byte OK
-Pixel 7 ↔ servidor Hyperswarm   → conectado
-Pixel 7 hello ↔ hello_ack       → 83 ms
+Pixel 8 Pro ↔ servidor Hyperswarm → conectado
+Pixel 8 Pro hello ↔ hello_ack     → 83 ms
 npm audit servidor, high        → 0 high/critical
 npm audit móvil, high           → 0 high/critical; 10 moderate transitivas de tooling Expo
 ```
@@ -46,9 +46,9 @@ Los 17 tests móviles cubren protocolo, `hello_ack`, cola append-only, recuperac
 
 ## Riesgos antes de entregar
 
-1. **Cambios locales sin subir.** La rama estaba sincronizada con `origin/rf/dev`, pero las mejoras de tests, reintentos y anti-suplantación aparecen modificadas/no rastreadas. Si se entrega ahora, el jurado no recibe esas mejoras.
-2. **Repositorio privado.** No incumple por sí solo, pero sí incumple si el jurado no tiene acceso durante toda la evaluación.
-3. **Video no verificado.** El reglamento dice que es lo primero que revisa el jurado. Sin URL accesible, español y duración ≤5:00, la entrega es incompleta.
+1. **Repositorio privado.** No incumple por sí solo, pero sí incumple si el jurado no tiene acceso durante toda la evaluación.
+2. **Video no verificado.** El reglamento dice que es lo primero que revisa el jurado. Sin URL accesible, español y duración ≤5:00, la entrega es incompleta.
+3. **Envío pendiente.** Código y evidencia técnica no sustituyen el formulario final de TryDojo antes del cierre.
 4. **DHT no equivale a LAN aislada.** La inferencia sigue siendo local y el transporte es P2P, por lo que no viola la regla; aun así, la demo no debe afirmar que el descubrimiento funciona sin Internet hasta probar bootstrap propio.
 
 ## Prioridad según la rúbrica
@@ -57,4 +57,4 @@ Los 17 tests móviles cubren protocolo, `hello_ack`, cola append-only, recuperac
 - **Innovation — 25%:** fuerte: quórum por campo, conflicto preservado y evidencia explicable.
 - **Impact — 20%:** fuerte si el video cuenta el problema de visitas de campo y base instalada incompleta.
 - **Design — 10%:** ambas superficies existen; conviene mostrar una historia y no recorrer todas las pantallas.
-- **Completion — 10%:** es el riesgo actual. Se cierra subiendo el código, probando repo/video sin credenciales y enviando antes de las 08:00.
+- **Completion — 10%:** es el riesgo actual. El código ya está publicado; se cierra probando acceso al repo y al video sin credenciales y enviando antes de las 08:00.

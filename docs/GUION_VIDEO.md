@@ -69,7 +69,7 @@ Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no 
 | Script | Superficie | Cómo se usa |
 |---|---|---|
 | `docs/video/grabar-bloques.sh` | Escritorio (navegador) | `source` → `iniciar <nombre>` (arranca `screencapture -v -k -C -D1`, pantalla completa) → hacer los clicks del bloque → `detener` (para con `kill -INT`, nunca `-9`, y verifica el archivo con `ffprobe`). Las tomas quedan en `dev/video/tomas/`, ignorado por Git. |
-| `docs/video/grabar-celular.sh` | Mobile (Pixel 7 por USB) | `source` → `grabar_celular <nombre> <segundos>` — usa `adb shell screenrecord` nativo, sin instalar nada. Bloqueante: no hace falta parar nada, corta sola a los segundos pedidos y baja el archivo a `dev/video/tomas/`, ignorado por Git. |
+| `docs/video/grabar-celular.sh` | Mobile (Pixel 8 Pro por USB) | `source` → `grabar_celular <nombre> <segundos>` — usa `adb shell screenrecord` nativo, sin instalar nada. Bloqueante: no hace falta parar nada, corta sola a los segundos pedidos y baja el archivo a `dev/video/tomas/`, ignorado por Git. |
 
 **Antes de grabar escritorio — importante, no es opcional:** `grabar-bloques.sh` graba el **display completo** (`-D1`), no solo la ventana del navegador. Probado una vez sin aislar: salieron en cuadro el editor de código y otra sesión de trabajo con cambios sin confirmar — nada de eso puede quedar en el video. **Poner el navegador en pantalla completa (o cerrar/minimizar todo lo demás) antes de correr `iniciar`.**
 
@@ -168,7 +168,7 @@ Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no 
 
 **El dato que conviene señalar** (es el que más le habla al jurado técnico): este grupo puntúa **81**, por debajo de los dos grupos que sí tienen quórum pleno (87 y 84). Un campo en disputa no cuenta como dato completo — el puntaje no premia la contradicción.
 
-**Sobre el ascenso en vivo con dos dispositivos:** si se graba, es la mejor toma del video. Pero el sync P2P **no está verificado en una LAN aislada** (el descubrimiento de Hyperswarm arranca contra el DHT, con bootstrap por internet), y arranca apagado salvo que `QUORUM_PEERS` tenga claves. **No apostar la toma a eso.** El escenario del quórum ya está en la semilla y se reproduce en una máquina limpia sin segundo dispositivo. Si el sync funciona en la sala: grabarlo como toma extra y usarlo. Si no: el bloque se sostiene igual y nadie nota la diferencia.
+**Sobre el ascenso en vivo con dos dispositivos:** el sync Pixel 8 Pro ↔ servidor sí fue verificado físicamente mediante Hyperswarm, incluido `hello_ack` en 83 ms. Lo que **no** está verificado es una LAN totalmente aislada: el descubrimiento arranca contra el DHT, con bootstrap por internet, y el transporte se mantiene apagado salvo que `QUORUM_PEERS` tenga claves. Preparar la toma P2P, pero conservar el escenario sembrado como respaldo reproducible.
 
 ---
 
@@ -282,4 +282,4 @@ Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no 
 
 **La honestidad técnica está guionada, no improvisada.** El párrafo de «el peer ve el prompt en claro» está escrito para decirse tal cual. Es lo más difícil de falsificar en cinco minutos, y es lo que separa esto de una demo que promete cómputo confidencial y no lo tiene.
 
-**Nada del guion depende del sync P2P.** Es la única pieza sin verificar en red aislada, así que ninguna afirmación del video se apoya en ella. Si funciona, es una toma extra; si no, el video está completo igual.
+**El guion puede mostrar el sync P2P como evidencia real**, porque ya fue verificado entre el Pixel 8 Pro y el servidor. La afirmación debe ser precisa: P2P con allowlist y descubrimiento DHT probado; funcionamiento en una LAN 100% aislada, no probado. El escenario sembrado sigue siendo el respaldo si la red de la sala impide repetir la toma.
