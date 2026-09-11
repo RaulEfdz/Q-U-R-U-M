@@ -1,6 +1,7 @@
 import {
   loadModel, unloadModel, getLoadedModelInfo,
   WHISPER_TINY, QWEN3_5_0_8B_MULTIMODAL_Q4_K_M, QWEN3_1_7B_INST_Q4,
+  VAD_SILERO_5_1_2,
 } from '@qvac/sdk';
 
 /**
@@ -119,6 +120,29 @@ async function liberarBajoPresion(
  * dominio (siglas de modalidad y las marcas del vocabulario ficticio), que es
  * lo que un modelo tiny no conoce.
  *
+ * ★ `contextParams.use_gpu`: OBLIGATORIO, mismo motivo que `device: 'gpu'` +
+ * `gpu_layers: 99` en `CONFIG` más abajo para portero/extractor — sin esto la
+ * inferencia de whisper corre en CPU y una nota de campo tarda mucho más de
+ * lo esperable. El shape es DISTINTO al del addon LLM: acá la llave es
+ * `contextParams: { use_gpu, flash_attn, gpu_device }`, verificado contra
+ * `node_modules/@qvac/asr-ggml/engines/whisper/configChecker.js`
+ * (`CONTEXT_PARAM_KEYS`) y `node_modules/@qvac/sdk/dist/schemas/transcription-config.js`.
+ * `flash_attn` se deja fuera a propósito: es una llave válida pero sin
+ * evidencia de que el backend Vulkan del Mali/Immortalis la soporte bien para
+ * whisper — queda como experimento aparte, no parte de este fix.
+ *
+ * ★ `vadModelSrc` (Silero VAD, ~0.86 MB, negligible en el presupuesto de RAM):
+ * hace que whisper.cpp segmente el audio por voz ANTES de transcribir, en
+ * vez de procesar silencio como si fuera habla. Es puramente una mejora de
+ * calidad/robustez en el modo batch (`transcribe()`, lo que usa
+ * `transcribirLocal()`) — pero además es un REQUISITO DURO para abrir una
+ * sesión de streaming (`transcribeStream`): sin `vadModelSrc` cargado, el
+ * addon tira `VAD_MODEL_REQUIRED` (`node_modules/@qvac/asr-ggml/engines/whisper/driver.js`,
+ * `createStreamingSession()`). `vad_params` con los valores de los ejemplos
+ * oficiales del SDK (`examples/asr/whispercpp-microphone-conversation.js`,
+ * `whispercpp-filesystem-streaming.js`), no inventados — ajustar tras prueba
+ * de campo si cortan frases de más o de menos.
+ *
  * ★ `no_speech_thold` (el umbral de whisper.cpp para "segmento sin voz") NO
  * va acá: `whisperConfigSchema` de este SDK (0.18.2) no lo declara —
  * verificado contra `node_modules/@qvac/sdk/dist/schemas/transcription-config.js`,
@@ -127,7 +151,9 @@ async function liberarBajoPresion(
  * `loadModel` falla ANTES de grabar nada — el dictado queda roto de punta a
  * punta. La defensa contra alucinación sobre silencio ya la hacen, en código
  * y de forma determinista, `pareceAlucinacion()`/`esFraseBasura()` en
- * `pipeline/dictar.ts`; no hace falta el parámetro del modelo.
+ * `pipeline/dictar.ts` (el VAD la reduce, no la reemplaza — sigue habiendo
+ * ruido no-silencioso, como toses o TV de fondo, sobre el que whisper puede
+ * seguir alucinando); no hace falta el parámetro del modelo.
  */
 const CONFIG_ASR = {
   /*
@@ -149,6 +175,16 @@ const CONFIG_ASR = {
   suppress_blank: true,
   suppress_nst: true,
   temperature: 0,
+  audio_format: 's16le',
+  contextParams: { use_gpu: true, gpu_device: 0 },
+  vadModelSrc: VAD_SILERO_5_1_2,
+  vad_params: {
+    threshold: 0.6,
+    min_speech_duration_ms: 250,
+    min_silence_duration_ms: 500,
+    max_speech_duration_s: 15.0,
+    speech_pad_ms: 200,
+  },
   initial_prompt:
     'Nota de campo en español sobre equipos médicos instalados en un hospital. ' +
     'Modalidades: MR, CT, ecógrafo, rayos X, monitor de paciente. ' +
@@ -230,23 +266,28 @@ export function estaListo(rol: Rol): boolean {
 }
 
 /**
- * Precarga portero + extractor a memoria/GPU en segundo plano, para que la
- * primera nota no pague los ~25 s de carga (portero ~11 s + extractor ~13 s
- * en el Pixel 8 Pro). Se llama una vez al montar la app (`App.tsx`).
+ * Precarga asr + portero + extractor a memoria/GPU en segundo plano, para que
+ * la primera nota no pague la carga (portero ~11 s + extractor ~13 s en el
+ * Pixel 8 Pro; whisper+VAD es liviano, ~79 MB, mucho más rápido de cargar).
+ * Se llama una vez al montar la app (`App.tsx`).
  *
  * - **Fire-and-forget:** los errores se loguean y no rompen nada. Si un
  *   modelo falla acá, `obtener()` lo reintenta cuando el pipeline lo pida
  *   de verdad, y `CapturarScreen` muestra el error ahí si persiste.
  * - **Idempotente:** el cache y el mapa `enVuelo` de `obtener()` hacen que
- *   llamarla dos veces, o llamarla mientras el usuario ya tocó "Interpretar",
- *   no dispare cargas duplicadas — la segunda espera a la primera.
- * - **Secuencial** (portero y después extractor): es el mismo orden que usa
- *   `procesarNota`, deja el portero (el que se usa primero) listo antes, y
- *   evita crear dos contextos Vulkan a la vez en el Mali.
- * - No precarga `asr` (whisper): el dictado todavía no está integrado.
+ *   llamarla dos veces, o llamarla mientras el usuario ya tocó "Interpretar"
+ *   o "Dictar", no dispare cargas duplicadas — la segunda espera a la primera.
+ * - **Secuencial** (asr, portero y después extractor): asr primero porque es
+ *   el más liviano y el que hace falta apenas el usuario toca el micrófono;
+ *   portero y extractor en el mismo orden que usa `procesarNota`, y evita
+ *   crear varios contextos Vulkan a la vez en el Mali.
+ * - `asr` ya está integrado (dictado por voz, Fase 11) — precargarlo evita
+ *   que la primera nota de voz pague la carga del modelo además de la
+ *   inferencia. `ORDEN_EVICTION` ya lo libera primero bajo presión de RAM, así
+ *   que el riesgo de competir por memoria con portero/extractor es acotado.
  */
 export async function precargarModelos(): Promise<void> {
-  for (const rol of ['portero', 'extractor'] as const) {
+  for (const rol of ['asr', 'portero', 'extractor'] as const) {
     if (cargados.has(rol)) continue;
     try {
       const t = Date.now();

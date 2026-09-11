@@ -1,4 +1,5 @@
-import { transcribe } from '@qvac/sdk';
+import { transcribe, transcribeStream } from '@qvac/sdk';
+import type { TranscribeStreamConversationSession } from '@qvac/sdk';
 import type { RecordingOptions } from 'expo-audio';
 import { obtener, liberar } from '../qvac/pool.ts';
 
@@ -201,4 +202,137 @@ export async function transcribirLocal(
       try { await liberar('asr'); } catch { /* liberar es best-effort */ }
     }
   }
+}
+
+/* ── Dictado en vivo (streaming) ──────────────────────────────────────── */
+
+/**
+ * Techo de INACTIVIDAD para una sesión en vivo. A diferencia de
+ * `TIMEOUT_TRANSCRIPCION_MS` (pensado para UNA promesa que puede colgarse),
+ * acá la sesión dura lo que dura la grabación — lo que hay que detectar no es
+ * "tardó mucho" sino "dejó de moverse": ni texto ni evento de VAD mientras
+ * se le siguen mandando buffers. Con la carga del modelo ya pagada (whisper
+ * viene precargado, `qvac/pool.ts` `precargarModelos()`) no hace falta un
+ * techo largo como el de 120 s del modo archivo.
+ */
+export const INACTIVIDAD_SESION_MS = 25_000;
+const INTERVALO_VIGILANCIA_MS = 5_000;
+
+/** Lo que la UI necesita para reflejar el dictado mientras corre. */
+export interface CallbacksSesionDictado {
+  /** Texto acumulado hasta ahora, cada vez que whisper cierra un segmento (por pausa detectada por el VAD). */
+  onTexto?: (textoAcumulado: string) => void;
+  /** Cambios de actividad de voz del VAD nativo, para un indicador "escuchando". */
+  onEscuchando?: (hablando: boolean) => void;
+}
+
+/** Controlador de una sesión de dictado en vivo — ver `abrirSesionDictado`. */
+export interface SesionDictado {
+  /** Empuja un buffer de audio PCM crudo (int16, mono, 16 kHz) a la sesión. */
+  escribir(chunk: Uint8Array): void;
+  /** Cierra la entrada de audio y espera el resultado final. */
+  terminar(): Promise<Transcripcion>;
+  /** Aborta la sesión sin esperar más — no hace falta llamarla después de `terminar()`. */
+  destruir(): void;
+}
+
+/**
+ * Abre una sesión de dictado en vivo: a diferencia de `transcribirLocal`
+ * (transcribe un archivo ya cerrado, de una sola vez), acá whisper va
+ * devolviendo texto por frase/pausa a medida que el VAD nativo detecta fin
+ * de un segmento de habla — el texto llega por frase, no letra por letra
+ * mientras se habla (así lo documenta el propio SDK).
+ *
+ * Requiere que `CONFIG_ASR` (`qvac/pool.ts`) tenga `vadModelSrc` cargado:
+ * sin VAD, el addon tira `VAD_MODEL_REQUIRED` al abrir la sesión.
+ *
+ * No libera `asr` al terminar (a diferencia de `transcribirLocal`): whisper
+ * viene precargado y se queda caliente para el próximo dictado; la eviction
+ * bajo presión de RAM (`qvac/pool.ts`, `ORDEN_EVICTION`) ya lo libera primero
+ * si hace falta.
+ *
+ * El filtro de alucinaciones (`pareceAlucinacion`/`esFraseBasura`) corre DOS
+ * veces: por segmento apenas llega (descarta ese pedazo puntual sin tocar
+ * los demás), y una pasada final sobre el texto acumulado (atrapa
+ * alucinaciones que se arman combinando dos segmentos cortos que solos no
+ * matchean nada de la lista).
+ */
+export async function abrirSesionDictado(
+  callbacks: CallbacksSesionDictado = {},
+): Promise<SesionDictado> {
+  const arranque = Date.now();
+  const modelId = await obtener('asr');
+  const sesion: TranscribeStreamConversationSession = await transcribeStream({
+    modelId,
+    prompt: PROMPT_ASR,
+    emitVadEvents: true,
+    endOfTurnSilenceMs: 800,
+  });
+
+  const segmentos: string[] = [];
+  let ultimaActividad = Date.now();
+  let destruida = false;
+
+  const vigilancia = setInterval(() => {
+    if (destruida) return;
+    if (Date.now() - ultimaActividad > INACTIVIDAD_SESION_MS) {
+      destruida = true;
+      sesion.destroy();
+    }
+  }, INTERVALO_VIGILANCIA_MS);
+
+  // Consume el iterador en paralelo — no se espera acá adentro. `terminar()`
+  // es quien espera a que este loop cierre, cuando el servidor termina tras
+  // `end()` o cuando la vigilancia de inactividad llama `destroy()`.
+  const consumo = (async () => {
+    try {
+      for await (const evento of sesion) {
+        ultimaActividad = Date.now();
+        if (evento.type === 'vad') {
+          callbacks.onEscuchando?.(evento.speaking);
+        } else if (evento.type === 'text') {
+          const limpio = evento.text.trim();
+          if (!limpio || pareceAlucinacion(limpio) || esFraseBasura(limpio)) continue;
+          segmentos.push(limpio);
+          callbacks.onTexto?.(segmentos.join(' '));
+        }
+        // 'segment'/'endOfTurn' no hacen falta acá: no se pidió `metadata`,
+        // y el cierre de turno ya se refleja en que llega un nuevo 'text'.
+      }
+    } finally {
+      clearInterval(vigilancia);
+    }
+  })();
+
+  return {
+    escribir(chunk) {
+      if (destruida) return;
+      ultimaActividad = Date.now();
+      try { sesion.write(chunk); } catch { destruida = true; }
+    },
+    async terminar() {
+      if (!destruida) {
+        try { sesion.end(); } catch { /* ya se habrá cortado sola */ }
+      }
+      // Techo corto: el modelo ya está cargado y la sesión ya recibió todo
+      // el audio — lo único pendiente es que el servidor cierre el último
+      // segmento, no hace falta un techo de minutos como en modo archivo.
+      await conTecho(
+        consumo, 15_000,
+        'La transcripción no cerró a tiempo.',
+      ).catch(() => { /* seguimos con lo que se alcanzó a acumular */ });
+      const texto = segmentos.join(' ').trim();
+      const alucinada = texto.length > 0 && (pareceAlucinacion(texto) || esFraseBasura(texto));
+      return {
+        texto: alucinada ? '' : texto,
+        tardoMs: Date.now() - arranque,
+        descartadaPorAlucinacion: alucinada,
+      };
+    },
+    destruir() {
+      destruida = true;
+      clearInterval(vigilancia);
+      sesion.destroy();
+    },
+  };
 }

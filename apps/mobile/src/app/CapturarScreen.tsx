@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAudioRecorder, requestRecordingPermissionsAsync } from 'expo-audio';
+import { useAudioStream, requestRecordingPermissionsAsync } from 'expo-audio';
 import {
   ActivityIndicator, BackHandler, KeyboardAvoidingView, Platform, Pressable,
   ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import type { EstadoRevision } from '../core/contracts.ts';
 import { procesarNota, type SalidaPipeline } from '../pipeline/cruzar.ts';
-import { OPCIONES_GRABACION, transcribirLocal } from '../pipeline/dictar.ts';
+import { abrirSesionDictado, type SesionDictado } from '../pipeline/dictar.ts';
 import type { ContextoExtraccion } from '../pipeline/extractor.ts';
 import { estaListo, MODELOS } from '../qvac/pool.ts';
 import { obtenerIdentidad } from './identidad.ts';
@@ -144,42 +144,56 @@ export default function CapturarScreen() {
   // botón hay una ventana de un frame.
   const interpretando = useRef(false);
 
-  /* ── Fase 11 · dictado por voz, todo on-device ── */
-  const grabadora = useAudioRecorder(OPCIONES_GRABACION);
+  /* ── Fase 11 · dictado por voz EN VIVO, todo on-device ──
+   *
+   * `useAudioStream` (distinto de `useAudioRecorder`, que grababa a un
+   * archivo .m4a y recién ahí transcribía) entrega audio PCM crudo del
+   * micrófono en tiempo real; cada buffer se empuja a la sesión de
+   * `abrirSesionDictado` (`pipeline/dictar.ts`), que va devolviendo texto por
+   * frase/pausa a medida que el VAD nativo cierra un segmento de habla — el
+   * texto aparece por frase, no letra por letra mientras se habla.
+   *
+   * `grabando`/`transcribiendo` conservan el mismo rol que en el modo
+   * archivo (mic activo / cerrando), solo que ahora "transcribiendo" es la
+   * cola corta de cerrar la sesión tras tocar "Detener", no de esperar a
+   * transcribir un archivo entero — la transcripción ya viene corriendo en
+   * paralelo desde que arrancó a grabar.
+   */
+  const sesionDictadoRef = useRef<SesionDictado | null>(null);
   const [grabando, setGrabando] = useState(false);
   const [transcribiendo, setTranscribiendo] = useState(false);
+  const ETIQUETA_DICTADO = `Dictando con whisper en vivo (${mb(MODELOS.asr.expectedSize)})`;
+
+  const { stream } = useAudioStream({
+    sampleRate: 16_000,
+    channels: 1,
+    encoding: 'int16',
+    onBuffer: (buffer) => {
+      sesionDictadoRef.current?.escribir(new Uint8Array(buffer.data));
+    },
+  });
 
   const alternarDictado = useCallback(async () => {
     setError(null);
 
     if (grabando) {
-      // Cierra la fila "Grabando" con la duración real — `pasoCorriendoDesde`
-      // todavía apunta a cuándo arrancó (la seteó `actualizarPaso` al abrir
-      // la etapa, más abajo), así que hay que leerla ANTES de pisarla con la
-      // etapa siguiente.
-      const grabacionDesde = pasoCorriendoDesde.current;
-      actualizarPaso({
-        etapa: 'grabando', etiqueta: 'Grabando tu nota', estado: 'ok',
-        ms: grabacionDesde ? Date.now() - grabacionDesde : undefined,
-      });
       setGrabando(false);
       setTranscribiendo(true);
-      const etqTranscribir = `Transcribiendo con whisper (${mb(MODELOS.asr.expectedSize)})`;
-      actualizarPaso({ etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'corriendo' });
-      const transcribiendoDesde = Date.now();
+      stream.stop();
+      const cerrandoDesde = Date.now();
       try {
-        await grabadora.stop();
-        const uri = grabadora.uri;
-        if (!uri) throw new Error('la grabación no dejó archivo de audio');
-        const { texto, descartadaPorAlucinacion } = await transcribirLocal(uri);
-        const ms = Date.now() - transcribiendoDesde;
+        const sesion = sesionDictadoRef.current;
+        sesionDictadoRef.current = null;
+        if (!sesion) throw new Error('la sesión de dictado ya se había cerrado');
+        const { texto, descartadaPorAlucinacion } = await sesion.terminar();
+        const ms = Date.now() - cerrandoDesde;
         if (descartadaPorAlucinacion) {
           // Whisper devolvió una frase repetida — su modo de falla típico con
           // audio sin voz. Se descarta en `dictar.ts` y acá se dice por qué:
           // meter quince frases inventadas en una nota que la persona va a
           // confirmar como propia es peor que no transcribir nada.
           actualizarPaso({
-            etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'error', ms,
+            etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'error', ms,
             detalle: 'no se escuchó voz — se descartó, no se inventó texto',
           });
           setError('No se escuchó voz en la grabación. Acercá el micrófono y probá de nuevo, o escribí la nota.');
@@ -187,14 +201,14 @@ export default function CapturarScreen() {
         }
         if (!texto) {
           actualizarPaso({
-            etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'error', ms,
+            etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'error', ms,
             detalle: 'no se entendió nada en el audio',
           });
           setError('No se entendió nada en el audio. Probá de nuevo, o escribilo.');
           return;
         }
         actualizarPaso({
-          etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'ok', ms,
+          etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'ok', ms,
           detalle: `"${texto.length > 70 ? `${texto.slice(0, 70)}…` : texto}"`,
         });
         // Se AGREGA a lo que ya haya escrito en vez de reemplazarlo: perder
@@ -204,8 +218,8 @@ export default function CapturarScreen() {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         actualizarPaso({
-          etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'error',
-          ms: Date.now() - transcribiendoDesde, detalle: `se cortó acá: ${msg}`,
+          etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'error',
+          ms: Date.now() - cerrandoDesde, detalle: `se cortó acá: ${msg}`,
         });
         setError(msg);
       } finally {
@@ -220,17 +234,27 @@ export default function CapturarScreen() {
         setError('Sin permiso de micrófono no se puede dictar. Podés escribir la nota igual.');
         return;
       }
-      await grabadora.prepareToRecordAsync();
-      grabadora.record();
-      // Nueva grabación: se limpia la traza de la anterior, igual que
-      // `interpretar()` limpia la del texto al arrancar de nuevo.
+      // Nueva sesión: se limpia la traza de la anterior, igual que
+      // `interpretar()` limpia la del texto al arrancar de nuevo. Se abre
+      // ANTES de arrancar el stream de audio para no perder los primeros
+      // buffers mientras la sesión todavía no existe.
       setPasos([]);
-      actualizarPaso({ etapa: 'grabando', etiqueta: 'Grabando tu nota', estado: 'corriendo' });
+      actualizarPaso({ etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'corriendo' });
+      sesionDictadoRef.current = await abrirSesionDictado({
+        onTexto: (acumulado) => {
+          actualizarPaso({
+            etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'corriendo',
+            detalle: `"${acumulado.length > 70 ? `${acumulado.slice(0, 70)}…` : acumulado}"`,
+          });
+        },
+      });
+      await stream.start();
       setGrabando(true);
     } catch (e) {
+      sesionDictadoRef.current = null;
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [grabando, grabadora]);
+  }, [grabando, stream, ETIQUETA_DICTADO]);
 
   async function interpretar() {
     const texto = nota.trim();
