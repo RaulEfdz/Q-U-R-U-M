@@ -17,9 +17,9 @@ Fuentes oficiales:
 | Regla | Estado | Evidencia | Acción pendiente |
 |---|---|---|---|
 | Usar QVAC | Cumple | `@qvac/sdk` ejecuta `loadModel`, `completion` y `transcribe` en `apps/mobile`; el servidor también integra el SDK. | Mostrarlo funcionando en el video. |
-| Inferencia en dispositivo o delegada P2P | Cumple | `getLoadedModelInfo().isDelegated !== false` falla cerrado para ruta local. El Pixel 7 ejecuta el cliente nativo. | Grabar una corrida local claramente identificable. |
+| Inferencia en dispositivo o delegada P2P | Cumple | `getLoadedModelInfo().isDelegated !== false` falla cerrado para ruta local. El Pixel 8 Pro ejecuta el cliente nativo. | Grabar una corrida local claramente identificable. |
 | Ninguna inferencia en la nube | Cumple en código | `apps/server`: `npm run verify:no-cloud` → 7/7. Escaneo adicional de `apps/server` y `apps/mobile`: ningún proveedor cloud, Web Speech API ni URL ejecutable externa de inferencia. | Mantener este control en la toma final. |
-| P2P genuino | Cumple | Hyperswarm móvil-servidor probado en Pixel 7; `hello_ack` real en 83 ms. Allowlist fail-closed, ACK por lote, idempotencia, reintentos y vínculo de identidad por sesión. | No prometer funcionamiento en LAN totalmente aislada: el descubrimiento usa DHT salvo bootstrap propio. |
+| P2P genuino | Cumple | Hyperswarm móvil-servidor probado en Pixel 8 Pro; `hello_ack` real en 83 ms. Allowlist fail-closed, ACK por lote, idempotencia, reintentos y vínculo de identidad por sesión. | No prometer funcionamiento en LAN totalmente aislada: el descubrimiento usa DHT salvo bootstrap propio. |
 | Producto sustancial construido en 48 horas | Cumple según historial | README declara la base previa; primer commit dentro de la ventana y dependencias/origen enumerados. | No borrar esa declaración. |
 | Repositorio accesible al jurado | No verificable | GitHub reporta `RaulEfdz/Q-U-R-U-M` como **PRIVATE**. | Invitar al jurado o hacer público el repositorio y probar acceso en sesión privada. |
 | Entrega antes de las 08:00 | Pendiente | A las 00:36 seguía dentro de plazo. | Enviar repo y video en TryDojo antes de las 08:00; no hay prórroga. |
@@ -36,8 +36,8 @@ apps/server  npm run typecheck  → OK
 apps/server  npm test           → 117/117
 apps/server  npm run verify:no-cloud → 7/7
 núcleo compartido server/mobile → diff byte a byte OK
-Pixel 7 ↔ servidor Hyperswarm   → conectado
-Pixel 7 hello ↔ hello_ack       → 83 ms
+Pixel 8 Pro ↔ servidor Hyperswarm → conectado
+Pixel 8 Pro hello ↔ hello_ack     → 83 ms
 npm audit servidor, high        → 0 high/critical
 npm audit móvil, high           → 0 high/critical; 10 moderate transitivas de tooling Expo
 ```

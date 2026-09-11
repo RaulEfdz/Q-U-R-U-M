@@ -8,7 +8,7 @@ Estado comprobado el **2026-09-11**. La lista de cierre para el reto está en [`
 - `main`: merge `5fa8325`, sincronizada con `origin/main` al iniciar esta actualización documental.
 - Servidor: typecheck, **117/117 tests** y `verify:no-cloud` **7/7**.
 - Mobile: typecheck y **17/17 tests**.
-- Pixel 7 ↔ servidor: Hyperswarm conectado y `hello_ack` real en **83 ms**.
+- Pixel 8 Pro ↔ servidor: Hyperswarm conectado y `hello_ack` real en **83 ms**.
 - APK instalada: debug; el build release continúa pendiente.
 - No hay video final ni URL verificada dentro del repositorio.
 - El repositorio remoto aparece privado; hay que garantizar acceso al jurado.

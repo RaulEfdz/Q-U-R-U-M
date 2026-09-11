@@ -10,7 +10,7 @@ Estado comprobado el **11 de septiembre de 2026**. Esta es la lista operativa de
 - Mobile: typecheck y **17/17 tests**.
 - Núcleo compartido idéntico byte a byte entre servidor y mobile.
 - Cola offline append-only, recuperación, ACK parcial, reintentos, backoff e idempotencia.
-- P2P físico Pixel 7 ↔ servidor: conexión y `hello_ack` real en **83 ms**.
+- P2P físico Pixel 8 Pro ↔ servidor: conexión y `hello_ack` real en **83 ms**.
 - Allowlist fail-closed y bloqueo de suplantación de identidad por sesión.
 - Confirmación humana antes de incorporar evidencia remota a la base instalada.
 - Cliente 360, conflictos, quórum, frescura, oportunidades explicables y trazabilidad.

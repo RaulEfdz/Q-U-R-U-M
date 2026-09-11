@@ -37,7 +37,7 @@ Eso permite que ventas, servicio y especialistas compartan una misma vista de ca
 
 ### Qué se puede demostrar hoy
 
-El flujo de producto está implementado: **capturar → interpretar → revisar → confirmar → sincronizar P2P → reconciliar → consultar/visualizar/exportar**. La conexión física Pixel 7 ↔ servidor fue verificada con Hyperswarm y un `hello_ack` real en 83 ms. El servidor tiene pruebas automatizadas de sus reglas de confianza, persistencia, política, seguridad y transporte; `npm run test:ci` valida typecheck, **117 tests** y ausencia de egress de inferencia cloud. Mobile suma **17 tests** de cola offline, protocolo, ACK, reintentos e idempotencia.
+El flujo de producto está implementado: **capturar → interpretar → revisar → confirmar → sincronizar P2P → reconciliar → consultar/visualizar/exportar**. La conexión física Pixel 8 Pro ↔ servidor fue verificada con Hyperswarm y un `hello_ack` real en 83 ms. El servidor tiene pruebas automatizadas de sus reglas de confianza, persistencia, política, seguridad y transporte; `npm run test:ci` valida typecheck, **117 tests** y ausencia de egress de inferencia cloud. Mobile suma **17 tests** de cola offline, protocolo, ACK, reintentos e idempotencia.
 
 Hay trabajo de demostración y validación real que no debe maquillarse como terminado: la lista priorizada, los criterios de cierre y la evidencia esperada están en [FALTANTES_PARA_DEMO.md](docs/FALTANTES_PARA_DEMO.md).
 
@@ -83,7 +83,7 @@ Ningún boilerplate, plantilla ni proyecto de arranque con lógica de producto p
 | `apps/server` | v0.5.0 | 2026-09-11 |
 | `apps/mobile` | v0.4.1 | 2026-09-10 |
 
-Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las rutas de la API y **seis** pantallas de escritorio en 127.0.0.1 (sumó Conexiones); `apps/mobile` arranca en un Pixel 7 con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`. Técnicas propias que valen como punto de pitch, no solo como fix: `docs/FUNCIONALIDADES_RESCATABLES.md`.
+Estado: **las dos apps corren en su plataforma real**. `apps/server` sirve las rutas de la API y **seis** pantallas de escritorio en 127.0.0.1 (sumó Conexiones); `apps/mobile` arranca en un Pixel 8 Pro con las tres pantallas y el pipeline de tres modelos corriendo on-device. Bitácora de avance en `BITACORA.md`, punto de retome en `CONTINUAR.md`, validación de reglas duras en `VALIDACION.md`. Técnicas propias que valen como punto de pitch, no solo como fix: `docs/FUNCIONALIDADES_RESCATABLES.md`.
 
 **Lo que todavía no está probado:** el build de release de mobile, que es lo que hace falta para la demo sin WiFi, nunca llegó a compilar. Ver `CONTINUAR.md`. El dictado de escritorio sí quedó probado con voz real esta sesión (no solo silencio): ver v0.5.0 abajo.
 
@@ -122,7 +122,7 @@ Todo corre local. No hay servicio en la nube que levantar ni ninguna variable de
 | Android SDK + platform-tools | con `adb` en el `PATH` | `expo run:android`, sembrar datos en el teléfono |
 | Teléfono Android **físico** | Android 12+ (`minSdkVersion: 31`), arm64 | `apps/mobile` |
 
-**El móvil necesita un dispositivo real: los emuladores no corren llama.cpp** (`apps/mobile/CLAUDE.md`). El desarrollo se hizo sobre un Pixel 7; el paquete de la app es `io.qurum.mobile`.
+**El móvil necesita un dispositivo real: los emuladores no corren llama.cpp** (`apps/mobile/CLAUDE.md`). El dispositivo de prueba es un Pixel 8 Pro; el paquete de la app es `io.qurum.mobile`.
 
 `apps/mobile/package.json` no declara `engines`; su requisito de Node ≥22.17 sale de `apps/mobile/CLAUDE.md`.
 
@@ -352,7 +352,7 @@ Las dos apps pasan de "compila" a "corre en su plataforma real". Fases 8 y 9 del
 - `data/seed.json` — 23 observaciones (las 20 del workbook más los tres testimonios diseñados), que producen los cuatro estados de quórum.
 
 **Añadido — `apps/mobile`**
-- Pantalla **Cliente 360** con la vista de reconciliación, verificada en un Pixel 7: confianza por campo, `Sin quórum` con todas las versiones y quién sostiene cada una, cohortes de edad, y frescura como eje separado.
+- Pantalla **Cliente 360** con la vista de reconciliación, verificada en un Pixel 8 Pro: confianza por campo, `Sin quórum` con todas las versiones y quién sostiene cada una, cohortes de edad, y frescura como eje separado.
 - Navegación de dos pestañas y barra de marca con los insets reales del dispositivo.
 - `dev/sembrar-demo.ts` — escenario de demo para ver la pantalla con datos sin depender del pipeline.
 
