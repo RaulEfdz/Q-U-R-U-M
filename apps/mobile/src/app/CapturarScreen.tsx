@@ -5,10 +5,10 @@ import {
   ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import type { EstadoRevision } from '../core/contracts.ts';
-import { procesarNota, type EventoPipeline, type SalidaPipeline } from '../pipeline/cruzar.ts';
+import { procesarNota, type SalidaPipeline } from '../pipeline/cruzar.ts';
 import { OPCIONES_GRABACION, transcribirLocal } from '../pipeline/dictar.ts';
 import type { ContextoExtraccion } from '../pipeline/extractor.ts';
-import { estaListo } from '../qvac/pool.ts';
+import { estaListo, MODELOS } from '../qvac/pool.ts';
 import { obtenerIdentidad } from './identidad.ts';
 import { ConfirmacionBorrador } from './ConfirmacionBorrador.tsx';
 import { Icono } from './components/Icono.tsx';
@@ -32,10 +32,34 @@ function formatoDuracion(ms: number): string {
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
 
+/** bytes → "78 MB" / "1.0 GB". Mismo criterio que `mb()` en pipeline/cruzar.ts
+ *  (no compartido: es una línea, no vale la pena un módulo por eso). */
+function mb(bytes: number): string {
+  const m = bytes / (1024 * 1024);
+  return m >= 1024 ? `${(m / 1024).toFixed(1)} GB` : `${Math.round(m)} MB`;
+}
+
+/**
+ * El panel de "corriendo en tu teléfono" es el mismo para interpretar texto
+ * y para dictar — mismo componente, misma fila por etapa — así que su forma
+ * es más ancha que `EventoPipeline` (que es específica del pipeline de
+ * `procesarNota`, con su propia unión de etapas). Un `EventoPipeline` entra
+ * acá sin conversión (`etapa: string` es más amplio); lo que NO entraría al
+ * revés es una `PasoUI` de dictado (`'grabando'`/`'transcribiendo'`) dentro
+ * de un `EventoPipeline[]`.
+ */
+interface PasoUI {
+  etapa: string;
+  etiqueta: string;
+  estado: 'corriendo' | 'ok' | 'error';
+  ms?: number;
+  detalle?: string;
+}
+
 /** Una línea para que TalkBack anuncie EN QUÉ va el pipeline. Cambia solo
  *  cuando una etapa arranca o termina — nunca con el contador de segundos,
  *  que si no sería un anuncio por segundo. */
-function resumenA11y(pasos: EventoPipeline[]): string {
+function resumenA11y(pasos: PasoUI[]): string {
   const ult = pasos[pasos.length - 1];
   if (!ult) return 'Interpretando la nota';
   if (ult.estado === 'error') return `Se cortó en: ${ult.etiqueta}`;
@@ -62,14 +86,26 @@ export default function CapturarScreen() {
   const [vista, setVista] = useState<Vista>({ paso: 'capturar' });
   const [error, setError] = useState<string | null>(null);
 
-  // Progreso del pipeline: una fila por etapa (precheck → portero → extractor
-  // → verificador). Se actualiza en su lugar cuando la etapa pasa de
-  // 'corriendo' a 'ok'. Ver `EventoPipeline` en pipeline/cruzar.ts.
+  // Progreso — una fila por etapa, compartido entre interpretar texto
+  // (precheck → portero → extractor → verificador, ver `EventoPipeline` en
+  // pipeline/cruzar.ts) y dictar (grabando → transcribiendo, más abajo). Se
+  // actualiza en su lugar cuando la etapa pasa de 'corriendo' a 'ok'/'error'.
   // El contador de segundos de la etapa activa lo mueve `<ContadorEtapa>`
   // con su propio `setInterval` — así el tick de 300 ms no re-renderiza toda
   // la pantalla ~300 veces por captura, solo ese `<Text>`.
-  const [pasos, setPasos] = useState<EventoPipeline[]>([]);
+  const [pasos, setPasos] = useState<PasoUI[]>([]);
   const pasoCorriendoDesde = useRef<number | null>(null);
+
+  function actualizarPaso(e: PasoUI) {
+    if (e.estado === 'corriendo') pasoCorriendoDesde.current = Date.now();
+    setPasos((prev) => {
+      const i = prev.findIndex((p) => p.etapa === e.etapa);
+      if (i === -1) return [...prev, e];
+      const copia = prev.slice();
+      copia[i] = e;
+      return copia;
+    });
+  }
 
   // `App.tsx` precarga portero + extractor al abrir. Acá solo sondeamos si
   // ya terminaron, para avisar que la primera nota va a tardar más si no.
@@ -108,17 +144,6 @@ export default function CapturarScreen() {
   // botón hay una ventana de un frame.
   const interpretando = useRef(false);
 
-  function alProgreso(e: EventoPipeline) {
-    if (e.estado === 'corriendo') pasoCorriendoDesde.current = Date.now();
-    setPasos((prev) => {
-      const i = prev.findIndex((p) => p.etapa === e.etapa);
-      if (i === -1) return [...prev, e];
-      const copia = prev.slice();
-      copia[i] = e;
-      return copia;
-    });
-  }
-
   /* ── Fase 11 · dictado por voz, todo on-device ── */
   const grabadora = useAudioRecorder(OPCIONES_GRABACION);
   const [grabando, setGrabando] = useState(false);
@@ -128,31 +153,61 @@ export default function CapturarScreen() {
     setError(null);
 
     if (grabando) {
+      // Cierra la fila "Grabando" con la duración real — `pasoCorriendoDesde`
+      // todavía apunta a cuándo arrancó (la seteó `actualizarPaso` al abrir
+      // la etapa, más abajo), así que hay que leerla ANTES de pisarla con la
+      // etapa siguiente.
+      const grabacionDesde = pasoCorriendoDesde.current;
+      actualizarPaso({
+        etapa: 'grabando', etiqueta: 'Grabando tu nota', estado: 'ok',
+        ms: grabacionDesde ? Date.now() - grabacionDesde : undefined,
+      });
       setGrabando(false);
       setTranscribiendo(true);
+      const etqTranscribir = `Transcribiendo con whisper (${mb(MODELOS.asr.expectedSize)})`;
+      actualizarPaso({ etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'corriendo' });
+      const transcribiendoDesde = Date.now();
       try {
         await grabadora.stop();
         const uri = grabadora.uri;
         if (!uri) throw new Error('la grabación no dejó archivo de audio');
         const { texto, descartadaPorAlucinacion } = await transcribirLocal(uri);
+        const ms = Date.now() - transcribiendoDesde;
         if (descartadaPorAlucinacion) {
           // Whisper devolvió una frase repetida — su modo de falla típico con
           // audio sin voz. Se descarta en `dictar.ts` y acá se dice por qué:
           // meter quince frases inventadas en una nota que la persona va a
           // confirmar como propia es peor que no transcribir nada.
+          actualizarPaso({
+            etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'error', ms,
+            detalle: 'no se escuchó voz — se descartó, no se inventó texto',
+          });
           setError('No se escuchó voz en la grabación. Acercá el micrófono y probá de nuevo, o escribí la nota.');
           return;
         }
         if (!texto) {
+          actualizarPaso({
+            etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'error', ms,
+            detalle: 'no se entendió nada en el audio',
+          });
           setError('No se entendió nada en el audio. Probá de nuevo, o escribilo.');
           return;
         }
+        actualizarPaso({
+          etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'ok', ms,
+          detalle: `"${texto.length > 70 ? `${texto.slice(0, 70)}…` : texto}"`,
+        });
         // Se AGREGA a lo que ya haya escrito en vez de reemplazarlo: perder
         // una nota a medio escribir por tocar el micrófono seria el peor
         // resultado posible en una app cuya premisa es no perder datos.
         setNota((previa) => (previa.trim() ? `${previa.trim()} ${texto}` : texto));
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        const msg = e instanceof Error ? e.message : String(e);
+        actualizarPaso({
+          etapa: 'transcribiendo', etiqueta: etqTranscribir, estado: 'error',
+          ms: Date.now() - transcribiendoDesde, detalle: `se cortó acá: ${msg}`,
+        });
+        setError(msg);
       } finally {
         setTranscribiendo(false);
       }
@@ -167,6 +222,10 @@ export default function CapturarScreen() {
       }
       await grabadora.prepareToRecordAsync();
       grabadora.record();
+      // Nueva grabación: se limpia la traza de la anterior, igual que
+      // `interpretar()` limpia la del texto al arrancar de nuevo.
+      setPasos([]);
+      actualizarPaso({ etapa: 'grabando', etiqueta: 'Grabando tu nota', estado: 'corriendo' });
       setGrabando(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -190,7 +249,7 @@ export default function CapturarScreen() {
         visitadoEn,
         fuente: 'texto',
       };
-      const salida = await procesarNota(texto, ctx, alProgreso);
+      const salida = await procesarNota(texto, ctx, actualizarPaso);
       setVista({ paso: 'revision', salida, nota: texto });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -257,7 +316,11 @@ export default function CapturarScreen() {
   }
 
   const procesando = vista.paso === 'procesando';
-  const mostrarPanel = procesando || pasos.length > 0;
+  // Corriendo: interpretando el texto O dictando (grabando/transcribiendo) —
+  // el panel de abajo es el mismo para las dos cosas.
+  const corriendo = procesando || grabando || transcribiendo;
+  const mostrarPanel = corriendo || pasos.length > 0;
+  const huboError = pasos.some((p) => p.estado === 'error');
 
   return (
     <KeyboardAvoidingView
@@ -358,12 +421,12 @@ export default function CapturarScreen() {
           <Pressable
             style={[
               estilos.botonPrimario, estilos.botonInterpretar,
-              (!nota.trim() || procesando) && estilos.botonDeshabilitado,
+              (!nota.trim() || corriendo) && estilos.botonDeshabilitado,
             ]}
             onPress={interpretar}
-            disabled={!nota.trim() || procesando}
+            disabled={!nota.trim() || corriendo}
             accessibilityRole="button"
-            accessibilityState={{ disabled: !nota.trim() || procesando, busy: procesando }}
+            accessibilityState={{ disabled: !nota.trim() || corriendo, busy: procesando }}
             accessibilityLabel={procesando ? 'Interpretando la nota, esperá' : 'Interpretar'}
           >
             {procesando ? (
@@ -384,21 +447,7 @@ export default function CapturarScreen() {
           </View>
         )}
 
-        {grabando && (
-          <Text style={estilos.notaProcesando} accessibilityLiveRegion="polite">
-            Grabando. Tocá «Detener» cuando termines — el audio se transcribe en
-            este teléfono y no sale del dispositivo.
-          </Text>
-        )}
-
-        {transcribiendo && (
-          <Text style={estilos.notaProcesando} accessibilityLiveRegion="polite">
-            Transcribiendo con whisper en tu teléfono, sin nube…
-          </Text>
-        )}
-
-
-        {procesando && (
+        {corriendo && (
           <Text accessibilityLiveRegion="polite" style={estilos.soloLector}>
             {resumenA11y(pasos)}
           </Text>
@@ -407,7 +456,9 @@ export default function CapturarScreen() {
         {mostrarPanel && (
           <View style={estilos.panel}>
             <Text style={estilos.panelTitulo}>
-              {procesando ? 'Corriendo en tu teléfono, sin nube' : 'Se cortó a mitad'}
+              {corriendo
+                ? 'Corriendo en tu teléfono, sin nube'
+                : huboError ? 'Se cortó a mitad' : 'Listo'}
             </Text>
 
             {pasos.map((p) => {
@@ -532,8 +583,6 @@ const estilos = StyleSheet.create({
     marginTop: espacio.md, paddingHorizontal: espacio.xs,
   },
   avisoModelosTexto: { ...tipografia.pequeno, flex: 1, color: color.textoTenue, lineHeight: 16 },
-  // Estado de grabación/transcripción del dictado (Fase 11).
-  notaProcesando: { ...tipografia.pequeno, textAlign: 'center', color: color.textoTenue, marginTop: espacio.md },
 
   // Fuera de la vista pero en el árbol de accesibilidad: TalkBack lo lee, el
   // ojo no. `position: absolute` + offset — `display:'none'` o tamaño 0 lo
