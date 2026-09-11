@@ -32,6 +32,12 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "QUÓRUM usa tu ubicación para registrar dónde se hizo la visita. Se guarda junto con la nota, solo en este teléfono, y es opcional: si no das el permiso la nota se guarda igual, sin ubicación."
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
