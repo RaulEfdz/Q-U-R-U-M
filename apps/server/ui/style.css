@@ -804,9 +804,20 @@ footer {
 
 body { background: var(--fondo); color: var(--texto); }
 .app-shell { min-height: 100vh; display: flex; }
+/*
+ * Sticky, no en el flujo del scroll de la página: con `main` sin alto fijo,
+ * una pantalla larga (Auditoría con 50 registros, Cliente 360 con muchos
+ * grupos) hacía crecer TODO el `.app-shell`, y el sidebar —que solo tenía
+ * `min-height: 100vh`, no una posición propia— se iba de la vista junto con
+ * el contenido en cuanto se scrolleaba. La navegación principal tiene que
+ * quedarse fija mientras el contenido se mueve, no viajar con él.
+ * `overflow-y: auto` es la red de seguridad si el propio sidebar llegara a
+ * ser más alto que el viewport (una ventana muy baja).
+ */
 .sidebar {
-  width: 238px; flex: 0 0 238px; min-height: 100vh; display: flex; flex-direction: column;
+  width: 238px; flex: 0 0 238px; height: 100vh; display: flex; flex-direction: column;
   padding: 28px 16px 20px; background: var(--rail); border-right: 1px solid var(--borde);
+  position: sticky; top: 0; align-self: flex-start; overflow-y: auto;
 }
 .sidebar .marca { align-items: center; gap: 11px; padding: 0 12px 34px; }
 .sidebar .marca h1 { font-size: 18px; letter-spacing: .11em; line-height: 1; }
@@ -904,7 +915,10 @@ td { padding: 11px 12px; }
 
 @media (max-width: 800px) {
   .app-shell { display: block; }
-  .sidebar { width: 100%; min-height: auto; padding: 14px 16px 8px; border-right: 0; border-bottom: 1px solid var(--borde); }
+  /* Colapsa a barra horizontal: acá ya no hay nada que separar del scroll
+   * de la página (el sidebar mismo mide unos 60px de alto), así que vuelve
+   * a fluir normal en vez de quedar pegado arriba tapando contenido. */
+  .sidebar { position: static; height: auto; overflow-y: visible; width: 100%; padding: 14px 16px 8px; border-right: 0; border-bottom: 1px solid var(--borde); }
   .sidebar .marca { padding: 0 4px 14px; }
   .sidebar-label, .sidebar-bottom { display: none; }
   .sidebar nav { flex-direction: row; overflow-x: auto; }
