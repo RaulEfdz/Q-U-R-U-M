@@ -10,6 +10,7 @@
     "start": "node --experimental-strip-types src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test:ci": "npm run typecheck && npm test && npm run verify:no-cloud",
     "verify:no-cloud": "bash scripts/verify-no-cloud.sh"
   },
   "dependencies": {

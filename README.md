@@ -10,6 +10,39 @@ Requisito duro: inferencia on-device o delegada P2P con QVAC. **Nube prohibida e
 
 ---
 
+## Por qué existe QUÓRUM
+
+Después de cada visita a un hospital, alguien puede haber visto información decisiva: cuántos MR, CT o ecógrafos hay; de qué fabricante son; cuáles parecen viejos; qué equipos convendría renovar. Hoy ese conocimiento termina repartido entre notas, conversaciones, hojas de cálculo y memoria personal. No se puede consultar con confianza, comparar entre cuentas ni convertir en una decisión comercial o de servicio.
+
+El problema no es solo extraer texto con IA. También hay que responder una pregunta más difícil: **cuando dos personas cuentan cosas distintas, ¿qué dato merece entrar en la visión de un cliente?** Guardar cada frase como un hecho produciría un inventario rápido, pero poco confiable.
+
+QUÓRUM convierte una conversación de campo en una base instalada que conserva evidencia, incertidumbre y trazabilidad. La persona habla o escribe como lo haría al salir de una visita; la IA local propone estructura; la persona revisa antes de guardar; y el motor de confianza decide, campo por campo, si hay evidencia suficiente para mostrar un dato como quórum, reportado, estimado o desconocido.
+
+## Cómo resuelve el reto
+
+| Fricción en campo | Respuesta de QUÓRUM | Resultado para el equipo |
+|---|---|---|
+| El conocimiento vive en notas y memoria | Captura por texto o voz en lenguaje natural | Registrar una visita no obliga a completar un formulario largo |
+| Las descripciones son inconsistentes o incompletas | Extracción local a cliente, sitio, equipo, cantidad, edad, fuente y confianza | Un dato parcial sigue siendo útil sin inventar lo desconocido |
+| Dos personas pueden informar versiones distintas | Quórum y conflicto por campo; nunca se promedian versiones incompatibles | Se ve qué se sabe, quién lo sostiene y qué necesita revisión |
+| Un borrador de IA puede estar equivocado | Revisión y confirmación humana obligatorias antes de persistir | La IA asiste; no convierte una suposición en registro oficial |
+| Los datos sensibles no deberían salir del entorno | Inferencia QVAC local; P2P permitido solo por allowlist y con revisión humana | El conocimiento no depende de enviar notas a un proveedor cloud |
+| Es difícil actuar sobre muchas visitas aisladas | Cliente 360, Panorama, frescura, oportunidades, filtros y exportación | Una observación se transforma en inteligencia accionable entre clientes |
+
+### La idea que va más allá del prototipo
+
+Queremos que la base instalada deje de ser una fotografía incierta que alguien reconstruye antes de una reunión. QUÓRUM plantea una **memoria operativa compartida y verificable**: cada visita aporta evidencia, la evidencia madura con el tiempo y la organización puede actuar sin borrar el desacuerdo ni esconder la incertidumbre.
+
+Eso permite que ventas, servicio y especialistas compartan una misma vista de cada entorno tecnológico, sin exigir que el personal de campo se vuelva digitador ni que datos sensibles viajen a la nube. La ambición no es reemplazar el criterio humano: es hacer que ese criterio, cuando está respaldado por evidencia, sobreviva a la conversación y se vuelva útil para todos.
+
+### Qué se puede demostrar hoy
+
+El flujo de producto está implementado: **capturar → interpretar → revisar → confirmar → reconciliar → consultar/visualizar/exportar**. El servidor tiene pruebas automatizadas de sus reglas de confianza, persistencia, política, seguridad y transporte; `npm run test:ci` valida typecheck, tests y ausencia de egress de inferencia cloud.
+
+Hay trabajo de demostración y validación real que no debe maquillarse como terminado: la lista priorizada, los criterios de cierre y la evidencia esperada están en [FALTANTES_PARA_DEMO.md](docs/FALTANTES_PARA_DEMO.md).
+
+---
+
 ## Versión
 
 | Componente | Versión | Fecha |
@@ -212,7 +245,7 @@ Esperado: `RESULTADO: 7/7 controles en verde` y exit 0. Sin red, el control 6 no
 ### Correr los tests y el typecheck
 
 ```bash
-cd apps/server && npx tsc --noEmit && npm test     # esperado: 31/31, exit 0
+cd apps/server && npm run test:ci                  # typecheck + 102 tests + verify:no-cloud
 cd ../mobile   && npx tsc --noEmit                 # esperado: exit 0
 ```
 

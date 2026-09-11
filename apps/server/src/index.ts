@@ -10,8 +10,9 @@
  *    y corre on-device (o delegada a un peer por QVAC, nunca a un proveedor
  *    SaaS). Este archivo no hace un solo `fetch` de salida.
  * 3. Nada se persiste sin confirmación humana (H-03). `/api/observar` produce
- *    un BORRADOR en memoria (`store/drafts.ts`, sin escritura a disco);
- *    `/api/confirmar` es el ÚNICO endpoint que llama `agregar()`.
+ *    un BORRADOR en memoria (`store/drafts.ts`, sin escritura a disco).
+ *    Solo confirmaciones humanas —`/api/confirmar` y la revisión explícita
+ *    de un testimonio P2P— pueden llamar `agregar()`.
  * 4. Todo argumento de origen modelo entra al PEP con `origenArgumentos:
  *    'modelo'`; los del humano con `'usuario'`. Esa distinción es la que
  *    detiene la inyección indirecta (`policy/engine.ts`, regla
@@ -91,7 +92,8 @@ import { z, ZodError } from 'zod';
 
 import { cargar, agregar, lineasDescartadas, verificarArchivo } from './store/observations.ts';
 import { guardarBorrador, obtenerBorrador, descartarBorrador } from './store/drafts.ts';
-import { agregarPendiente, contarPendientes } from './store/pendientes.ts';
+import { agregarPendiente, contarPendientes, verificarPendientes } from './store/pendientes.ts';
+import { descartarRevisionPeer, obtenerRevisionPeer, listarRevisionesPeer } from './store/revisiones-peer.ts';
 import { reconciliar } from './trust/reconcile.ts';
 import { candidatosFusion } from './trust/entity.ts';
 import { verificarCadena, registrarAuditoria } from './store/audit.ts';
@@ -331,6 +333,7 @@ const zConfirmarBody = z.object({
 
 const zDescartarBody = z.object({ borradorId: z.string().min(1) });
 const zConsultarBody = z.object({ pregunta: z.string().min(1).max(1000) });
+const zRevisionPeerBody = z.object({ id: z.string().min(1) });
 
 /* ═══════════════════════════ Estáticos (con guarda de traversal) ═══════════════════════════ */
 
@@ -547,12 +550,16 @@ interface ResultadoToolCall {
  * un tool call (comportamiento normal del tool calling), así que la pantalla
  * mostraba resultados sin ninguna frase que los explicara.
  */
-function resumirResultados(grupos: GrupoEquipo[], filtro: unknown): string {
+export function resumirResultados(grupos: GrupoEquipo[], filtro: unknown): string {
   if (!grupos.length) {
     return 'Ningún grupo de equipo coincide con ese filtro. Puede que el dato todavía no esté capturado: `Sin datos` es una respuesta válida acá.';
   }
 
-  const unidades = grupos.reduce((suma, g) => suma + (Number(g.campos.totalUnidades.valor) || 0), 0);
+  // RD-2: una cantidad en disputa no es cero. Se suman únicamente las
+  // conocidas y se declara de forma explícita qué quedó afuera de la cifra.
+  const conUnidadesConocidas = grupos.filter((g) => typeof g.campos.totalUnidades.valor === 'number');
+  const unidades = conUnidadesConocidas.reduce((suma, g) => suma + g.campos.totalUnidades.valor!, 0);
+  const cantidadesDesconocidas = grupos.length - conUnidadesConocidas.length;
   const clientes = new Set(grupos.map((g) => g.cliente.nombre)).size;
   const conQuorum = grupos.filter((g) => g.estadoGeneral === 'Quórum').length;
   const sinQuorum = grupos.filter((g) => g.estadoGeneral === 'Sin quórum').length;
@@ -561,7 +568,12 @@ function resumirResultados(grupos: GrupoEquipo[], filtro: unknown): string {
     `${grupos.length} ${grupos.length === 1 ? 'grupo de equipo' : 'grupos de equipo'}`,
     `en ${clientes} ${clientes === 1 ? 'cliente' : 'clientes'}`,
   ];
-  if (unidades > 0) partes.push(`· ${unidades} ${unidades === 1 ? 'unidad' : 'unidades'}`);
+  if (conUnidadesConocidas.length) {
+    partes.push(`· ${unidades} ${unidades === 1 ? 'unidad conocida' : 'unidades conocidas'}`);
+  }
+  if (cantidadesDesconocidas) {
+    partes.push(`· ${cantidadesDesconocidas} ${cantidadesDesconocidas === 1 ? 'grupo sin cantidad resoluble' : 'grupos sin cantidad resoluble'}`);
+  }
 
   // La confianza va en la MISMA frase que la cifra, no como un adorno aparte:
   // un total sin su nivel de corroboración es exactamente lo que este producto
@@ -809,6 +821,30 @@ function hostAceptado(host: string | undefined): boolean {
   return HOSTS_ACEPTADOS.has(v);
 }
 
+/**
+ * El Host correcto protege contra DNS rebinding, pero no contra CSRF: un
+ * navegador en otro origen puede enviar un POST simple a 127.0.0.1 con Host
+ * legítimo. Las mutaciones exigen el origen HTTP loopback que sirve esta
+ * interfaz: un Origin ausente no es una prueba de que la llamada sea humana.
+ */
+function origenAceptado(origen: string | undefined): boolean {
+  if (origen === undefined) return false;
+  try {
+    const u = new URL(origen);
+    return u.protocol === 'http:' && !u.username && !u.password && HOSTS_ACEPTADOS.has(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function esMutacion(metodo: string): boolean {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(metodo);
+}
+
+function esJSON(req: IncomingMessage): boolean {
+  return (req.headers['content-type'] ?? '').toLowerCase().startsWith('application/json');
+}
+
 async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void> {
   /* ── ★ Guarda de `Host`: antes de los estáticos y antes de cualquier API ──
    *  Va acá arriba y no dentro de cada handler porque una guarda que hay que
@@ -837,6 +873,22 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
    *  respeta lo ya seteado y le gana en caso de conflicto, así que el
    *  `cache-control` explícito de `json()` y del CSV sigue mandando. */
   if (ruta.startsWith('/api')) res.setHeader('cache-control', NO_STORE);
+
+  if (ruta.startsWith('/api') && esMutacion(metodo) && !origenAceptado(req.headers.origin)) {
+    json(res, 403, { error: 'ORIGIN_NO_AUTORIZADO', mensaje: 'La operación debe originarse en la interfaz local de QUÓRUM.' });
+    return;
+  }
+
+  // JSON explícito evita que un POST cross-site "simple" con text/plain sea
+  // interpretado como una acción válida aunque el navegador no haga preflight.
+  const rutasJSON = new Set([
+    '/api/observar', '/api/confirmar', '/api/descartar', '/api/consultar',
+    '/api/revisiones-peer/confirmar', '/api/revisiones-peer/descartar',
+  ]);
+  if (metodo === 'POST' && rutasJSON.has(ruta) && !esJSON(req)) {
+    json(res, 415, { error: 'CONTENT_TYPE_INVALIDO', mensaje: 'Esta operación requiere application/json.' });
+    return;
+  }
 
   /* ── UI estática ── */
   if ((metodo === 'GET' || metodo === 'HEAD') && !ruta.startsWith('/api')) {
@@ -1097,6 +1149,43 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
     return;
   }
 
+  /* ── Revisión humana de testimonios recibidos por P2P ── */
+  if (ruta === '/api/revisiones-peer') {
+    if (metodo !== 'GET') { res.writeHead(405).end(); return; }
+    json(res, 200, { revisiones: listarRevisionesPeer() });
+    return;
+  }
+
+  if (ruta === '/api/revisiones-peer/confirmar') {
+    if (metodo !== 'POST') { res.writeHead(405).end(); return; }
+    const { id } = await cuerpoJSON(req, zRevisionPeerBody);
+    const revision = obtenerRevisionPeer(id);
+    if (!revision) { json(res, 404, { error: 'REVISION_PEER_EXPIRADA' }); return; }
+
+    // La escritura sucede DESPUÉS de la acción explícita de la persona local.
+    const persistidas = await agregar(revision.observaciones);
+    descartarRevisionPeer(id);
+    await registrarAuditoria({
+      traceId: id, accion: 'sync:revision-confirmada',
+      detalle: { clave: revision.clavePeer, persistidas, confirmadoPor: OBSERV },
+    });
+    if (persistidas > 0) emitir('cambio', { nuevas: persistidas });
+    json(res, 200, { persistidas });
+    return;
+  }
+
+  if (ruta === '/api/revisiones-peer/descartar') {
+    if (metodo !== 'POST') { res.writeHead(405).end(); return; }
+    const { id } = await cuerpoJSON(req, zRevisionPeerBody);
+    const revision = descartarRevisionPeer(id);
+    await registrarAuditoria({
+      traceId: id, accion: 'sync:revision-descartada',
+      detalle: { descartada: Boolean(revision) },
+    });
+    json(res, 200, { descartada: Boolean(revision) });
+    return;
+  }
+
   /* ── Consulta NL: el agente con la tool peligrosa a mano ── */
   if (ruta === '/api/consultar') {
     if (metodo !== 'POST') { res.writeHead(405).end(); return; }
@@ -1220,6 +1309,9 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
       // porque es el otro dato de integridad del store — lo que el sistema
       // sabe que le falta preguntar.
       pendientesDeRevision: await contarPendientes(),
+      integridadPendientes: await verificarPendientes(),
+      // Datos recibidos de peers: aún no son evidencia ni entran al dataset.
+      revisionesPeer: listarRevisionesPeer(),
       registros,
     });
     return;

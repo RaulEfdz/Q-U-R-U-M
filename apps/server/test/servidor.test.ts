@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
-  crearServidor, proyeccion, armarPaqueteConsulta,
+  crearServidor, proyeccion, armarPaqueteConsulta, resumirResultados,
   MAX_BLOQUES_CONSULTA, MAX_CHARS_PAQUETE,
 } from '../src/index.ts';
 import type { CampoResuelto, EstadoCampo, GrupoEquipo, Modalidad } from '../src/core/contracts.ts';
@@ -33,7 +33,7 @@ interface Respuesta {
  */
 function pedir(
   puerto: number,
-  opts: { ruta: string; metodo?: string; host?: string },
+  opts: { ruta: string; metodo?: string; host?: string; origen?: string; contentType?: string; cuerpo?: string },
 ): Promise<Respuesta> {
   return new Promise((cumplir, fallar) => {
     const req = request({
@@ -41,7 +41,11 @@ function pedir(
       port: puerto,
       path: opts.ruta,
       method: opts.metodo ?? 'GET',
-      ...(opts.host ? { headers: { host: opts.host } } : {}),
+      headers: {
+        ...(opts.host ? { host: opts.host } : {}),
+        ...(opts.origen ? { origin: opts.origen } : {}),
+        ...(opts.contentType ? { 'content-type': opts.contentType } : {}),
+      },
     }, (res) => {
       let cuerpo = '';
       res.setEncoding('utf8');
@@ -49,7 +53,7 @@ function pedir(
       res.on('end', () => cumplir({ status: res.statusCode ?? 0, headers: res.headers, cuerpo }));
     });
     req.on('error', fallar);
-    req.end();
+    req.end(opts.cuerpo);
   });
 }
 
@@ -214,6 +218,35 @@ test('servidor.test: A-3 las respuestas de API van con cache-control: no-store',
   }
 });
 
+test('servidor.test: mutaciones rechazan Origin externo y cuerpos no JSON', async () => {
+  const s = await levantar();
+  try {
+    const comun = {
+      ruta: '/api/descartar', metodo: 'POST', host: `127.0.0.1:${s.puerto}`,
+      cuerpo: JSON.stringify({ borradorId: 'borrador-inexistente' }),
+    };
+    const externo = await pedir(s.puerto, {
+      ...comun, origen: 'https://atacante.example', contentType: 'text/plain',
+    });
+    assert.strictEqual(externo.status, 403, 'un navegador externo no puede disparar una mutación local');
+
+    const sinOrigen = await pedir(s.puerto, { ...comun, contentType: 'application/json' });
+    assert.strictEqual(sinOrigen.status, 403, 'la ausencia de Origin tampoco autoriza una mutación');
+
+    const tipoIncorrecto = await pedir(s.puerto, {
+      ...comun, origen: `http://127.0.0.1:${s.puerto}`, contentType: 'text/plain',
+    });
+    assert.strictEqual(tipoIncorrecto.status, 415, 'text/plain no se interpreta como JSON de una acción');
+
+    const local = await pedir(s.puerto, {
+      ...comun, origen: `http://127.0.0.1:${s.puerto}`, contentType: 'application/json',
+    });
+    assert.strictEqual(local.status, 200, 'la interfaz local sigue pudiendo descartar');
+  } finally {
+    await s.cerrar();
+  }
+});
+
 /* ═══════════════ Hallazgo A-4 · unidades en disputa en Panorama ═══════════════ */
 
 function campo<T>(estado: EstadoCampo, valor?: T): CampoResuelto<T> {
@@ -299,6 +332,16 @@ test('servidor.test: A-4 `Sin datos` no es lo mismo que `Sin quórum`', () => {
   assert.strictEqual(pa[1], 0);
   assert.strictEqual(pa[2], 0, 'sin datos no cuenta como disputa');
   assert.strictEqual((p['totales'] as Record<string, number>)['gruposConUnidadesEnDisputa'], 0);
+});
+
+test('servidor.test: consulta declara cantidades no resolubles, no las presenta como cero', () => {
+  const salida = resumirResultados([
+    grupo({ clave: 'a', unidades: 4, estadoUnidades: 'Quórum' }),
+    grupo({ clave: 'b', estadoUnidades: 'Sin quórum' }),
+  ], {});
+  assert.match(salida, /4 unidades conocidas/);
+  assert.match(salida, /1 grupo sin cantidad resoluble/);
+  assert.doesNotMatch(salida, /· 4 unidades —/);
 });
 
 /* ═══════════════ Hallazgo A-7 · recorte del paquete de /api/consultar ═══════════════ */

@@ -447,6 +447,27 @@ export function pintarComoFunciona(seccion) {
       h('span', { texto: 'El LLM entiende. El código decide. El humano confirma. ' }),
       h('span', { clase: 'small', texto: 'Los tres verbos son distintos a propósito, y casi todos los estados de este sistema existen para marcar cuál de los tres actuó.' })),
 
+    bloque('Qué problema del reto resuelve QUÓRUM',
+      h('p', { clase: 'nota', texto: 'El reto no pide solo extraer equipos: pide transformar notas incompletas y contradictorias en una base instalada útil sin sacar información sensible del dispositivo. Esta es la cadena completa entre cada problema y la evidencia que la responde.' }),
+      tabla(['Problema de campo', 'Respuesta de QUÓRUM', 'Qué puede verificar el jurado'], [
+        ['La visita termina en memoria, mensajes o notas inconsistentes.',
+          'Una nota por voz o texto se vuelve un borrador estructurado: cliente, ubicación, modalidad, cantidad, marca, modelo y edad solo cuando aparecen en la evidencia.',
+          'Capturar una nota incompleta, corregirla y confirmar el borrador.'],
+        ['Una persona sabe algo; dos personas pueden contradecirse.',
+          'El sistema separa cada campo, cuenta observadores independientes y conserva el desacuerdo como Sin quórum. Nunca promedia.',
+          'Mostrar dos testimonios que coinciden y un tercero que discrepa.'],
+        ['El dato del cliente es sensible y la conectividad es incierta.',
+          'La inferencia corre localmente. Si una nota identifica al cliente, la política obliga la ruta local; no hay proveedor cloud permitido.',
+          'Apagar Wi‑Fi y ejecutar verify:no-cloud; luego capturar una nota.'],
+        ['Repetir una observación o usar dos teléfonos no debe fabricar confianza.',
+          'El store deduplica por id y el quórum cuenta personas, no dispositivos. Lo recibido por P2P espera revisión humana local.',
+          'Reenviar un testimonio y revisar la cola P2P antes de incorporarlo.'],
+        ['El analista necesita priorizar, no leer cada nota una por una.',
+          'Cliente 360, Panorama, frescura, oportunidad, filtro determinista y CSV convierten evidencia en una decisión explicable.',
+          'Filtrar MR antiguos en Brasil y exportar el CSV local de 19 columnas.'],
+      ]),
+      h('p', { clase: 'nota', texto: 'La diferencia importante: un modelo propone estructura; nunca declara la verdad, suma unidades ni autoriza una salida de datos. Esas decisiones quedan en código y con trazabilidad.' })),
+
     bloque('Quién decide qué',
       tabla(['Actor', 'Le toca', 'NO le toca'], [
         ['Modelo · on-device',
@@ -484,7 +505,7 @@ export function pintarComoFunciona(seccion) {
 
     bloque('Multidispositivo: la trampa del reto',
       conDiagrama(diagramaMultidispositivo(),
-        'El quórum lo dan observadores, no aparatos. Además: un peer que se reconecta reenvía el dataset completo, y el store deduplica por id — la misma observación recibida cinco veces sigue siendo un voto.')),
+        'El quórum lo dan observadores, no aparatos. Un peer puede transportar testimonios, pero quedan en Revisión P2P pendiente hasta que una persona local los confirma; recién entonces entran a la base instalada.')),
 
     bloque('Cuando el modelo intenta algo que no le corresponde',
       conDiagrama(diagramaPolitica(),

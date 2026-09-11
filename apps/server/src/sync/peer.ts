@@ -17,8 +17,10 @@ import Hyperswarm from 'hyperswarm';
 import type { PeerSocket } from 'hyperswarm';
 import { createHash } from 'node:crypto';
 import { zObservacion, type Observacion } from '../core/contracts.ts';
-import { agregar, cargar } from '../store/observations.ts';
+import { cargar } from '../store/observations.ts';
 import { registrarAuditoria } from '../store/audit.ts';
+import { encolarRevisionPeer } from '../store/revisiones-peer.ts';
+import { nuevoId } from '../core/ids.ts';
 
 const TOPIC = createHash('sha256').update('quorum/base-instalada/v1').digest();
 
@@ -190,7 +192,7 @@ async function enviarPropias(socket: PeerSocket): Promise<void> {
  * y saltarse el spotlighting (`context/spotlight.ts`) antes de llegar a
  * cualquier modelo.
  */
-async function procesarLineas(
+export async function procesarLineas(
   lineas: string[], clave: string, onCambio?: (n: number) => void,
 ): Promise<void> {
   for (const linea of lineas) {
@@ -212,13 +214,18 @@ async function procesarLineas(
     }
     if (!validas.length) continue;
 
-    const n = await agregar(validas);
-    if (n > 0) {
-      await registrarAuditoria({
-        traceId: 'sync', accion: 'sync:observaciones-recibidas',
-        detalle: { clave: clave.slice(0, 16), nuevas: n },
-      });
-      onCambio?.(n);
-    }
+    // Un peer puede entregar testimonios, pero ni su allowlist ni Zod son una
+    // confirmación humana. Se mantienen fuera de observations.jsonl hasta que
+    // una persona los revise desde la interfaz local.
+    const revisionId = nuevoId();
+    encolarRevisionPeer({
+      id: revisionId, clavePeer: clave.slice(0, 16), observaciones: validas,
+      recibidoEn: new Date().toISOString(),
+    });
+    await registrarAuditoria({
+      traceId: revisionId, accion: 'sync:revision-pendiente',
+      detalle: { clave: clave.slice(0, 16), testimonios: validas.length },
+    });
+    onCambio?.(0);
   }
 }

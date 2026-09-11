@@ -180,6 +180,45 @@ function tarjetaDescartadas(dato) {
   });
 }
 
+function tarjetaPendientes(o) {
+  if (!o || typeof o !== 'object') return tarjetaIntegridad({
+    estado: 'desconocido', titulo: 'Cola de pendientes sin verificar',
+    detalle: 'La respuesta no informó la integridad de pendientes.jsonl.',
+  });
+  const corruptas = Array.isArray(o.corruptas) ? o.corruptas : [];
+  const sano = o.ok === true && corruptas.length === 0;
+  return tarjetaIntegridad({
+    estado: sano ? 'ok' : 'roto',
+    titulo: sano ? 'Cola de pendientes ÍNTEGRA' : `Cola de pendientes con ${corruptas.length} líneas corruptas`,
+    detalle: sano
+      ? 'Las notas con seguimiento pendiente siguen disponibles para revisión.'
+      : 'Estas líneas no se pueden recuperar desde la cola y quedaron fuera del conteo de pendientes.',
+    extra: sano ? null : listaLineas(corruptas),
+  });
+}
+
+/** Datos P2P no son evidencia hasta que una persona local los confirme. */
+function revisionesPeer(revisiones, alCambiar) {
+  if (!Array.isArray(revisiones) || !revisiones.length) return null;
+  return h('section', { clase: 'revisiones-peer' },
+    h('h3', { texto: `Revisión P2P pendiente · ${revisiones.length}` }),
+    h('p', { clase: 'small', texto: 'Estos testimonios no están en la base instalada. Revisalos antes de incorporarlos.' }),
+    revisiones.map((r) => {
+      const resumen = (r.observaciones ?? []).map((o) => {
+        const cantidad = o?.lote?.cantidad ?? 'cantidad no indicada';
+        return `${cantidad} ${o?.lote?.modalidad ?? 'equipo'} · ${o?.cliente?.nombre ?? 'cliente sin nombre'}`;
+      }).join(' · ');
+      const confirmar = h('button', { clase: 'primario', texto: 'Confirmar e incorporar' });
+      confirmar.onclick = async () => { await api('/api/revisiones-peer/confirmar', { id: r.id }); alCambiar(); };
+      const descartar = h('button', { texto: 'Descartar' });
+      descartar.onclick = async () => { await api('/api/revisiones-peer/descartar', { id: r.id }); alCambiar(); };
+      return h('article', { clase: 'revision-peer' },
+        h('b', { texto: resumen || 'Testimonio peer sin resumen' }),
+        h('p', { clase: 'small', texto: `Peer ${r.clavePeer ?? '—'} · recibido ${r.recibidoEn ?? '—'}` }),
+        h('div', { clase: 'acciones' }, confirmar, descartar));
+    }));
+}
+
 export async function pintarAuditoria(seccion) {
   pintar(seccion, h('p', { clase: 'estado trabajando', texto: 'Verificando la cadena…' }));
   let d;
@@ -221,6 +260,8 @@ export async function pintarAuditoria(seccion) {
     }),
     tarjetaObservaciones(d.observaciones),
     tarjetaDescartadas(d.lineasDescartadas),
+    tarjetaPendientes(d.integridadPendientes),
+    revisionesPeer(d.revisionesPeer, () => pintarAuditoria(seccion)),
     h('p', { clase: 'leyenda small', texto: 'Últimos 50 registros, del más reciente al más antiguo. La columna «Inferencia» prueba dónde corrió cada modelo: en este equipo o delegado a un dispositivo autorizado de la red. Nunca en la nube.' }),
     tabla(registros));
 }
