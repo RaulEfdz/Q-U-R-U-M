@@ -1463,6 +1463,46 @@ td { padding: 11px 12px; }
 }
 .composer #texto:focus { outline: none; }
 
+/*
+ * Nivel de voz en vivo, en la esquina inferior derecha del propio textarea
+ * — no de la barra de abajo, que es donde vive el botón Dictar. `campo-texto`
+ * es el ancla de posición absoluta: el textarea no puede contener hijos, así
+ * que el indicador es HERMANO suyo, superpuesto con `position:absolute`.
+ * `pointer-events:none` para que nunca robe un click o una selección de
+ * texto al caer sobre la esquina del campo.
+ */
+.campo-texto { position: relative; }
+.indicador-voz {
+  position: absolute;
+  right: var(--md);
+  bottom: var(--sm);
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 18px;
+  padding: 2px 4px;
+  pointer-events: none;
+}
+.indicador-voz span {
+  width: 3px;
+  min-height: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--primario);
+  /* Transición corta: sigue el nivel real del mic sin verse como un tic
+   * mecánico. La anima `capture.js` escribiendo `el.style.height` en cada
+   * frame de `requestAnimationFrame` mientras `grabadora` existe — nunca
+   * un `@keyframes` en loop, porque eso se movería aunque nadie hable. */
+  transition: height 90ms ease-out;
+}
+/* Reduced motion: se ve que está grabando (el indicador aparece) pero las
+ * barras no saltan con cada sílaba — mismo trato que `.fragmentos-dictado
+ * li.subiendo i` más abajo. `capture.js` lee este media query y deja de
+ * escribir alturas por frame cuando está activo. */
+@media (prefers-reduced-motion: reduce) {
+  .indicador-voz span { transition: none; }
+}
+
 .composer-barra {
   display: flex;
   align-items: center;

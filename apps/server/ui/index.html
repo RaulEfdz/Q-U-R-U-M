@@ -244,8 +244,21 @@
 
         <label class="oculto-visual" for="texto">Nota de la visita</label>
         <div class="composer">
-          <textarea id="texto" rows="4" spellcheck="true"
-            placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR de NovaMed, uno como de ocho años y otro más nuevo, y un CT de BluePeak Medical…"></textarea>
+          <div class="campo-texto">
+            <textarea id="texto" rows="4" spellcheck="true"
+              placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR de NovaMed, uno como de ocho años y otro más nuevo, y un CT de BluePeak Medical…"></textarea>
+            <!--
+              Nivel de voz en vivo: SOLO visible mientras `capture.js` está
+              grabando (`alternarDictado`), y las barras solo se mueven con el
+              nivel real del micrófono — quietas en silencio, altas al hablar.
+              Decorativo (`aria-hidden`): "Grabando…" ya lo anuncia la región
+              viva de `#estado-captura`, esto no repite esa información, la
+              refuerza en pantalla.
+            -->
+            <div id="indicador-voz" class="indicador-voz" aria-hidden="true" hidden>
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </div>
 
           <div class="composer-barra">
             <div class="composer-izq">
