@@ -613,6 +613,64 @@ function marcarFragmento(numero, est) {
   pintarFragmentos();
 }
 
+/*
+ * ──────────── Indicador de nivel de voz (esquina del textarea) ────────────
+ *
+ * Puramente visual: 4 barras que siguen el volumen REAL del micrófono
+ * mientras se graba, no una animación de loop. `nivelMic` lo escribe el
+ * `onaudioprocess` de más abajo —RMS del mismo bloque que ya se está
+ * capturando para transcribir, no abre un segundo stream solo para esto— y
+ * lo lee, a la cadencia de pintado, el `requestAnimationFrame` de acá.
+ * Separar las dos cadencias importa: el audio llega en bloques de ~100-250 ms
+ * según la tasa de muestreo del dispositivo, y pintar a esa cadencia se ve a
+ * tirones en vez de fluido.
+ */
+const SIN_MOVIMIENTO = matchMedia('(prefers-reduced-motion: reduce)');
+const PESO_BARRA = [0.55, 1, 0.8, 1.15];   // variedad orgánica: 4 barras idénticas se ven mecánicas
+const BARRA_MIN = 4, BARRA_MAX = 18;       // px — coincide con la altura de `.indicador-voz` en style.css
+let nivelMic = 0;
+let nivelSuavizado = [0, 0, 0, 0];
+let cuadroIndicador = null;
+
+/**
+ * Arranca a mostrar y animar el indicador. Con `prefers-reduced-motion`
+ * queda visible (avisa que está grabando) pero sin el `requestAnimationFrame`
+ * — mismo trato que el `girar` de los chips de fragmento en style.css.
+ */
+function mostrarIndicadorVoz() {
+  const el = $('#indicador-voz');
+  if (!el) return;
+  el.hidden = false;
+  if (SIN_MOVIMIENTO.matches) return;
+  const barras = el.querySelectorAll('span');
+  const paso = () => {
+    for (let i = 0; i < barras.length; i++) {
+      // Ataque rápido (entra apenas empieza el golpe de voz), caída lenta
+      // (no se apaga de golpe entre sílabas) — es lo que separa "reactivo"
+      // de "nervioso". El silencio (nivelMic ≈ 0) converge sola a la barra
+      // mínima: no hace falta un caso aparte para "no está hablando".
+      const objetivo = Math.min(1, nivelMic * 7 * PESO_BARRA[i]);
+      const alfa = objetivo > nivelSuavizado[i] ? 0.5 : 0.12;
+      nivelSuavizado[i] += (objetivo - nivelSuavizado[i]) * alfa;
+      barras[i].style.height = `${Math.round(BARRA_MIN + (BARRA_MAX - BARRA_MIN) * nivelSuavizado[i])}px`;
+    }
+    cuadroIndicador = requestAnimationFrame(paso);
+  };
+  cuadroIndicador = requestAnimationFrame(paso);
+}
+
+/** Para el bucle y deja el indicador oculto y en su altura mínima, listo
+ *  para el próximo dictado. */
+function ocultarIndicadorVoz() {
+  if (cuadroIndicador !== null) { cancelAnimationFrame(cuadroIndicador); cuadroIndicador = null; }
+  nivelMic = 0;
+  nivelSuavizado = [0, 0, 0, 0];
+  const el = $('#indicador-voz');
+  if (!el) return;
+  el.hidden = true;
+  el.querySelectorAll('span').forEach((b) => { b.style.height = `${BARRA_MIN}px`; });
+}
+
 async function alternarDictado() {
   const boton = $('#dictar');
   if (grabadora) { grabadora.stop(); return; }
@@ -666,6 +724,11 @@ async function alternarDictado() {
     const entrada = e.inputBuffer.getChannelData(0);
     trozos.push(new Float32Array(entrada));   // copia: el buffer se reusa
     muestras += entrada.length;
+    // RMS del mismo bloque, para el indicador de nivel — no es una segunda
+    // lectura del micrófono, es el audio que ya se capturó arriba.
+    let suma = 0;
+    for (let i = 0; i < entrada.length; i++) suma += entrada[i] * entrada[i];
+    nivelMic = Math.sqrt(suma / entrada.length);
   };
   fuente.connect(nodo);
   // Destino silenciado: sin conectar a algo, varios navegadores no corren el
@@ -806,6 +869,7 @@ async function alternarDictado() {
 
       etiquetarBoton(boton, 'microfono', 'Dictar');
       boton.classList.remove('grabando');
+      ocultarIndicadorVoz();
 
       const ultimoWav = cortarFragmento();
       if (!ultimoWav && numeroFragmento === 0) { estado('No se grabó audio.', 'aviso'); return; }
@@ -843,6 +907,7 @@ async function alternarDictado() {
 
   etiquetarBoton(boton, 'detener', 'Detener');
   boton.classList.add('grabando');
+  mostrarIndicadorVoz();
   estado('Grabando… el audio no sale de este equipo.', 'trabajando');
 }
 

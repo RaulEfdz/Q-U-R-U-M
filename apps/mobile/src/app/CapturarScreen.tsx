@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudioStream, requestRecordingPermissionsAsync } from 'expo-audio';
 import {
-  ActivityIndicator, BackHandler, KeyboardAvoidingView, Platform, Pressable,
+  ActivityIndicator, Animated, BackHandler, KeyboardAvoidingView, Platform, Pressable,
   ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import type { EstadoRevision, Observacion } from '../core/contracts.ts';
@@ -56,6 +56,19 @@ function contarPalabras(texto: string): number {
   const limpio = texto.trim();
   return limpio ? limpio.split(/\s+/).length : 0;
 }
+
+/*
+ * Indicador de nivel de voz (esquina de la nota, ver `campoTexto` más abajo):
+ * 4 barras que siguen el volumen REAL del micrófono mientras se graba, no un
+ * loop decorativo. `onBuffer` de `useAudioStream` entrega PCM int16 crudo a
+ * la cadencia del hardware (ver `pipeline/dictar.ts`) — el RMS de cada buffer
+ * alimenta directamente `Animated.Value.setValue()`, sin pasar por
+ * `setState`: a esa frecuencia, un `setState` por buffer re-renderiza toda la
+ * pantalla varias veces por segundo por nada, cuando lo único que cambia es
+ * el alto de 4 barras.
+ */
+const PESO_BARRA_VOZ = [0.55, 1, 0.8, 1.15] as const;   // variedad orgánica: 4 barras idénticas se ven mecánicas
+const BARRA_VOZ_MIN = 4, BARRA_VOZ_MAX = 18;             // dp
 
 /**
  * El panel de "corriendo en tu teléfono" es el mismo para interpretar texto
@@ -287,14 +300,56 @@ export default function CapturarScreen() {
   const [transcribiendo, setTranscribiendo] = useState(false);
   const ETIQUETA_DICTADO = `Dictando con whisper en vivo (${mb(MODELOS.asr.expectedSize)})`;
 
+  // Lo que ya había en la nota ANTES de tocar Dictar — el dictado se escribe
+  // encima de esto, nunca lo pisa. `onTexto` recibe el texto ACUMULADO de la
+  // sesión entera (ver dictar.ts), así que cada actualización reemplaza la
+  // nota por "lo de antes + lo acumulado", no lo va concatenando de a poco.
+  const notaAntesDeGrabar = useRef('');
+
+  // Ver el comentario de `PESO_BARRA_VOZ` arriba: 4 `Animated.Value` fijos
+  // (no recreados por render) más su nivel suavizado en un ref plano — el
+  // suavizado vive fuera de React porque lo escribe `onBuffer`, no un evento
+  // de UI.
+  const barrasVoz = useRef(
+    PESO_BARRA_VOZ.map(() => new Animated.Value(BARRA_VOZ_MIN)),
+  ).current;
+  const suavizadoVoz = useRef([0, 0, 0, 0]);
+
   const { stream } = useAudioStream({
     sampleRate: 16_000,
     channels: 1,
     encoding: 'int16',
     onBuffer: (buffer) => {
       sesionDictadoRef.current?.escribir(new Uint8Array(buffer.data));
+
+      // RMS del mismo buffer que ya se manda a transcribir — no es una
+      // segunda lectura del micrófono. Ataque rápido / caída lenta, igual
+      // que el indicador equivalente de `apps/server/ui/capture.js`: separa
+      // "reactivo" de "nervioso" y el silencio converge solo a la barra
+      // mínima sin necesitar un caso aparte.
+      const muestras = new Int16Array(buffer.data);
+      let suma = 0;
+      for (let i = 0; i < muestras.length; i++) {
+        const v = muestras[i]! / 32768;
+        suma += v * v;
+      }
+      const rms = Math.sqrt(suma / muestras.length);
+      const suavizado = suavizadoVoz.current;
+      for (let i = 0; i < barrasVoz.length; i++) {
+        const objetivo = Math.min(1, rms * 7 * PESO_BARRA_VOZ[i]!);
+        const alfa = objetivo > suavizado[i]! ? 0.5 : 0.12;
+        suavizado[i] = suavizado[i]! + (objetivo - suavizado[i]!) * alfa;
+        barrasVoz[i]!.setValue(BARRA_VOZ_MIN + (BARRA_VOZ_MAX - BARRA_VOZ_MIN) * suavizado[i]!);
+      }
     },
   });
+
+  /** Vuelve las 4 barras a su alto mínimo — al parar de grabar, no queda
+   *  ninguna a mitad de camino. */
+  function reiniciarIndicadorVoz() {
+    suavizadoVoz.current = [0, 0, 0, 0];
+    barrasVoz.forEach((b) => b.setValue(BARRA_VOZ_MIN));
+  }
 
   const alternarDictado = useCallback(async () => {
     setError(null);
@@ -303,12 +358,13 @@ export default function CapturarScreen() {
       setGrabando(false);
       setTranscribiendo(true);
       stream.stop();
+      reiniciarIndicadorVoz();
       const cerrandoDesde = Date.now();
       try {
         const sesion = sesionDictadoRef.current;
         sesionDictadoRef.current = null;
         if (!sesion) throw new Error('la sesión de dictado ya se había cerrado');
-        const { texto, descartadaPorAlucinacion } = await sesion.terminar();
+        const { texto, descartadaPorAlucinacion, correcciones } = await sesion.terminar();
         const ms = Date.now() - cerrandoDesde;
         if (descartadaPorAlucinacion) {
           // Whisper devolvió una frase repetida — su modo de falla típico con
@@ -319,6 +375,10 @@ export default function CapturarScreen() {
             etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'error', ms,
             detalle: 'no se escuchó voz — se descartó, no se inventó texto',
           });
+          // `onTexto` ya escribió en la caja lo que fue transcribiendo en vivo
+          // (ver abajo): si la sesión entera resultó alucinación, eso tiene
+          // que salir de la nota, no quedar como si fuera texto real.
+          setNota(notaAntesDeGrabar.current);
           setError('No se escuchó voz en la grabación. Acercá el micrófono y probá de nuevo, o escribí la nota.');
           return;
         }
@@ -327,17 +387,30 @@ export default function CapturarScreen() {
             etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'error', ms,
             detalle: 'no se entendió nada en el audio',
           });
+          setNota(notaAntesDeGrabar.current);
           setError('No se entendió nada en el audio. Probá de nuevo, o escribilo.');
           return;
         }
+        // Si el corrector léxico (`pipeline/lexico.ts`) reescribió una sigla o
+        // una marca, se dice cuál y por cuál. La nota la confirma la persona
+        // como propia: una palabra que cambió el código y ella no vio sería
+        // exactamente el tipo de silencio que este producto no se puede
+        // permitir. En el caso normal la lista viene vacía y no se muestra nada.
+        const cambios = correcciones.length > 0
+          ? ` · corregido: ${correcciones.map((c) => `"${c.desde}" → ${c.hasta}`).join(', ')}`
+          : '';
         actualizarPaso({
           etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'ok', ms,
-          detalle: `"${texto.length > 70 ? `${texto.slice(0, 70)}…` : texto}"`,
+          detalle: `"${texto.length > 70 ? `${texto.slice(0, 70)}…` : texto}"${cambios}`,
         });
-        // Se AGREGA a lo que ya haya escrito en vez de reemplazarlo: perder
-        // una nota a medio escribir por tocar el micrófono seria el peor
-        // resultado posible en una app cuya premisa es no perder datos.
-        setNota((previa) => (previa.trim() ? `${previa.trim()} ${texto}` : texto));
+        // La caja ya viene mostrando esto en vivo desde `onTexto` — acá se fija
+        // el valor FINAL (la pasada de cierre puede limar algo que el
+        // acumulado en vivo todavía no había filtrado) sobre la nota de ANTES
+        // de grabar, no sobre `nota` actual: perder lo que había escrito antes
+        // de tocar el micrófono sería el peor resultado posible en una app
+        // cuya premisa es no perder datos.
+        const previa = notaAntesDeGrabar.current;
+        setNota(previa ? `${previa} ${texto}` : texto);
         setHuboDictado(true);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -364,12 +437,16 @@ export default function CapturarScreen() {
       // buffers mientras la sesión todavía no existe.
       setPasos([]);
       actualizarPaso({ etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'corriendo' });
+      // Lo que ya había escrito, para que el dictado se agregue encima y no lo
+      // pise (ver el comentario de `notaAntesDeGrabar` más arriba).
+      notaAntesDeGrabar.current = nota.trim();
       sesionDictadoRef.current = await abrirSesionDictado({
+        // El texto va DIRECTO a la caja a medida que llega — no a un panel
+        // aparte: es lo que se está dictando, y el lugar donde se lee y se
+        // corrige es la nota, no un registro de progreso.
         onTexto: (acumulado) => {
-          actualizarPaso({
-            etapa: 'dictando', etiqueta: ETIQUETA_DICTADO, estado: 'corriendo',
-            detalle: `"${acumulado.length > 70 ? `${acumulado.slice(0, 70)}…` : acumulado}"`,
-          });
+          const previa = notaAntesDeGrabar.current;
+          setNota(previa ? `${previa} ${acumulado}` : acumulado);
         },
       });
       await stream.start();
@@ -378,7 +455,7 @@ export default function CapturarScreen() {
       sesionDictadoRef.current = null;
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [grabando, stream, ETIQUETA_DICTADO]);
+  }, [grabando, nota, stream, ETIQUETA_DICTADO]);
 
   async function interpretar() {
     const texto = nota.trim();
@@ -488,16 +565,28 @@ export default function CapturarScreen() {
           <>
             <View style={estilos.tarjetaNota}>
               <Text style={estilos.tituloCampo}>¿Qué viste?</Text>
-              <TextInput
-                style={estilos.textarea}
-                accessibilityLabel="¿Qué viste? Escribí lo que observaste en la visita"
-                multiline
-                value={nota}
-                onChangeText={setNota}
-                editable={!grabando && !transcribiendo}
-                placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR y un CT…"
-                placeholderTextColor={color.textoTenue}
-              />
+              <View style={estilos.campoTexto}>
+                <TextInput
+                  style={estilos.textarea}
+                  accessibilityLabel="¿Qué viste? Escribí lo que observaste en la visita"
+                  multiline
+                  value={nota}
+                  onChangeText={setNota}
+                  editable={!grabando && !transcribiendo}
+                  placeholder="Estoy en Hospital DemoCare Pacific, en Panamá. Tienen dos MR y un CT…"
+                  placeholderTextColor={color.textoTenue}
+                />
+                {/* Nivel de voz en vivo, esquina inferior derecha de la caja —
+                    decorativo (`importantForAccessibility`): "Escuchando y
+                    transcribiendo" ya lo dice el panel de abajo. */}
+                {grabando ? (
+                  <View style={estilos.indicadorVoz} pointerEvents="none" importantForAccessibility="no">
+                    {barrasVoz.map((valor, i) => (
+                      <Animated.View key={i} style={[estilos.barraVoz, { height: valor }]} />
+                    ))}
+                  </View>
+                ) : null}
+              </View>
               {palabras > 0 ? (
                 <View style={estilos.pieNota}>
                   <Icono nombre="microfono" tamano={15} color={color.textoTenue} />
@@ -795,11 +884,22 @@ const estilos = StyleSheet.create({
     ...elevacion.tarjeta,
   },
   tituloCampo: { ...tipografia.subtitulo, fontWeight: '700', color: color.texto },
+  // El textarea no puede tener hijos (RN no permite overlays dentro de un
+  // `TextInput`), así que el indicador de voz es HERMANO suyo acá adentro,
+  // superpuesto con `position: 'absolute'` — mismo truco que `.campo-texto`
+  // en `apps/server/ui/style.css`.
+  campoTexto: { flex: 1, marginTop: espacio.md, position: 'relative' },
   textarea: {
     ...tipografia.cuerpo, fontSize: 17, lineHeight: 25,
-    flex: 1, marginTop: espacio.md, padding: 0,
+    flex: 1, padding: 0,
     color: color.texto, textAlignVertical: 'top',
   },
+  indicadorVoz: {
+    position: 'absolute', right: 0, bottom: espacio.sm,
+    flexDirection: 'row', alignItems: 'flex-end', gap: 3,
+    height: BARRA_VOZ_MAX,
+  },
+  barraVoz: { width: 3, borderRadius: 999, backgroundColor: color.primario },
   pieNota: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     marginTop: espacio.md, paddingTop: espacio.md,
