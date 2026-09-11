@@ -37,9 +37,25 @@ Eso permite que ventas, servicio y especialistas compartan una misma vista de ca
 
 ### Qué se puede demostrar hoy
 
-El flujo de producto está implementado: **capturar → interpretar → revisar → confirmar → reconciliar → consultar/visualizar/exportar**. El servidor tiene pruebas automatizadas de sus reglas de confianza, persistencia, política, seguridad y transporte; `npm run test:ci` valida typecheck, tests y ausencia de egress de inferencia cloud.
+El flujo de producto está implementado: **capturar → interpretar → revisar → confirmar → sincronizar P2P → reconciliar → consultar/visualizar/exportar**. La conexión física Pixel 7 ↔ servidor fue verificada con Hyperswarm y un `hello_ack` real en 83 ms. El servidor tiene pruebas automatizadas de sus reglas de confianza, persistencia, política, seguridad y transporte; `npm run test:ci` valida typecheck, **117 tests** y ausencia de egress de inferencia cloud. Mobile suma **17 tests** de cola offline, protocolo, ACK, reintentos e idempotencia.
 
 Hay trabajo de demostración y validación real que no debe maquillarse como terminado: la lista priorizada, los criterios de cierre y la evidencia esperada están en [FALTANTES_PARA_DEMO.md](docs/FALTANTES_PARA_DEMO.md).
+
+### Estado de entrega del hackathon
+
+| Condición | Estado comprobado | Qué falta |
+|---|---|---|
+| QVAC e inferencia local | ✅ Cumple | Mostrar una corrida inequívoca en el video. |
+| Cero inferencia cloud | ✅ Cumple | Conservar en cámara el resultado `7/7` de `verify:no-cloud`. |
+| Sincronización P2P | ✅ Cumple | Fue probada por DHT; no afirmar que funciona en una LAN totalmente aislada. |
+| Código entregable | ✅ En `rf/dev` y `main` | No agregar cambios sin volver a correr los controles. |
+| Demo móvil autónoma | ⚠️ Incompleta | Construir/probar APK release; debug todavía depende de Metro al reiniciar. |
+| Recorrido integral | ⚠️ Pendiente | Ensayar voz → IA local → confirmación → sync → revisión → Cliente 360. |
+| Acceso del jurado | ❌ Acción externa | Dar acceso al repositorio privado o hacerlo público y probarlo sin sesión. |
+| Video final | ❌ Acción externa | Publicar video en español, de máximo 5:00, y probar la URL en incógnito. |
+| Envío TryDojo | ❌ Acción externa | Enviar repo y video antes de las **08:00 de Panamá del 11/09/2026**. |
+
+El veredicto trazable contra las reglas oficiales está en [AUDITORIA_REGLAS_HACKATHON_2026-09-11.md](docs/AUDITORIA_REGLAS_HACKATHON_2026-09-11.md).
 
 ### Declaración de trabajo previo
 
@@ -263,8 +279,8 @@ Esperado: `RESULTADO: 7/7 controles en verde` y exit 0. Sin red, el control 6 no
 ### Correr los tests y el typecheck
 
 ```bash
-cd apps/server && npm run test:ci                  # typecheck + 113 tests + verify:no-cloud
-cd ../mobile   && npx tsc --noEmit                 # esperado: exit 0
+cd apps/server && npm run test:ci                  # typecheck + 117 tests + verify:no-cloud
+cd ../mobile   && npm run typecheck && npm test    # typecheck + 17 tests
 ```
 
 ★ **Nunca leas un exit code a través de un pipe.** `npx tsc --noEmit | head` devuelve el exit de `head`, que es **siempre 0**: el build se rompió una vez justo así, sin que nadie se enterara. Corré el comando solo y después `echo $?`.
@@ -303,7 +319,7 @@ Bug del dictado resuelto, procesamiento continuo en vez de esperar al final, Int
 
 **Los 8 módulos de `apps/server/ui/` se renombraron a inglés**: `capturar.js→capture.js`, `cliente.js→client.js`, `panorama.js→overview.js`, `auditoria.js→audit.js`, `comofunciona.js→how-it-works.js`, `estados.js→states.js`, `errores.js→errors.js`, `ayuda.js→help.js`. `app.js`/`dom.js` ya eran inglés.
 
-**102 → 113 tests.** Typecheck limpio en todo momento durante la sesión.
+**102 → 113 tests en este hito; 117 en la suite actual.** Typecheck limpio en todo momento durante la sesión.
 
 ### v0.4.1 — 2026-09-10
 

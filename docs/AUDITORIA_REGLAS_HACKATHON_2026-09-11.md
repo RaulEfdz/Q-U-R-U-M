@@ -10,7 +10,7 @@ Fuentes oficiales:
 
 ## Veredicto
 
-**El producto cumple el requisito técnico en el código y en la prueba física realizada, pero la entrega todavía no puede declararse completamente conforme.** Faltan cerrar tres condiciones externas: subir los cambios locales, garantizar acceso del jurado al repositorio privado y entregar/probar el enlace del video en español de máximo cinco minutos.
+**El producto cumple el requisito técnico en el código y en la prueba física realizada, pero la entrega todavía no puede declararse completamente conforme.** El código verificado ya está publicado en `origin/rf/dev` y fusionado en `origin/main`. Faltan cerrar las condiciones externas: garantizar acceso del jurado al repositorio privado, entregar/probar el video en español de máximo cinco minutos y completar el envío en TryDojo.
 
 ## Matriz de cumplimiento
 
@@ -46,9 +46,9 @@ Los 17 tests móviles cubren protocolo, `hello_ack`, cola append-only, recuperac
 
 ## Riesgos antes de entregar
 
-1. **Cambios locales sin subir.** La rama estaba sincronizada con `origin/rf/dev`, pero las mejoras de tests, reintentos y anti-suplantación aparecen modificadas/no rastreadas. Si se entrega ahora, el jurado no recibe esas mejoras.
-2. **Repositorio privado.** No incumple por sí solo, pero sí incumple si el jurado no tiene acceso durante toda la evaluación.
-3. **Video no verificado.** El reglamento dice que es lo primero que revisa el jurado. Sin URL accesible, español y duración ≤5:00, la entrega es incompleta.
+1. **Repositorio privado.** No incumple por sí solo, pero sí incumple si el jurado no tiene acceso durante toda la evaluación.
+2. **Video no verificado.** El reglamento dice que es lo primero que revisa el jurado. Sin URL accesible, español y duración ≤5:00, la entrega es incompleta.
+3. **Envío pendiente.** Código y evidencia técnica no sustituyen el formulario final de TryDojo antes del cierre.
 4. **DHT no equivale a LAN aislada.** La inferencia sigue siendo local y el transporte es P2P, por lo que no viola la regla; aun así, la demo no debe afirmar que el descubrimiento funciona sin Internet hasta probar bootstrap propio.
 
 ## Prioridad según la rúbrica
@@ -57,4 +57,4 @@ Los 17 tests móviles cubren protocolo, `hello_ack`, cola append-only, recuperac
 - **Innovation — 25%:** fuerte: quórum por campo, conflicto preservado y evidencia explicable.
 - **Impact — 20%:** fuerte si el video cuenta el problema de visitas de campo y base instalada incompleta.
 - **Design — 10%:** ambas superficies existen; conviene mostrar una historia y no recorrer todas las pantallas.
-- **Completion — 10%:** es el riesgo actual. Se cierra subiendo el código, probando repo/video sin credenciales y enviando antes de las 08:00.
+- **Completion — 10%:** es el riesgo actual. El código ya está publicado; se cierra probando acceso al repo y al video sin credenciales y enviando antes de las 08:00.

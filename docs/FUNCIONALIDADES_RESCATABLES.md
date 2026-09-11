@@ -191,7 +191,7 @@ un filtro determinista.
 
 **Qué está probado:** renovación con evidencia y score, conflicto sin total
 inventado, y separación entre información faltante y dato stale. La suite del
-servidor pasó con **113 tests**, typecheck y los siete controles de seguridad
+servidor pasó con **117 tests**, typecheck y los siete controles de seguridad
 sin nube.
 
 **Límite declarado, no oculto:** `Observacion` contiene `sitio`, pero la clave

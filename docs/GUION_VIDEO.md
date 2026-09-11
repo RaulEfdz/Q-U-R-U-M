@@ -168,7 +168,7 @@ Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no 
 
 **El dato que conviene señalar** (es el que más le habla al jurado técnico): este grupo puntúa **81**, por debajo de los dos grupos que sí tienen quórum pleno (87 y 84). Un campo en disputa no cuenta como dato completo — el puntaje no premia la contradicción.
 
-**Sobre el ascenso en vivo con dos dispositivos:** si se graba, es la mejor toma del video. Pero el sync P2P **no está verificado en una LAN aislada** (el descubrimiento de Hyperswarm arranca contra el DHT, con bootstrap por internet), y arranca apagado salvo que `QUORUM_PEERS` tenga claves. **No apostar la toma a eso.** El escenario del quórum ya está en la semilla y se reproduce en una máquina limpia sin segundo dispositivo. Si el sync funciona en la sala: grabarlo como toma extra y usarlo. Si no: el bloque se sostiene igual y nadie nota la diferencia.
+**Sobre el ascenso en vivo con dos dispositivos:** el sync Pixel 7 ↔ servidor sí fue verificado físicamente mediante Hyperswarm, incluido `hello_ack` en 83 ms. Lo que **no** está verificado es una LAN totalmente aislada: el descubrimiento arranca contra el DHT, con bootstrap por internet, y el transporte se mantiene apagado salvo que `QUORUM_PEERS` tenga claves. Preparar la toma P2P, pero conservar el escenario sembrado como respaldo reproducible.
 
 ---
 
@@ -282,4 +282,4 @@ Dos scripts, uno por superficie. Los dos ya se probaron reales esta sesión (no 
 
 **La honestidad técnica está guionada, no improvisada.** El párrafo de «el peer ve el prompt en claro» está escrito para decirse tal cual. Es lo más difícil de falsificar en cinco minutos, y es lo que separa esto de una demo que promete cómputo confidencial y no lo tiene.
 
-**Nada del guion depende del sync P2P.** Es la única pieza sin verificar en red aislada, así que ninguna afirmación del video se apoya en ella. Si funciona, es una toma extra; si no, el video está completo igual.
+**El guion puede mostrar el sync P2P como evidencia real**, porque ya fue verificado entre el Pixel 7 y el servidor. La afirmación debe ser precisa: P2P con allowlist y descubrimiento DHT probado; funcionamiento en una LAN 100% aislada, no probado. El escenario sembrado sigue siendo el respaldo si la red de la sala impide repetir la toma.

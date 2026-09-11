@@ -1,71 +1,97 @@
 # Faltantes para la demo y la entrega del reto
 
-Este documento separa lo que QUÓRUM ya implementa de lo que aún falta probar o cerrar para presentarlo con rigor. No son promesas de funcionalidades ya terminadas: son condiciones verificables para sostener la demo frente al jurado.
+Estado comprobado el **11 de septiembre de 2026**. Esta es la lista operativa de cierre; la auditoría completa contra las reglas oficiales está en [AUDITORIA_REGLAS_HACKATHON_2026-09-11.md](AUDITORIA_REGLAS_HACKATHON_2026-09-11.md).
 
-## Qué ya está cubierto
+## Ya cumplido y demostrado
 
-- Captura conversacional por texto y una vía de dictado local.
-- Extracción a un borrador estructurado, editable antes de guardar.
-- Confirmación humana antes de persistir una observación.
-- Estados de evidencia, confianza, procedencia, conflictos y quórum por campo.
-- Cliente 360, Panorama, filtros, oportunidades y exportación.
-- Política de deny-by-default, servidor limitado a `127.0.0.1`, y guardas contra inferencia cloud.
-- Revisión humana local para testimonios recibidos por P2P antes de incorporarlos a la base.
+- QVAC integrado y modelos ejecutándose localmente.
+- Cero proveedores de inferencia cloud: `verify:no-cloud` pasa **7/7**.
+- Servidor: typecheck y **117/117 tests**.
+- Mobile: typecheck y **17/17 tests**.
+- Núcleo compartido idéntico byte a byte entre servidor y mobile.
+- Cola offline append-only, recuperación, ACK parcial, reintentos, backoff e idempotencia.
+- P2P físico Pixel 7 ↔ servidor: conexión y `hello_ack` real en **83 ms**.
+- Allowlist fail-closed y bloqueo de suplantación de identidad por sesión.
+- Confirmación humana antes de incorporar evidencia remota a la base instalada.
+- Cliente 360, conflictos, quórum, frescura, oportunidades explicables y trazabilidad.
+- Código publicado en `origin/rf/dev` y fusionado en `origin/main`.
 
-## P0 — necesario antes de presentar
+## P0 — bloquea una entrega completa
 
-### 1. Ensayo completo sin Wi-Fi
+### 1. Dar acceso al repositorio
 
-Hacer una toma continua en la máquina de demo: desconectar Wi-Fi, capturar una nota real, ejecutar la inferencia QVAC local, revisar el borrador, confirmarlo y mostrar el cambio en Cliente 360 y Panorama.
+El repositorio aparece privado. Invitar a las cuentas indicadas por la organización o hacerlo público, y abrir la URL desde una ventana sin sesión.
 
-**Cierre:** la demostración ocurre sin una API cloud, sin una descarga pendiente de modelo y sin intervención manual fuera de la interfaz.
+**Cierre:** una persona sin credenciales del equipo puede acceder exactamente al commit enviado.
 
-### 2. Probar dictado real en español
+### 2. Producir y verificar el video final
 
-Dictar una visita con vocabulario del dominio —por ejemplo MR, CT, fabricante, modelo, edad y cantidad— y verificar la transcripción, la extracción y el borrado del audio temporal.
+Grabar el producto real en español, mantener la duración en **5:00 o menos**, evitar credenciales y datos reales, publicar el archivo y probar la URL en incógnito.
 
-**Cierre:** una persona distinta de quien desarrolló el flujo puede completar el recorrido en una sola toma.
+**Cierre:** el enlace abre, reproduce, tiene audio entendible y muestra QVAC local, quórum/conflicto, explicación y el control `7/7`.
 
-### 3. Probar P2P con dos dispositivos autorizados
+### 3. Completar el envío de TryDojo
 
-Enviar un testimonio desde un peer autorizado. En el receptor debe aparecer en **Revisión P2P pendiente**; solo después de una confirmación humana debe modificar Cliente 360.
+Enviar el repositorio y el video antes de las **08:00, hora de Panamá, del 11/09/2026**. Confirmar además que cada integrante está registrado, aceptó las reglas y pertenece a un solo equipo.
 
-**Cierre:** hay evidencia grabada de que el dato remoto no entra al store definitivo de manera automática.
+**Cierre:** la plataforma muestra la entrega recibida y el equipo conserva evidencia del envío.
 
-### 4. Hacer el seed de demo reproducible
+## P1 — necesario para una demo robusta
 
-Preparar un comando seguro o una guía corta para reiniciar datos de demo sin sobrescribir por accidente trabajo real. El escenario debe incluir, como mínimo: quórum, conflicto, estimación, dato incompleto, dato antiguo y oportunidad.
+### 4. Construir y probar el APK release
 
-**Cierre:** cualquier integrante puede dejar la demo en el mismo estado inicial antes de una presentación.
+La app instalada y verificada es debug. Si se reinicia sin Wi-Fi, depende de Metro y no arranca aunque la inferencia sea local.
 
-## P1 — mejora fuerte para el jurado
+```bash
+cd apps/mobile
+npx expo run:android --variant release
+```
 
-### Evidencia negativa de seguridad
+**Cierre:** con Metro detenido y Wi-Fi apagado, la app reinicia, captura y conserva una observación.
 
-Guardar capturas o una salida reproducible de estos casos: Origin externo rechazado, Host externo rechazado, pedido de exportación iniciado por un modelo denegado y exportación humana local permitida.
+### 5. Ensayar el relato integral una vez
 
-### Prueba de integración del extractor con fixture local
+Hacer una toma continua:
 
-Cuando sea posible sin descargar modelos ni usar red, fijar casos de nota incompleta, edades por cohortes, evidencia demasiado extensa, datos inventados y normalización de cliente/país.
+```text
+voz/texto → IA local → revisión humana → store offline
+→ recuperación de conexión → sync P2P + ACK
+→ revisión en servidor → Cliente 360 → oportunidad → evidencia original
+```
 
-### Ensayo de UX en proyector
+**Cierre:** ninguna descarga de modelos, permiso inesperado, seed manual o error de red interrumpe la historia.
 
-Validar que una persona entienda a primera vista los estados, el conflicto por campo y las acciones de Revisión P2P. Ajustar solamente lo que confunda durante ese ensayo.
+### 6. Validar dictado móvil con una voz real y vocabulario del dominio
 
-### Sincronizar el relato y la documentación
+Dictar cliente, modalidad, fabricante ficticio, cantidad y edad. Comprobar transcripción, extracción, edición y eliminación del audio temporal.
 
-Actualizar el documento maestro y el guion de demo para que describan con precisión el comportamiento actual: P2P transporta testimonios, pero una persona los revisa antes de incorporarlos como observaciones locales.
+**Cierre:** una persona completa el recorrido sin ayuda del desarrollador y el texto no pierde los datos esenciales.
 
-## P2 — solo si P0 y P1 están cerrados
+### 7. Preparar el escenario reproducible
 
-- Captura asistida por foto, como objetivo adicional del reto.
-- Importación/exportación P2P incremental y firmada; requiere una decisión explícita sobre el contrato compartido entre móvil y servidor.
-- Métricas de precisión y velocidad con protocolo, dataset de evaluación y resultados reproducibles.
+Dejar listo el seed con quórum, conflicto, estimación, dato incompleto, dato stale y oportunidad; documentar cómo restaurarlo sin borrar información por accidente.
 
-## Qué no conviene hacer antes de la demo
+**Cierre:** cualquier integrante puede recuperar el estado de demo en pocos minutos.
 
-- No agregar proveedores cloud, CDN, Vercel ni dependencias que contradigan la propuesta local.
-- No cambiar los contratos compartidos entre móvil y servidor sin una decisión de producto y la actualización simultánea de ambas apps.
-- No sumar funciones decorativas antes de probar el recorrido completo con datos y personas reales.
+## Límites que deben decirse con precisión
 
-La referencia detallada de planificación se conserva en [BACKLOG_RETO_PRIORIZADO.md](BACKLOG_RETO_PRIORIZADO.md).
+- El P2P móvil-servidor está probado usando descubrimiento DHT; una LAN **100% aislada** requiere bootstrap propio y no fue verificada.
+- Confianza y confirmación son ejes diferentes: `REPORTED + HIGH` no significa `CONFIRMED`.
+- Una posible duplicación se señala; no se fusiona automáticamente sin evidencia suficiente.
+- La reconciliación actual no atribuye inventario por `site` de forma completa porque hacerlo bien requiere cambiar el contrato compartido en ambas apps.
+- La relevancia comercial de una oportunidad permanece en cero hasta que exista una política humana explícita.
+
+## P2 — después de entregar
+
+- Bootstrap propio para descubrimiento P2P en una red aislada.
+- Firma criptográfica completa, rotación/revocación operativa y protección anti-replay persistente.
+- Reconciliación `customer → site → equipment` mediante decisión explícita de contrato compartido.
+- Evaluación reproducible de precisión y latencia con un dataset etiquetado.
+- Captura asistida por foto, si aporta a una versión posterior.
+
+## No hacer antes del envío
+
+- No agregar proveedores cloud, Vercel, CDN ni otra vía de inferencia remota.
+- No cambiar contratos compartidos sin actualizar y verificar ambas apps byte a byte.
+- No prometer LAN aislada, firma completa o deduplicación automática.
+- No sumar pantallas antes de cerrar acceso, video, release y ensayo integral.
