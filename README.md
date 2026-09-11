@@ -42,7 +42,7 @@ flowchart LR
 
 | Recurso | Dónde |
 |---|---|
-| **Video demo** (español, < 5 min) | [Ver video (Google Drive)](https://drive.google.com/file/d/1qXwDxyy47W2WpIoQlYfuUZk_suDizvec/view?usp=sharing) |
+| **Video demo** (español, < 5 min) | [Carpeta de entrega (Google Drive)](https://drive.google.com/drive/folders/1MFak3MAH5nh8boBedPAxC176Win2bAzS) |
 | **APK Android de release** | [`mobile-v0.5.0`](https://github.com/RaulEfdz/Q-U-R-U-M/releases/tag/mobile-v0.5.0) — bundle embebido, no depende de Metro. Android 12+, arm64, dispositivo físico. |
 | **Guion del video** | [`docs/GUION_VIDEO.md`](docs/GUION_VIDEO.md) |
 | **Capturas de pantalla** | [`docs/capturas/`](docs/capturas/) |
