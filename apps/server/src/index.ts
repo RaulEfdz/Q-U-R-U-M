@@ -206,6 +206,14 @@ const PEERS_AUTORIZADOS = (process.env['QUORUM_PEERS'] ?? '')
 const RAIZ_UI = resolve('ui');
 const DIR_TMP = 'data/tmp';
 
+/**
+ * Handle del sync P2P, en alcance de módulo — `enrutar()` (la ruta
+ * `/api/base-instalada`) y `iniciar()` (donde se crea) son funciones
+ * distintas, y `sync.pares()` tiene que poder leerse desde la primera.
+ * `null` mientras el sync está apagado (allowlist vacía) o no arrancó.
+ */
+let syncActivo: SyncHandle | null = null;
+
 /** Tope de cuerpo: 1 MB para JSON, 25 MB para audio. Sin esto, un POST
  *  infinito a `/api/observar` come toda la RAM del proceso. */
 const MAX_JSON = 1_000_000;
@@ -919,7 +927,14 @@ async function enrutar(req: IncomingMessage, res: ServerResponse): Promise<void>
   if (ruta === '/api/base-instalada') {
     if (metodo !== 'GET') { res.writeHead(405).end(); return; }
     const obs = await cargar();
-    json(res, 200, { ...proyeccion(obs, reconciliar(obs)), meta: { modeloIA: MODELO_IA } });
+    json(res, 200, { ...proyeccion(obs, reconciliar(obs)), meta: {
+      modeloIA: MODELO_IA,
+      // Pendiente #5 de SYNC_P2P.md: "estado de sync visible en la UI".
+      // Conteo de peers CONECTADOS ahora mismo, no el tamaño de la
+      // allowlist — `syncActivo` es `null` si el sync está apagado o no
+      // pudo arrancar, y ahí no hay nada que contar.
+      peersConectados: syncActivo?.pares() ?? 0,
+    } });
     return;
   }
 
@@ -1384,10 +1399,15 @@ export async function iniciar(): Promise<{ cerrar: () => Promise<void> }> {
     console.warn('sync P2P apagado: QUORUM_PEERS vacío (deny-by-default en el transporte).');
   } else {
     try {
-      sync = await iniciarSync({
+      sync = syncActivo = await iniciarSync({
         allowlist: PEERS_AUTORIZADOS,
         ...(bootstrap ? { bootstrap } : {}),
         onCambio: (n) => emitir('cambio', { nuevas: n }),
+        // Pendiente #5 de SYNC_P2P.md: "estado de sync visible en la UI".
+        // Reusa el mismo evento `cambio` que ya escucha `app.js` para
+        // refrescar — un peer que se conecta o se cae dispara el mismo
+        // repintado que una observación nueva, sin un segundo canal SSE.
+        onParesCambio: () => emitir('cambio', {}),
       });
       console.log(`sync P2P activo · ${PEERS_AUTORIZADOS.length} peer(s) en allowlist`);
     } catch (e) {
@@ -1399,6 +1419,7 @@ export async function iniciar(): Promise<{ cerrar: () => Promise<void> }> {
     for (const c of clientesSSE) c.end();
     clientesSSE.clear();
     await sync?.destruir().catch(() => undefined);
+    syncActivo = null;
     await new Promise<void>((r) => server.close(() => r()));
   };
 

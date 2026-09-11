@@ -108,6 +108,15 @@ export interface IniciarSyncOptions {
   allowlist: string[];
   bootstrap?: Array<{ host: string; port: number }>;
   onCambio?: (n: number) => void;
+  /**
+   * Se dispara cada vez que cambia la cantidad de peers CONECTADOS ahora
+   * mismo (no el tamaño de la allowlist, que es estático). Es lo que le
+   * faltaba al pendiente #5 de `SYNC_P2P.md` ("estado de sync visible en la
+   * UI"): antes `pares()` existía pero nada lo leía ni lo empujaba afuera de
+   * este módulo — un dispositivo se conectaba o se caía y la interfaz nunca
+   * se enteraba.
+   */
+  onParesCambio?: (n: number) => void;
 }
 
 export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle> {
@@ -131,6 +140,7 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
     }
 
     pares++;
+    opts.onParesCambio?.(pares);
     void registrarAuditoria({
       traceId: 'sync', accion: 'sync:peer-aceptado',
       detalle: { clave: clave.slice(0, 16) },
@@ -163,6 +173,7 @@ export async function iniciarSync(opts: IniciarSyncOptions): Promise<SyncHandle>
 
     socket.on('close', () => {
       pares--;
+      opts.onParesCambio?.(pares);
     });
     socket.on('error', () => {
       // conexión ruidosa de un peer no debe tumbar el proceso de sync.

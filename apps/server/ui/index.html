@@ -163,6 +163,15 @@
         <span class="sidebar-dot" aria-hidden="true"></span>
         <div><b>Procesamiento local</b><small>Sin inferencia en la nube</small></div>
       </div>
+      <!--
+        Estado de sync P2P, pendiente #5 de `SYNC_P2P.md`. Antes `pares()`
+        existía en el servidor y nada lo mostraba — un dispositivo se
+        conectaba o se caía y no había ninguna prueba visible en la UI.
+        Oculto cuando no hay peers conectados (que es el caso normal en la
+        demo de un solo dispositivo): no tiene sentido un chip permanente en
+        "0" para una función que la mayoría de las corridas no usa.
+      -->
+      <p id="sync-peers" class="sync-peers" role="status" hidden></p>
     </aside>
     <div class="app-frame">
       <header>

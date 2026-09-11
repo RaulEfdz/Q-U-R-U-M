@@ -382,6 +382,32 @@ function diagramaMultidispositivo() {
     ], ['total ● Quórum · edad ▲ Sin quórum', 'el grupo entero queda ▲'], 'e-sinquorum', '▲'));
 }
 
+function diagramaConexionOffline() {
+  return lienzo(1160, 330,
+    'Conexión offline: varios celulares alimentan una inteligencia central',
+    'La frontera es clara: el celular captura, interpreta y guarda offline; el servidor central recibe, valida, conserva la provenance y convierte muchas observaciones en inteligencia.',
+    s('text', { clase: 'panel-titulo', x: 20, y: 22, texto: 'EN CADA CELULAR · CAMPO Y OFFLINE' }),
+    s('text', { clase: 'panel-titulo', x: 520, y: 22, texto: 'EN EL SERVIDOR · CONTROL E INTELIGENCIA' }),
+    caja(20, 34, 205, 62, 'CELULAR A', { detalle: 'Panamá · offline' }),
+    caja(20, 112, 205, 62, 'CELULAR B', { detalle: 'São Paulo · offline' }),
+    caja(20, 190, 205, 62, 'CELULAR C', { detalle: 'Bogotá · offline' }),
+    caja(280, 96, 190, 94, 'STORE LOCAL', { detalle: 'confirmado por humano', clase: 'e-ok' }),
+    caja(520, 96, 190, 94, 'RED DISPONIBLE', { detalle: 'peer autorizado' }),
+    caja(760, 96, 170, 94, 'P2P + NOISE', { detalle: 'lote estructurado' }),
+    caja(980, 96, 160, 94, 'SERVIDOR', { detalle: 'valida y consolida', clase: 'e-ok' }),
+    caja(760, 238, 170, 48, 'ACK', { detalle: 'resultado por id', clase: 'e-ok' }),
+    caja(980, 238, 160, 48, 'REVISIÓN', { detalle: 'humano local', clase: 'e-medio' }),
+    flecha(225, 65, 280, 125, { etiqueta: 'confirmar' }),
+    flecha(225, 143, 280, 143, { etiqueta: 'confirmar' }),
+    flecha(225, 221, 280, 161, { etiqueta: 'confirmar' }),
+    flecha(470, 143, 520, 143, { etiqueta: 'más tarde' }),
+    flecha(710, 143, 760, 143, { etiqueta: 'entregar' }),
+    flecha(930, 143, 980, 143, { etiqueta: 'validar' }),
+    flecha(1060, 190, 1060, 238, { etiqueta: 'no persiste solo' }),
+    flecha(980, 262, 930, 262, { etiqueta: 'resultado' }),
+    s('text', { clase: 'nota-svg', x: 20, y: 306, texto: 'Celular: modelo local + confirmación + cola.  Servidor: ACK + revisión + reconciliación + oportunidades.' }));
+}
+
 /* ══════════════════ Diagrama 5 · la política ══════════════════ */
 
 /**
@@ -523,6 +549,22 @@ export function pintarComoFunciona(seccion) {
     bloque('Multidispositivo: la trampa del reto',
       conDiagrama(diagramaMultidispositivo(),
         'El quórum lo dan observadores, no aparatos. Un peer puede transportar testimonios, pero quedan en Revisión P2P pendiente hasta que una persona local los confirma; recién entonces entran a la base instalada.')),
+
+    bloque('Conexión offline: cuándo viaja la información',
+      h('p', { clase: 'nota', texto: 'El celular funciona como una libreta inteligente: entiende la visita y conserva la evidencia aunque no haya señal. El servidor entra después, cuando existe una conexión disponible.' }),
+      conDiagrama(diagramaConexionOffline()),
+      tabla(['Momento', 'Qué ocurre', 'Qué recibe el servidor'], [
+        ['En campo · sin red', 'El modelo local transcribe y estructura. La persona corrige y confirma.', 'Nada todavía. La evidencia permanece en el dispositivo.'],
+        ['Recupera conexión', 'El dispositivo anuncia su identidad y envía solo observaciones confirmadas pendientes.', 'Datos estructurados, no audio ni prompt.'],
+        ['Recepción P2P', 'Hyperswarm descubre el peer; Noise cifra el canal y la allowlist controla quién entra.', 'Lote validado por contrato y marcado como proveniente de peer.'],
+        ['Después del envío', 'El servidor responde el resultado. El celular conserva para reintentar lo que no recibió ACK.', 'Recibidas, duplicadas o rechazadas por observación.'],
+        ['Revisión local', 'Una persona confirma o descarta la evidencia recibida.', 'Solo lo confirmado entra al store y actualiza quórum e inteligencia.'],
+      ]),
+      h('ol', { clase: 'lista-explica' },
+        h('li', { texto: 'El transporte no otorga confianza: solo mueve testimonios entre dispositivos autorizados.' }),
+        h('li', { texto: 'Un corte de conexión no debe perder datos: el móvil reintenta y el servidor acepta el mismo id una sola vez.' }),
+        h('li', { texto: '“Offline” describe captura e inferencia local; sincronizar requiere que los dispositivos recuperen una red.' }),
+        h('li', { texto: 'La versión actual del servidor ya valida y deja la evidencia P2P en revisión; el cliente móvil y el ACK incremental están en construcción.' }))),
 
     bloque('Cuando el modelo intenta algo que no le corresponde',
       conDiagrama(diagramaPolitica(),

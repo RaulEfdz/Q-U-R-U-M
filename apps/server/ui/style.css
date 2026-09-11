@@ -886,6 +886,17 @@ body { background: var(--fondo); color: var(--texto); }
 .sidebar-bottom b { color: var(--texto); font-size: 12px; }
 .sidebar-bottom small { margin-top: 3px; font-size: 12px; }
 .sidebar-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--quorum); }
+/*
+ * Chip de sync P2P (pendiente #5 de SYNC_P2P.md). Reusa el verde de
+ * "en vivo" — es la misma semántica de "conexión activa", no un estado de
+ * confianza de dato, así que no toca la rampa de quórum. Oculto por
+ * defecto (JS lo muestra solo con `peersConectados > 0`).
+ */
+.sync-peers {
+  margin: 0 8px 10px; padding: 7px 10px;
+  color: var(--quorum-ink); background: var(--quorum-fondo);
+  border-radius: 8px; font-size: 12px; font-weight: 700;
+}
 .app-frame { min-width: 0; flex: 1; }
 .app-frame > header {
   min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: var(--lg);
@@ -1550,6 +1561,11 @@ td { padding: 11px 12px; }
  * otra. La solución no es apretar todo, es sacar lo que ahí no sirve.
  */
 @media (max-width: 720px) {
+  .flujo-conexion { grid-template-columns: 1fr; gap: 8px; }
+  .paso-conexion { display: grid; grid-template-columns: 38px minmax(0, 1fr); column-gap: 10px; align-items: start; }
+  .paso-conexion-icon { grid-row: span 2; margin: 0; }
+  .paso-conexion-cuerpo p { margin-top: 7px; }
+  .paso-conexion-flecha { top: auto; right: auto; bottom: -15px; left: 16px; transform: rotate(90deg); }
   .pasos-captura { grid-template-columns: minmax(0, 1fr); gap: var(--md); }
 
   /* La pista de teclado se va: `⌘/Ctrl + Enter` no significa nada en un

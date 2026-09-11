@@ -36,6 +36,22 @@ async function repintar() {
   const t = d.totales ?? {};
   $('#marcador').textContent =
     `${t.grupos ?? 0} grupos · ${t.conQuorum ?? 0} con quórum · ${t.sinQuorum ?? 0} sin quórum`;
+
+  /*
+   * Pendiente #5 de SYNC_P2P.md: "estado de sync visible en la UI". El
+   * servidor ya cuenta peers conectados AHORA (`syncActivo.pares()`, no el
+   * tamaño de la allowlist) y lo manda en `meta.peersConectados`; el evento
+   * SSE `cambio` se dispara solo cuando esa cifra cambia (peer.ts), así que
+   * este chip queda al día sin polling propio.
+   */
+  const peers = d.meta?.peersConectados ?? 0;
+  const chipPeers = $('#sync-peers');
+  if (chipPeers) {
+    chipPeers.hidden = peers === 0;
+    chipPeers.textContent = peers === 1
+      ? '● 1 dispositivo sincronizando'
+      : `● ${peers} dispositivos sincronizando`;
+  }
 }
 
 /*
