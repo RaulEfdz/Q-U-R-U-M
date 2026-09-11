@@ -1157,3 +1157,27 @@ main > section:not([hidden]) { flex: 1 1 auto; }
 /* El campo aprovecha el alto disponible en vez de quedarse en un mínimo fijo,
  * con tope para que en una pantalla alta no se vuelva un lienzo vacío. */
 .composer #texto { min-height: clamp(132px, 24vh, 300px); }
+
+/*
+ * Navegación horizontal en pantalla angosta: aviso de que hay más a la derecha.
+ *
+ * El reskin la convierte en una fila con `overflow-x: auto`, y a 600 px la
+ * última pestaña quedaba cortada al ras del borde sin ninguna señal — se ve
+ * como un error de maquetado, no como algo que se desplaza. El degradado al
+ * borde derecho es la señal; `scroll-snap` hace que el desplazamiento pare en
+ * una pestaña entera y no a mitad de una etiqueta.
+ */
+@media (max-width: 900px) {
+  .sidebar nav {
+    position: relative;
+    scroll-snap-type: x proximity;
+    /* El degradado va como fondo del contenedor y fijo al borde: así no tapa
+     * el foco de ningún botón ni intercepta clics. */
+    background:
+      linear-gradient(to right, transparent calc(100% - 28px), var(--fondo) 100%)
+      right / 100% 100% no-repeat;
+    background-attachment: local, scroll;
+    padding-right: var(--md);
+  }
+  .sidebar nav button { scroll-snap-align: start; }
+}
