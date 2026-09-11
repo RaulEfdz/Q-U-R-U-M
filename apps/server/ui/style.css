@@ -1128,6 +1128,30 @@ td { padding: 11px 12px; }
 .composer-boton.grabando { border-color: var(--sinquorum); color: var(--sinquorum-ink); }
 .composer-boton.grabando:hover:not(:disabled) { background: var(--sinquorum-fondo); }
 
+/* Fragmentos del dictado por chunking (ver ui/capturar.js, alternarDictado).
+ * Chips chicos, no una tabla: son un rastro de progreso, no un dato a leer
+ * con detenimiento — el texto que importa ya entró al campo grande. */
+.fragmentos-dictado {
+  display: flex; flex-wrap: wrap; gap: var(--sm);
+  margin: var(--sm) 0 0; padding: 0; list-style: none;
+}
+.fragmentos-dictado li {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 999px; font-size: var(--t-chico);
+  border: 1px solid var(--borde-duro); color: var(--tenue);
+}
+.fragmentos-dictado li.subiendo { border-color: var(--primario); color: var(--primario); }
+.fragmentos-dictado li.transcrito { border-color: var(--quorum); color: var(--quorum-ink); background: var(--quorum-fondo); }
+.fragmentos-dictado li.vacio { border-color: var(--borde-duro); color: var(--tenue); }
+.fragmentos-dictado li.error { border-color: var(--sinquorum); color: var(--sinquorum-ink); background: var(--sinquorum-fondo); }
+/* El punto que gira en «subiendo»: mismo lenguaje visual que `.estado.trabajando`,
+ * para no inventar un segundo indicador de "en curso" en la misma pantalla. */
+.fragmentos-dictado li.subiendo i { animation: girar 900ms linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .fragmentos-dictado li.subiendo i { animation: none; }
+}
+
 .composer-der .primario { border-radius: 999px; padding: 8px var(--lg); }
 .composer-der .pista { white-space: nowrap; }
 

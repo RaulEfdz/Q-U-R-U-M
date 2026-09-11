@@ -252,6 +252,18 @@
               <button type="button" id="enviar" class="primario" hidden>Interpretar</button>
             </div>
           </div>
+
+          <!--
+            Fragmentos del dictado por chunking: cada corte de ~20 s que
+            `capturar.js` va subiendo y transcribiendo MIENTRAS la persona
+            sigue grabando, con su estado propio. Sin esto, el único rastro
+            de que el chunking funciona era una línea de `estado()` que se
+            pisa con la siguiente — no quedaba ninguna prueba visible de que
+            el fragmento 1 ya estaba transcrito cuando arrancó el 3.
+            `aria-live="polite"`: cada fragmento que cambia de estado se
+            anuncia una vez, sin interrumpir.
+          -->
+          <ul id="fragmentos-dictado" class="fragmentos-dictado" aria-label="Fragmentos de este dictado" aria-live="polite" hidden></ul>
         </div>
 
         <!--

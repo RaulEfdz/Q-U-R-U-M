@@ -394,6 +394,11 @@ async function confirmar() {
     delete caja.dataset.fuente;
     ajustarAlto(caja);          // sin esto el campo queda alto y vacío
     actualizarComposer();       // con el texto vacío, Interpretar vuelve a ocultarse
+    // La nota que esos fragmentos ayudaron a armar ya se guardó: los chips
+    // de ESE dictado no tienen nada más que decir de la nota en blanco que
+    // sigue.
+    fragmentos = new Map();
+    pintarFragmentos();
     informarGuardado(r);
     alRefrescar();
   } catch (e) {
@@ -531,7 +536,24 @@ function latido() {
  * viva.
  */
 const TOPE_INTERPRETAR = 300_000;   // 5 min: descarga del modelo + inferencia
-const TOPE_TRANSCRIBIR = 120_000;   // 2 min: whisper tiny sobre un dictado corto
+const TOPE_TRANSCRIBIR = 120_000;   // 2 min: whisper tiny sobre un fragmento corto
+
+/**
+ * DICTADO POR FRAGMENTOS (chunking), no todo al final.
+ *
+ * Antes, `stop()` recién armaba el WAV y llamaba a whisper cuando la persona
+ * terminaba de grabar — con una visita larga (varios equipos, 5-10 min
+ * hablando) eso significa: grabar TODO, después esperar TODO. Acá el audio
+ * se corta cada `DURACION_FRAGMENTO_MS` mientras se sigue grabando, cada
+ * trozo se transcribe apenas se corta, y el texto entra al campo en cuanto
+ * whisper lo devuelve — para cuando la persona toca «Detener» ya está
+ * transcrita casi toda la nota, y solo falta el último pedacito.
+ *
+ * Es rescatable como feature de pitch por sí sola: procesamiento continuo
+ * on-device sin bloquear al usuario, no solo transcripción on-device. Ver
+ * `docs/FUNCIONALIDADES_RESCATABLES.md`.
+ */
+const DURACION_FRAGMENTO_MS = 20_000;
 
 /**
  * `AbortController` con tope de tiempo. `traducir()` distingue el vencimiento
@@ -560,6 +582,35 @@ let grabadora = null;
 /** Reemplaza el contenido de un boton por icono + etiqueta, sin marcado crudo. */
 function etiquetarBoton(boton, nombreIcono, etiqueta) {
   boton.replaceChildren(icono(nombreIcono), document.createTextNode(etiqueta));
+}
+
+/*
+ * Estado visible de cada fragmento del dictado en curso — la prueba en
+ * pantalla de que el chunking realmente procesa mientras se sigue grabando,
+ * no solo una línea de `estado()` que la próxima línea pisa. Un `Map`
+ * ordenado por inserción: los chips salen en el orden en que se cortaron.
+ */
+const ETIQUETA_FRAGMENTO = {
+  subiendo: 'transcribiendo…',
+  transcrito: 'transcrito',
+  vacio: 'sin voz',
+  error: 'no se pudo',
+};
+let fragmentos = new Map();
+
+function pintarFragmentos() {
+  const lista = $('#fragmentos-dictado');
+  if (!lista) return;
+  if (!fragmentos.size) { pintar(lista); lista.hidden = true; return; }
+  lista.hidden = false;
+  pintar(lista, [...fragmentos.entries()].map(([numero, est]) => h('li', { clase: est },
+    est === 'subiendo' ? h('i', { clase: 'glifo', 'aria-hidden': 'true', texto: '◐' }) : null,
+    h('span', { texto: `Fragmento ${numero} · ${ETIQUETA_FRAGMENTO[est] ?? est}` }))));
+}
+
+function marcarFragmento(numero, est) {
+  fragmentos.set(numero, est);
+  pintarFragmentos();
 }
 
 async function alternarDictado() {
@@ -604,7 +655,11 @@ async function alternarDictado() {
   // aparte para el worklet: `addModule` necesita una URL, y eso significaría
   // servir otro estático solo para esto.
   const nodo = ctx.createScriptProcessor(4096, 1, 1);
-  const trozos = [];
+  // `trozos`/`muestras` son el BUFFER DEL FRAGMENTO ACTUAL, no de toda la
+  // grabación: `cortarFragmento()` los vacía cada vez que arma un WAV para
+  // subir, y el `onaudioprocess` de abajo sigue llenándolos con lo que se
+  // graba mientras ese WAV viaja al servidor.
+  let trozos = [];
   let muestras = 0;
 
   nodo.onaudioprocess = (e) => {
@@ -655,56 +710,136 @@ async function alternarDictado() {
     return new Blob([cab, pcm], { type: 'audio/wav' });
   }
 
+  /** Saca el audio acumulado del buffer del fragmento actual y lo deja vacío
+   *  para lo próximo que grabe `onaudioprocess` mientras este WAV viaja. */
+  function cortarFragmento() {
+    if (!muestras) return null;
+    const wav = aWav(trozos, muestras, ctx.sampleRate);
+    trozos = [];
+    muestras = 0;
+    return wav;
+  }
+
+  let numeroFragmento = 0;
+  // Si un fragmento tarda más que el intervalo (whisper lento, o el modelo
+  // todavía cargando en el primer fragmento), el siguiente tick NO arranca
+  // una segunda subida en paralelo: solo sigue acumulando audio. El próximo
+  // fragmento sale más largo, pero nunca hay dos POST del mismo dictado
+  // pisándose la respuesta el uno al otro en el textarea.
+  let subiendoFragmento = false;
+
+  /**
+   * Transcribe UN fragmento y lo agrega al final de la nota, apenas vuelve.
+   *
+   * `silencioso`: los fragmentos intermedios no usan `fallar()` (esa caja es
+   * para un problema que necesita acción del usuario) — un fragmento que
+   * falla no para la grabación, así que se avisa con `estado()` y se sigue.
+   * El último, en `stop()`, si falla sí es la falla real de la sesión de
+   * dictado completa y se muestra con el diccionario de `errores.js`.
+   */
+  async function transcribirFragmento(wav, { silencioso }) {
+    subiendoFragmento = true;
+    numeroFragmento += 1;
+    const miNumero = numeroFragmento;
+    marcarFragmento(miNumero, 'subiendo');
+    const tope = conTope(TOPE_TRANSCRIBIR, 'transcripción');
+    try {
+      const res = await fetch('/api/transcribir', {
+        method: 'POST',
+        headers: { 'content-type': 'audio/wav' },
+        body: wav,
+        signal: tope.senal,
+      });
+      if (!res.ok) throw new Error(`/api/transcribir devolvió ${res.status}`);
+      const { texto } = await res.json();
+      if (texto?.trim()) {
+        const caja = $('#texto');
+        caja.value = [caja.value.trim(), texto.trim()].filter(Boolean).join(' ');
+        caja.dataset.fuente = 'voz';
+        ajustarAlto(caja);
+        actualizarComposer();
+        marcarFragmento(miNumero, 'transcrito');
+      } else {
+        marcarFragmento(miNumero, 'vacio');
+      }
+      if (grabadora) {
+        // Sigue grabando: no pisar «Grabando…» con un aviso que ya pasó. El
+        // detalle de CUÁL fragmento y en qué estado ya lo muestra el chip.
+        estado('Grabando… el audio no sale de este equipo.', 'trabajando');
+      }
+      return true;
+    } catch (e) {
+      marcarFragmento(miNumero, 'error');
+      if (silencioso) {
+        estado(`Fragmento ${miNumero} no se pudo transcribir (se sigue grabando).`, 'aviso');
+        return false;
+      }
+      fallar(tope.traducir(e));
+      return false;
+    } finally {
+      tope.fin();
+      subiendoFragmento = false;
+    }
+  }
+
+  // Corta y sube un fragmento cada `DURACION_FRAGMENTO_MS`, mientras se
+  // sigue grabando. Es la diferencia entera de esta técnica: para cuando la
+  // persona toca «Detener» después de dictar varios minutos, casi toda la
+  // nota ya está transcrita — solo falta el último pedacito.
+  const intervalo = setInterval(() => {
+    if (subiendoFragmento) return;
+    const wav = cortarFragmento();
+    if (wav) transcribirFragmento(wav, { silencioso: true });
+  }, DURACION_FRAGMENTO_MS);
+
   // Corrección obligatoria #3: el POST vive DENTRO del handler de detención, y
   // no hay ningún `location.reload()` — el reload inmediato del doc maestro
   // cancelaba la subida antes de que whisper devolviera el texto.
   grabadora = {
     async stop() {
       grabadora = null;
+      clearInterval(intervalo);
       nodo.disconnect(); fuente.disconnect(); silencio.disconnect();
       nodo.onaudioprocess = null;
-      const tasa = ctx.sampleRate;
       stream.getTracks().forEach((t) => t.stop());
       try { await ctx.close(); } catch { /* ya cerrado */ }
 
       etiquetarBoton(boton, 'microfono', 'Dictar');
       boton.classList.remove('grabando');
-      if (!muestras) { estado('No se grabó audio.', 'aviso'); return; }
+
+      const ultimoWav = cortarFragmento();
+      if (!ultimoWav && numeroFragmento === 0) { estado('No se grabó audio.', 'aviso'); return; }
+      if (!ultimoWav) {
+        // Ya se transcribió todo por fragmentos; no queda audio colgado.
+        estado('Transcrito en este equipo. Revisá antes de interpretar.', 'bueno');
+        $('#texto').focus();
+        return;
+      }
 
       limpiarFalla();
-      estado('Transcribiendo on-device con whisper…', 'trabajando');
-      // Mismo problema y mismo remedio que en `interpretar()`: sin tope, un
-      // whisper colgado deja «Transcribiendo…» eterno y el botón inservible.
+      // Si mientras tanto un fragmento intermedio sigue subiendo, esperar a
+      // que termine antes de mandar el último — dos POST del mismo dictado
+      // en vuelo a la vez es exactamente lo que `subiendoFragmento` evita
+      // en el `setInterval` de arriba, y acá aplica la misma regla.
+      while (subiendoFragmento) await new Promise((r) => setTimeout(r, 100));
+      estado('Transcribiendo el último fragmento…', 'trabajando');
       const detenerLatido = latido();
-      const tope = conTope(TOPE_TRANSCRIBIR, 'transcripción');
       boton.disabled = true;
-      try {
-        const res = await fetch('/api/transcribir', {
-          method: 'POST',
-          headers: { 'content-type': 'audio/wav' },
-          body: aWav(trozos, muestras, tasa),
-          signal: tope.senal,
-        });
-        if (!res.ok) throw new Error(`/api/transcribir devolvió ${res.status}`);
-        const { texto } = await res.json();
-        const caja = $('#texto');
-        caja.value = [caja.value.trim(), (texto ?? '').trim()].filter(Boolean).join(' ');
-        caja.dataset.fuente = 'voz';
-        ajustarAlto(caja);
-        actualizarComposer();
-        caja.focus();
-        estado(texto ? 'Transcrito en este equipo. Revisá antes de interpretar.' : 'La transcripción vino vacía.', texto ? 'bueno' : 'aviso');
-      } catch (e) {
-        fallar(tope.traducir(e));
-      } finally {
-        tope.fin();
-        detenerLatido();
-        // El audio ya se fue del navegador, pero dictar de nuevo tiene que
-        // ser posible incluso si esta transcripción no volvió.
-        boton.disabled = false;
+      const ok = await transcribirFragmento(ultimoWav, { silencioso: false });
+      detenerLatido();
+      boton.disabled = false;
+      if (ok) {
+        estado('Transcrito en este equipo. Revisá antes de interpretar.', 'bueno');
+        $('#texto').focus();
       }
     },
   };
+
+  // Un dictado nuevo, chips nuevos: los de la grabación anterior ya
+  // cumplieron su función (avisar que ESE audio se procesó) y no describen
+  // nada de lo que está por grabarse ahora.
+  fragmentos = new Map();
+  pintarFragmentos();
 
   etiquetarBoton(boton, 'detener', 'Detener');
   boton.classList.add('grabando');
