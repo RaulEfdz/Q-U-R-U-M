@@ -796,7 +796,6 @@ body { background: var(--fondo); color: var(--texto); }
 }
 #capturar { max-width: 980px; }
 .capturar-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
-.capturar-kicker { margin: 0 0 7px; color: var(--primario); font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .capturar-intro h2 { margin: 0; color: var(--texto); font-size: 32px; line-height: 1.15; letter-spacing: -.035em; }
 .capturar-subtitulo { max-width: 620px; margin: 10px 0 0; color: var(--tenue); font-size: 15px; line-height: 1.5; }
 .modelo-captura { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; margin-top: 6px; padding: 8px 11px; color: var(--primario); background: var(--superficie); border: 1px solid #d5e2ff; border-radius: 999px; font-size: 12px; font-weight: 700; }
